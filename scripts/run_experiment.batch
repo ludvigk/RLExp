@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=RLJob
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=32GB
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#SBATCH --output=noisy-net-test.out
+#SBATCH --tasks-per-node=1
+#SBATCH --time=24:00:00
+#SBATCH --mail-user=ludvig.killingberg@ntnu.no
+#SBATCH --account=share-ie-idi
+#SBATCH --mail-type=ALL
+#SBATCH --gres=gpu:1
+
+module load Julia/1.5.1-linux-x86_64
+
+julia --optimize=3 run_experiments.jl
