@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=RLJob
+#SBATCH --job-name=BDQN
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=32GB
 #SBATCH --nodes=1
@@ -15,4 +15,4 @@
 
 module load Julia/1.5.1-linux-x86_64
 
-julia --optimize=3 run_experiments.jl
+julia --optimize=3 scripts/run_experiments.jl
