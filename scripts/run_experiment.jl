@@ -23,7 +23,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags="--project=.", "--
 @everywhere using DrWatson
 @everywhere @quickactivate :RLExp
 
-games = ["alien", "asteroids", "bowling", "breakout", "pong", "space_invaders"]
+games = ["breakout"]
 experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
 
 pmap(run, experiments)
