@@ -11,6 +11,7 @@
 #SBATCH --account=share-ie-idi
 #SBATCH --mail-type=ALL
 #SBATCH --gres=gpu:1
+#SBATCH --partition=GPUQ
 
 module load Julia/1.5.1-linux-x86_64
 
