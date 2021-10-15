@@ -5,18 +5,8 @@ It starts the remote processes with srun within an allocation.
 If you get an error make sure to Pkg.checkout("CluterManagers").
 
 =#
-try
-	using ClusterManagers
-catch
-	import Pkg
-	Pkg.add("ClusterManagers")
-end
-try
-	using DrWatson
-catch
-	import Pkg
-	Pkg.add("DrWatson")
-end
+import Pkg
+Pkg.instantiate()
 
 using ClusterManagers
 using Distributed
