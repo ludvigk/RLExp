@@ -6,6 +6,7 @@ If you get an error make sure to Pkg.checkout("CluterManagers").
 
 =#
 import Pkg
+Pkg.activate()
 Pkg.instantiate()
 
 using ClusterManagers
