@@ -1,10 +1,13 @@
 using DrWatson
 using Flux
 using Flux: mse, logitcrossentropy
+using RLExp
+using ReinforcementLearning
+using Setfield
 using Wandb
 
 function RL.Experiment(
-    ::Val{:JuliaRL},
+    ::Val{:RLExp},
     ::Val{:BDQN},
     ::Val{:Atari},
     name::AbstractString;

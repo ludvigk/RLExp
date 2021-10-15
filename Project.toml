@@ -3,6 +3,7 @@ authors = ["Ludvig Killingberg"]
 
 [deps]
 ArcadeLearningEnvironment = "b7f77d8d-088d-5e02-8ac0-89aab2acc977"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ClusterManagers = "34f1f09b-3a8b-5176-ab39-66d58a4d544e"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
@@ -16,7 +17,8 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 ReinforcementLearning = "158674fc-8238-5cab-b5ba-03dfc80d1318"
 Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Wandb = "ad70616a-06c9-5745-b1f1-6a5f42545108"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-julia = "^1.5.1"
+julia = "1.6.0"

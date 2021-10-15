@@ -1,7 +1,10 @@
 module RLExp
 
+export BDQNLearner, CloseLogger, atari_env_factory
+
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
+using CUDA
 using Dates
 using Flux
 using Images
@@ -19,9 +22,5 @@ include("utils/hooks.jl")
 include("utils/atari.jl")
 include("algorithms/common.jl")
 include("algorithms/BDQN.jl")
-
-export BDQNLearner
-export CloseLogger
-export atari_env_factory
 
 end
