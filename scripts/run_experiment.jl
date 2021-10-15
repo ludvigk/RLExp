@@ -8,6 +8,7 @@ If you get an error make sure to Pkg.checkout("CluterManagers").
 try
 	using ClusterManagers
 catch
+	import Pkg
 	Pkg.add("ClusterManagers")
 	Pkg.checkout("ClusterManagers")
 end
