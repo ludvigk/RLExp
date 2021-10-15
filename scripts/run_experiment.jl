@@ -10,7 +10,12 @@ try
 catch
 	import Pkg
 	Pkg.add("ClusterManagers")
-	Pkg.checkout("ClusterManagers")
+end
+try
+	using DrWatson
+catch
+	import Pkg
+	Pkg.add("DrWatson")
 end
 
 using ClusterManagers
