@@ -81,10 +81,15 @@ function Flux.functor(x::BDQNLearner)
 end
 
 function (learner::BDQNLearner)(env)
-    return x ->
-        x -> send_to_host(state(env))(Flux.unsqueeze(x, ndims(x) + 1))(
-            vec(learner.approximator(send_to_device(device(learner), x)))
-        )
+    env |>
+    state |>
+    x ->
+        Flux.unsqueeze(x, ndims(x) + 1) |>
+        x ->
+            send_to_device(device(learner), x) |>
+            learner.approximator |>
+            vec |>
+            send_to_host
 end
 
 function RLBase.update!(learner::BDQNLearner, t::AbstractTrajectory)
