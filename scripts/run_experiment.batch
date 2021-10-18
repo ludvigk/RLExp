@@ -14,6 +14,5 @@
 #SBATCH --partition=GPUQ
 
 module load Python/3.8.6-GCCcore-10.2.0
-module load Julia/1.5.1-linux-x86_64
 
 julia --optimize=3 --project=. scripts/run_experiment.jl
