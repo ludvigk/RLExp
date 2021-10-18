@@ -71,8 +71,7 @@ function BDQNLearner(;
     )
 end
 
-function Flux.functor(x::BDQNLearner)
-    return (Q=x.approximator, Qₜ=x.target_approximator),
+Flux.functor(x::BDQNLearner) = (Q=x.approximator, Qₜ=x.target_approximator),
     y -> begin
         x = @set x.approximator = y.Q
         x = @set x.target_approximator = y.Qₜ
