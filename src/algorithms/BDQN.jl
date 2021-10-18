@@ -28,6 +28,7 @@ mutable struct BDQNLearner{
     loss::Float32
     kl::Float32
     q_var::Float32
+    nll::Float32
 end
 
 function BDQNLearner(;
@@ -71,6 +72,7 @@ function BDQNLearner(;
         injected_noise,
         n_samples,
         is_enable_double_DQN,
+        0.0f0,
         0.0f0,
         0.0f0,
         0.0f0,
