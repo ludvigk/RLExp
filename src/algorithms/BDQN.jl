@@ -170,7 +170,6 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             learner.kl = kl
-            return nothing
         end
         return nll + kl / learner.batch_size
     end
