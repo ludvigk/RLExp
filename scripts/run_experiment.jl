@@ -22,7 +22,3 @@ games = ["breakout"]
 experiments = [E`RLExp_BDQN_Atari(breakout)`]
 
 pmap(run, experiments)
-
-for i in workers()
-	rmprocs(i)
-end
