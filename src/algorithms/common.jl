@@ -100,6 +100,7 @@ end
 function compute_gradients(
     sse, x::AbstractArray, xm::AbstractArray, lengthscale::Union{AbstractArray,Float32}
 )
+    M = size(xm, 1)
     Kxx, dKxx, _ = grad_gram(xm, xm, lengthscale)
 
     if !isnothing(sse.η)
@@ -126,14 +127,12 @@ function compute_gradients(
 end
 
 function compute_gradients(sse, x::AbstractArray, xm::AbstractArray)
-    M = size(xm, 1)
     _xm = cat(x, xm; dims=1)
     lengthscale = heuristic_lengthscale(_xm, _xm)
     return compute_gradients(sse, x, xm, lengthscale)
 end
 
 function compute_gradients(sse, xm::AbstractArray)
-    M = size(xm, 1)
     x = xm
     lengthscale = heuristic_lengthscale(xm, xm)
     return compute_gradients(sse, x, xm, lengthscale)
