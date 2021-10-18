@@ -164,7 +164,8 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         noisy_q = cat(q, noise_q; dims = 1)
         noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
-        ce = mean(sum(q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2))
+        ce = sum(q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2)
+        ce = sum(ce) / size(ce, 1)
         kl = -ent + ce
 
         Zygote.ignore() do
