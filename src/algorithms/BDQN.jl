@@ -173,7 +173,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
             learner.nll = nll
             learner.kl = kl
         end
-        return nll + kl / learner.batch_size
+        return nll + kl / learner.sampler.batch_size
     end
 
     return update!(Q, gs)
