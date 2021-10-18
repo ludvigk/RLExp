@@ -21,4 +21,5 @@ games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
 experiments = [E`RLExp_BDQN_Atari(breakout)`]
 
-pmap(run, experiments)
+# pmap(run, experiments)
+run(experiments[1])
