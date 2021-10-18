@@ -6,7 +6,10 @@ using Random: randn!
 using StatsBase: sample
 
 mutable struct BDQNLearner{
-    Tq<:AbstractApproximator,Tt<:AbstractApproximator,Tf,R<:AbstractRNG
+    Tq<:AbstractApproximator,
+    Tt<:AbstractApproximator,
+    Tf,
+    R<:AbstractRNG,
 } <: AbstractLearner
     approximator::Tq
     target_approximator::Tt
@@ -31,25 +34,28 @@ function BDQNLearner(;
     approximator::Tq,
     target_approximator::Tt,
     loss_func::Tf,
-    stack_size::Union{Int,Nothing}=nothing,
-    γ::Float32=0.99f0,
-    batch_size::Int=32,
-    update_horizon::Int=1,
-    min_replay_history::Int=32,
-    update_freq::Int=1,
-    target_update_freq::Int=100,
-    traces=SARTS,
-    update_step::Int=0,
-    injected_noise::Float32=0.01f0,
-    n_samples::Int=100,
-    η::Float32=0.0f0,
-    n_eigen_threshold::Float32=0.99f0,
-    rng=Random.GLOBAL_RNG,
-    is_enable_double_DQN::Bool=true,
+    stack_size::Union{Int,Nothing} = nothing,
+    γ::Float32 = 0.99f0,
+    batch_size::Int = 32,
+    update_horizon::Int = 1,
+    min_replay_history::Int = 32,
+    update_freq::Int = 1,
+    target_update_freq::Int = 100,
+    traces = SARTS,
+    update_step::Int = 0,
+    injected_noise::Float32 = 0.01f0,
+    n_samples::Int = 100,
+    η::Float32 = 0.0f0,
+    n_eigen_threshold::Float32 = 0.99f0,
+    rng = Random.GLOBAL_RNG,
+    is_enable_double_DQN::Bool = true,
 ) where {Tq,Tt,Tf}
     copyto!(approximator, target_approximator)
     sampler = NStepBatchSampler{traces}(;
-        γ=γ, n=update_horizon, stack_size=stack_size, batch_size=batch_size
+        γ = γ,
+        n = update_horizon,
+        stack_size = stack_size,
+        batch_size = batch_size,
     )
     return BDQNLearner(
         approximator,
@@ -71,12 +77,11 @@ function BDQNLearner(;
     )
 end
 
-Flux.functor(x::BDQNLearner) = (Q=x.approximator, Qₜ=x.target_approximator),
-    y -> begin
-        x = @set x.approximator = y.Q
-        x = @set x.target_approximator = y.Qₜ
-        x
-    end
+Flux.functor(x::BDQNLearner) = (Q = x.approximator, Qₜ = x.target_approximator),
+y -> begin
+    x = @set x.approximator = y.Q
+    x = @set x.target_approximator = y.Qₜ
+    x
 end
 
 function (learner::BDQNLearner)(env)
@@ -137,10 +142,10 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     end
 
     if is_enable_double_DQN
-        selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
+        selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
         q′ = Qₜ(s′)[selected_actions]
     else
-        q′ = dropdims(maximum(q_values; dims=1); dims=1)
+        q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
 
     G = r .+ γ^n .* (1 .- t) .* q′
@@ -154,15 +159,15 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
         q = reshape(q, :, 100)
         noise_q = reshape(noise_q, :, 100)
-        noisy_q = cat(q, noise_q; dims=1)
+        noisy_q = cat(q, noise_q; dims = 1)
         noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
-        ce = mean(sum(q .^ 2; dims=2) ./ (2 * 5.0f0 .^ 2))
+        ce = mean(sum(q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2))
         kl = -ent + ce
 
         Zygote.ignore() do
             learner.loss = loss + kl
-            learner.q_var = mean(var(cpu(q); dims=2))
+            learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             learner.kl = kl
             return nothing
