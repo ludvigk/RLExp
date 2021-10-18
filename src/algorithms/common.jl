@@ -3,7 +3,7 @@ using CUDA: randn!
 using Flux
 using Flux: glorot_uniform, unsqueeze, @nograd
 using NNlib: softplus
-using Zygote: dropgrad, @ignore
+using Zygote
 
 struct NoisyDense
     w_μ::AbstractMatrix
@@ -33,9 +33,9 @@ function (l::NoisyDense)(x)
     μ = l.w_μ * tmp_x .+ l.b_μ
     σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)
     if Flux.istraining()
-        ϵ = @ignore randn!(similar(μ, size(μ, 1), 1, 100))
+        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, 100))
     else
-        ϵ = @ignore randn!(similar(μ, size(μ, 1), 1))
+        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
@@ -141,8 +141,8 @@ end
 
 function entropy_surrogate(sse, samples)
     dlog_q = nothing
-    ignore() do
-        return dlog_q = @ignore -compute_gradients(sse, samples)
+    Zygote.ignore() do
+        return dlog_q = -compute_gradients(sse, samples)
     end
     return surrogate = mean(sum(dlog_q .* samples; dims=2))
 end
