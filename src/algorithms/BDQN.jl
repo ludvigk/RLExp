@@ -166,7 +166,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
         ce = sum(q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2)
         ce = sum(ce) / size(ce, 1)
-        kl = -ent + ce
+        kl = -ent - ce
 
         Zygote.ignore() do
             learner.loss = nll + kl

@@ -82,7 +82,7 @@ function RL.Experiment(
                 batch_size = bz,
                 stack_size = N_FRAMES,
                 min_replay_history = 2_000,
-                loss_func = mse,
+                loss_func = logitcrossentropy,
                 target_update_freq = tuf,
                 rng = rng,
             ),
