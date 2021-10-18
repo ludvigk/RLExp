@@ -2,6 +2,7 @@ using DrWatson
 using Flux
 using Flux: mse, logitcrossentropy
 using RLExp
+using Random
 using ReinforcementLearning
 using Setfield
 using Wandb
