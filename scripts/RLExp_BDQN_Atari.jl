@@ -82,7 +82,7 @@ function RL.Experiment(
                 batch_size = bz,
                 stack_size = N_FRAMES,
                 min_replay_history = 2_000,
-                loss_func = logitcrossentropy,
+                loss_func = mse,
                 target_update_freq = tuf,
                 rng = rng,
             ),
@@ -122,6 +122,7 @@ function RL.Experiment(
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             with_logger(lg) do
                 @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl
+                @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var
             end
         end,
         DoEveryNEpisode(;n=EPISODE_LOG_FREQ) do t, agent, env

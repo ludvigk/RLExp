@@ -169,7 +169,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         kl = -ent + ce
 
         Zygote.ignore() do
-            learner.loss = nll + kl
+            learner.loss = nll + kl / learner.sampler.batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             learner.kl = kl / learner.sampler.batch_size
