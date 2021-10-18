@@ -64,10 +64,10 @@ function BDQNLearner(;
         SpectralSteinEstimator(η, nothing, n_eigen_threshold),
         injected_noise,
         n_samples,
-        0.0f0,
-        0.0f0,
-        0.0f0,
         is_enable_double_DQN,
+        0.0f0,
+        0.0f0,
+        0.0f0,
     )
 end
 
