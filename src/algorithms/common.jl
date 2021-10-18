@@ -143,7 +143,7 @@ function entropy_surrogate(sse, samples)
     Zygote.ignore() do
         return dlog_q = -compute_gradients(sse, samples)
     end
-    return surrogate = mean(sum(dlog_q .* samples; dims=2))
+    return surrogate = sum(sum(dlog_q .* samples; dims=2)) / size(dlog_q, 1)
 end
 
 function exp_ssge()
