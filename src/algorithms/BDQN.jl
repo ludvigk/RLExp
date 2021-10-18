@@ -164,7 +164,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         noisy_q = cat(q, noise_q; dims = 1)
         noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
-        ce = sum(q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2)
+        ce = sum(noisy_q .^ 2; dims = 2) ./ (2 * 5.0f0 .^ 2)
         ce = mean(ce)
         kl = -ent + ce
 
@@ -172,7 +172,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
             learner.loss = nll + kl
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
-            learner.kl = kl
+            learner.kl = kl / learner.sampler.batch_size
         end
         return nll + kl / learner.sampler.batch_size
     end
