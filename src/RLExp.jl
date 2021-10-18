@@ -1,6 +1,7 @@
 module RLExp
 
-export BDQNLearner, CloseLogger, atari_env_factory
+export BDQNLearner, CloseLogger, atari_env_factory, NoisyDense
+export SpectralSteinEstimator, entropy_surrogate
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight

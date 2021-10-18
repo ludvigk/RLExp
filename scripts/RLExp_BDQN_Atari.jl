@@ -1,3 +1,5 @@
+using Conda
+using CUDA
 using DrWatson
 using Flux
 using Flux: mse, logitcrossentropy
