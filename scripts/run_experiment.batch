@@ -6,7 +6,7 @@
 #SBATCH --exclusive
 #SBATCH --output=job_output.out
 #SBATCH --tasks-per-node=1
-#SBATCH --time=10-00:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --mail-user=ludvig.killingberg@ntnu.no
 #SBATCH --account=share-ie-idi
 #SBATCH --mail-type=ALL
