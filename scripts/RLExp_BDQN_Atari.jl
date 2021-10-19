@@ -9,6 +9,7 @@ using RLExp
 using Random
 using ReinforcementLearning
 using Setfield
+using Statistics
 using Wandb
 
 function RL.Experiment(
