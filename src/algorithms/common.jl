@@ -139,11 +139,8 @@ function compute_gradients(sse, xm::AbstractArray)
 end
 
 function entropy_surrogate(sse, samples)
-    dlog_q = nothing
-    Zygote.ignore() do
-        return dlog_q = -compute_gradients(sse, samples)
-    end
-    return surrogate = sum(sum(dlog_q .* samples; dims=2)) / size(dlog_q, 1)
+    dlog_q = Zygote.@ignore -compute_gradients(sse, samples)
+    return surrogate = sum(dlog_q .* samples) / size(samples, 1)
 end
 
 function exp_ssge()
@@ -156,7 +153,7 @@ function exp_ssge()
     q = Cauchy(0, 1)
     ssg = SpectralSteinEstimator(η, nothing, 0.99)
     gs = gradient(x) do x
-        return log_q_x = sum(loglikelihood(q, x))
+        log_q_x = sum(loglikelihood(q, x))
     end
     samples = randn(M, 1)
     dlog_q_dx = flatten(compute_gradients(ssg, Flux.unsqueeze(x, 2), samples))
