@@ -46,7 +46,7 @@ function BDQNLearner(;
     update_step::Int = 0,
     injected_noise::Float32 = 0.01f0,
     n_samples::Int = 100,
-    η::Float32 = 0.0f0,
+    η::Float32 = 0.95f0,
     n_eigen_threshold::Float32 = 0.99f0,
     rng = Random.GLOBAL_RNG,
     is_enable_double_DQN::Bool = true,
