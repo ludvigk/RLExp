@@ -142,34 +142,3 @@ function entropy_surrogate(sse, samples)
     dlog_q = Zygote.@ignore -compute_gradients(sse, samples)
     return surrogate = sum(dlog_q .* samples) / size(samples, 1)
 end
-
-function exp_ssge()
-    LB = -5
-    UB = 5
-    x = collect(range(LB, UB; length=150))
-
-    M = 100
-    η = 0.01
-    q = Cauchy(0, 1)
-    ssg = SpectralSteinEstimator(η, nothing, 0.99)
-    gs = gradient(x) do x
-        log_q_x = sum(loglikelihood(q, x))
-    end
-    samples = randn(M, 1)
-    dlog_q_dx = flatten(compute_gradients(ssg, Flux.unsqueeze(x, 2), samples))
-    log_q_x = logpdf.(q, x)
-    p = plot(x, gs; label="∇ₓlog q(x), Truth")
-    plot!(p, x, dlog_q_dx; label="∇ₓlog q(x), Spectral")
-    plot!(p, x, log_q_x; label="log q(x)")
-    samples = flatten(samples)
-    scatter!(
-        p,
-        samples,
-        logpdf.(q, samples);
-        markersize=2,
-        markeralpha=0.6,
-        markerstrokecolor=:red,
-        markerstrokestyle=:dot,
-    )
-    return display(p)
-end
