@@ -3,6 +3,7 @@ using CUDA
 using DrWatson
 using Flux
 using Flux: mse, logitcrossentropy
+using Images
 using Logging
 using RLExp
 using Random
