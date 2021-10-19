@@ -124,7 +124,7 @@ function RL.Experiment(
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             with_logger(lg) do
                 @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl
-                @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var
+                @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var log_step_increment = 0
             end
         end,
         DoEveryNEpisode(;n=EPISODE_LOG_FREQ) do t, agent, env
