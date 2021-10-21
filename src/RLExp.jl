@@ -1,6 +1,6 @@
 module RLExp
 
-export BDQNLearner, atari_env_factory, NoisyDense
+export BDQNLearner, atari_env_factory, NoisyDense, Split
 export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage

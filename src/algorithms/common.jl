@@ -42,6 +42,20 @@ function (l::NoisyDense)(x)
     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 end
 
+# custom split layer
+struct Split{T}
+  paths::T
+end
+
+Split(paths...) = Split(paths)
+
+Flux.@functor Split
+
+(m::Split)(x::AbstractArray) = tuple(map(f -> f(x), m.paths))
+
+
+# ----- Spectral stein gradient estimator -----
+
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
     rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)
     rb = dropdims(rb; dims=3)

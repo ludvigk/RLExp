@@ -94,8 +94,9 @@ function (learner::BDQNLearner)(env)
         x ->
             send_to_device(device(learner), x) |>
             learner.approximator |>
-            vec |>
-            send_to_host
+            x -> x[1] |>
+                vec |>
+                send_to_host
 end
 
 function RLBase.update!(learner::BDQNLearner, t::AbstractTrajectory)
@@ -133,9 +134,9 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     a = CartesianIndex.(a, 1:batch_size)
 
     if is_enable_double_DQN
-        q_values = Q(s′)
+        q_values = Q(s′)[1]
     else
-        q_values = Qₜ(s′)
+        q_values = Qₜ(s′)[1]
     end
 
     if haskey(batch, :next_legal_actions_mask)
@@ -145,7 +146,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
-        q′ = Qₜ(s′)[selected_actions]
+        q′ = Qₜ(s′)[1][selected_actions]
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
@@ -155,9 +156,13 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     noise = rand!(similar(s))[:,:,:,1:5]
 
     gs = gradient(params(Q)) do
-        noise_q = Q(noise)
-        q = Q(s)
-        nll = loss_func(q[a, :], repeat(G, 1, 100)) .* size(q, 1)
+        noise_q = Q(noise)[1]
+        q_ = Q(s)
+        q = q_[1]
+        G_ = repeat(G, 1, 100)
+        s = q_[2]
+        nll = size(G,1) * log(s) - sum((G_ .- q) .^ 2) / (2 * s^2)
+        nll = nll / 100
 
         q = reshape(q, :, 100)
         noise_q = reshape(noise_q, :, 100)

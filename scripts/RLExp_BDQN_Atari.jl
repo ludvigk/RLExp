@@ -64,7 +64,8 @@ function RL.Experiment(
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
+            Split(NoisyDense(512, N_ACTIONS; init_μ = init),
+                  NoisyDense(512, N_ACTIONS, softplus; init_μ = init))
         ) |> device
 
     """
