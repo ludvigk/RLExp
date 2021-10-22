@@ -64,8 +64,7 @@ function RL.Experiment(
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            Split(NoisyDense(512, N_ACTIONS; init_μ = init),
-                  NoisyDense(512, N_ACTIONS, softplus; init_μ = init))
+            NoisyDense(512, N_ACTIONS; init_μ = init),
         ) |> device
 
     """
@@ -79,6 +78,10 @@ function RL.Experiment(
                     optimizer = ADAM(lr),
                 ),
                 target_approximator = NeuralNetworkApproximator(model = create_model()),
+                variance_approximator = NeuralNetworkApproximator(
+                    model = create_model(),
+                    optimizer = ADAM(lr)
+                ),
                 update_freq = 4,
                 γ = 0.99f0,
                 update_horizon = 1,
@@ -89,13 +92,7 @@ function RL.Experiment(
                 target_update_freq = tuf,
                 rng = rng,
             ),
-            explorer = EpsilonGreedyExplorer(
-                ϵ_init = 0.0,
-                ϵ_stable = 0.0,
-                decay_steps = 0,
-                kind = :linear,
-                rng = rng,
-            ),
+            explorer = GreedyExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
             capacity = haskey(ENV, "CI") ? 1_000 : 1_000_000,

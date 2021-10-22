@@ -8,11 +8,13 @@ using StatsBase: sample
 mutable struct BDQNLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
+    Tv<:AbstractApproximator,
     Tf,
     R<:AbstractRNG,
 } <: AbstractLearner
     approximator::Tq
     target_approximator::Tt
+    variance_approximator::Tv
     loss_func::Tf
     min_replay_history::Int
     update_freq::Int
@@ -34,6 +36,7 @@ end
 function BDQNLearner(;
     approximator::Tq,
     target_approximator::Tt,
+    variance_approximator::Tv,
     loss_func::Tf,
     stack_size::Union{Int,Nothing} = nothing,
     γ::Float32 = 0.99f0,
@@ -50,7 +53,7 @@ function BDQNLearner(;
     n_eigen_threshold::Float32 = 0.99f0,
     rng = Random.GLOBAL_RNG,
     is_enable_double_DQN::Bool = true,
-) where {Tq,Tt,Tf}
+) where {Tq,Tt,Tv,Tf}
     copyto!(approximator, target_approximator)
     sampler = NStepBatchSampler{traces}(;
         γ = γ,
@@ -61,6 +64,7 @@ function BDQNLearner(;
     return BDQNLearner(
         approximator,
         target_approximator,
+        variance_approximator,
         loss_func,
         min_replay_history,
         update_freq,
@@ -94,9 +98,8 @@ function (learner::BDQNLearner)(env)
         x ->
             send_to_device(device(learner), x) |>
             learner.approximator |>
-            x -> x[1] |>
-                vec |>
-                send_to_host
+            vec |>
+            send_to_host
 end
 
 function RLBase.update!(learner::BDQNLearner, t::AbstractTrajectory)
@@ -123,8 +126,8 @@ end
 function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     Q = learner.approximator
     Qₜ = learner.target_approximator
+    Σ = learner.variance_approximator
     γ = learner.sampler.γ
-    loss_func = learner.loss_func
     n = learner.sampler.n
     batch_size = learner.sampler.batch_size
     is_enable_double_DQN = learner.is_enable_double_DQN
@@ -134,9 +137,9 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     a = CartesianIndex.(a, 1:batch_size)
 
     if is_enable_double_DQN
-        q_values = Q(s′)[1]
+        q_values = Q(s′)
     else
-        q_values = Qₜ(s′)[1]
+        q_values = Qₜ(s′)
     end
 
     if haskey(batch, :next_legal_actions_mask)
@@ -146,7 +149,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
-        q′ = Qₜ(s′)[1][selected_actions]
+        q′ = Qₜ(s′)[selected_actions]
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
@@ -156,12 +159,12 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     noise = rand!(similar(s))[:,:,:,1:5]
 
     gs = gradient(params(Q)) do
-        noise_q = Q(noise)[1]
-        q_ = Q(s)
+        noise_q = Q(noise)
+        q = Q(s)
         q = q_[1]
         G_ = repeat(G, 1, 100)
-        s = q_[2]
-        nll = size(G,1) * log(s) - sum((G_ .- q) .^ 2) / (2 * s^2)
+        σ = Σ(s)
+        nll = prod(size(G)) * σ - sum((G_ .- q) .^ 2) / (2 * exp(σ)^2)
         nll = nll / 100
 
         q = reshape(q, :, 100)

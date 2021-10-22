@@ -1,6 +1,6 @@
 module RLExp
 
-export BDQNLearner, atari_env_factory, NoisyDense, Split
+export BDQNLearner, atari_env_factory, NoisyDense, Split, BayesianGreedyExplorer
 export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage
@@ -26,5 +26,6 @@ include("utils/hooks.jl")
 include("utils/atari.jl")
 include("algorithms/common.jl")
 include("algorithms/BDQN.jl")
+include("algorithms/explorers.jl")
 
 end

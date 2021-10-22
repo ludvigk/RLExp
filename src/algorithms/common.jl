@@ -51,7 +51,12 @@ Split(paths...) = Split(paths)
 
 Flux.@functor Split
 
-(m::Split)(x::AbstractArray) = tuple(map(f -> f(x), m.paths))
+function (m::Split)(x::AbstractArray)
+    if Flux.istraining()
+        return tuple(map(f -> f(x), m.paths))
+    end
+    return m.paths[1](x)
+end
 
 
 # ----- Spectral stein gradient estimator -----
