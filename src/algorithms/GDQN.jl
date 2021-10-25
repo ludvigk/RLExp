@@ -8,13 +8,11 @@ using StatsBase: sample
 mutable struct BDQNLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
-    Tv<:AbstractApproximator,
     Tf,
     R<:AbstractRNG,
 } <: AbstractLearner
     approximator::Tq
     target_approximator::Tt
-    variance_approximator::Tv
     loss_func::Tf
     min_replay_history::Int
     update_freq::Int
@@ -36,7 +34,6 @@ end
 function BDQNLearner(;
     approximator::Tq,
     target_approximator::Tt,
-    variance_approximator::Tv,
     loss_func::Tf,
     stack_size::Union{Int,Nothing} = nothing,
     γ::Float32 = 0.99f0,
@@ -64,7 +61,6 @@ function BDQNLearner(;
     return BDQNLearner(
         approximator,
         target_approximator,
-        variance_approximator,
         loss_func,
         min_replay_history,
         update_freq,
@@ -180,7 +176,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             learner.kl = kl / learner.sampler.batch_size
-            # learner.σ = mean(cpu(exp.(σ)))
+            learner.σ = mean(cpu(exp.(σ)))
         end
         return nll + kl / learner.sampler.batch_size
     end
