@@ -160,12 +160,13 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
     noise = rand!(similar(s))[:,:,:,1:5]
 
-    gs = gradient(params(Q)) do
+    gs = gradient(params([Q, Σ])) do
         noise_q = Q(noise)
         q = Q(s)[a, :]
         G_ = repeat(G, 1, 100)
         σ = Σ(s)[a, :]
-        nll = sum(prod(size(G)) .* σ .+ sum((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2) .+ 1e-8))
+        # σ = 0.001f0
+        nll = sum(prod(size(G)) .* σ .+ sum((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
         nll = nll ./ (100 .* learner.sampler.batch_size)
 
         q = reshape(q, :, 100)
@@ -186,6 +187,6 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         end
         return nll + kl / learner.sampler.batch_size
     end
-
+    update!(Σ, gs)
     return update!(Q, gs)
 end
