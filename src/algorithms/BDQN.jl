@@ -158,7 +158,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
     G = r .+ γ^n .* (1 .- t) .* q′
 
-    noise = rand!(similar(s))[:,:,:,1:5]
+    noise = rand!(similar(s))
 
     gs = gradient(params([Q, Σ])) do
         noise_q = Q(noise)
@@ -175,7 +175,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
         const_term = size(noisy_q, 2) * log(2π * 5 ^ 2) / 2
-        ce = const_term .+ sum(noisy_q .^ 2 ./ (size(noisy_q, 2) * 2 * 5.0f0 .^ 2))
+        ce = (const_term .+ sum(noisy_q .^ 2 ./ (2 * 5.0f0 .^ 2))) ./ (size(noisy_q, 2) .* learner.sampler.batch_size)
         kl = -ent + ce
 
         Zygote.ignore() do
