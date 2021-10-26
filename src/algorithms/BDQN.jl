@@ -31,6 +31,7 @@ mutable struct BDQNLearner{
     kl::Float32
     q_var::Float32
     nll::Float32
+    σ::Float32
 end
 
 function BDQNLearner(;
@@ -76,6 +77,7 @@ function BDQNLearner(;
         injected_noise,
         n_samples,
         is_enable_double_DQN,
+        0.0f0,
         0.0f0,
         0.0f0,
         0.0f0,
@@ -163,7 +165,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         q = Q(s)[a, :]
         G_ = repeat(G, 1, 100)
         σ = Σ(s)[a, :]
-        nll = sum(prod(size(G)) .* σ .- sum((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
+        nll = sum(prod(size(G)) .* σ .+ sum((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2) .+ 1e-8))
         nll = nll ./ 100
 
         q = reshape(q, :, 100)
@@ -180,7 +182,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             learner.kl = kl / learner.sampler.batch_size
-            # learner.σ = mean(cpu(exp.(σ)))
+            learner.σ = mean(cpu(exp.(σ)))
         end
         return nll + kl / learner.sampler.batch_size
     end

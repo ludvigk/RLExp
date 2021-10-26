@@ -87,7 +87,7 @@ function RL.Experiment(
                 update_horizon = 1,
                 batch_size = bz,
                 stack_size = N_FRAMES,
-                min_replay_history = 2_000,
+                min_replay_history = 20_000,
                 loss_func = mse,
                 target_update_freq = tuf,
                 rng = rng,
@@ -121,7 +121,7 @@ function RL.Experiment(
         reward_per_episode,
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             with_logger(lg) do
-                @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl
+                @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl var = agent.policy.learner.σ
                 @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var log_step_increment = 0
             end
         end,
