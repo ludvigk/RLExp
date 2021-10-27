@@ -60,7 +60,7 @@ mutable struct GDQNLearner{
     is_enable_double_DQN::Bool
     # for logging
     loss::Float32
-    kl::Float32
+    ent::Float32
     q_var::Float32
     nll::Float32
     σ::Float32
@@ -180,26 +180,26 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
     end
 
     q_values = reshape(q_values, :, 100)
-    G = r .+ γ^n .* (1 .- t) .* q′
+    q′ = reshape(q′, :, 100)
+    G = repeat(r, 1, 100) .+ γ^n .* (1 .- t) .* q′
     G = reshape(G, :, 100)
 
-    gs = gradient(params([Q, Σ])) do
-        q_ = Q(s) 
+    gs = gradient(params(Q)) do
+        q_ = Q(s)
         q = q_[a, :]
         nll = cross_entropy_surrogate(learner.sse, permutedims(q, (2,1)), permutedims(G, (2,1)))
 
-        noisy_q = reshape(q_, :, 100) + learner.injected_noise * randn!(similar(noisy_q))
+        q_ = reshape(q_, :, 100)
+        noisy_q = q_ + learner.injected_noise * randn!(similar(q_))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
 
         Zygote.ignore() do
-            learner.loss = nll - ent / learner.sampler.batch_size
+            learner.loss = nll - ent / batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
-            learner.ent = ent / learner.sampler.batch_size
-            learner.σ = mean(cpu(exp.(σ)))
+            learner.ent = ent / batch_size
         end
-        return nll - ent / learner.sampler.batch_size
+        return nll - ent / batch_size
     end
-    update!(Σ, gs)
     return update!(Q, gs)
 end

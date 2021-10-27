@@ -163,7 +163,7 @@ function entropy_surrogate(sse, samples)
 end
 
 function cross_entropy_surrogate(sse, q_data, p_data)
-    cross_entropy_gradients = Zygote.@ignore compute_gradients(sse, p_data, q_data)
+    cross_entropy_gradients = Zygote.@ignore compute_gradients(sse, q_data, p_data)
     cross_entropy_sur = sum(cross_entropy_gradients .* q_data) / size(q_data, 1)
     return -cross_entropy_sur
 end
