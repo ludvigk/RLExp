@@ -16,6 +16,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 @everywhere using DrWatson
 @everywhere @quickactivate :RLExp
 include("RLExp_BDQN_Atari.jl")
+include("Dopamine_DQN_Atari.jl")
 
 games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
