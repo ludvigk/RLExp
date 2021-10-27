@@ -185,18 +185,6 @@ function RL.Experiment(
         CloseLogger(lg),
     )
 
-
-            avg_score = mean(h[1].rewards[1:end-1])
-            avg_length = mean(h[2].steps[1:end-1])
-
-            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
-            with_logger(lg) do
-                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
-            end
-        end,
-        CloseLogger(lg),
-    )
-
     stop_condition = StopAfterStep(
         haskey(ENV, "CI") ? 1_000 : 50_000_000,
         is_show_progress=!haskey(ENV, "CI")
