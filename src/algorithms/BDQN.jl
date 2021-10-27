@@ -168,7 +168,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         G_ = repeat(G, 1, 100)
         σ = Σ(s)[a, :]
         # σ = 0.001f0
-        nll = sum(prod(size(G)) .* σ .+ ((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
+        nll = sum(prod(size(G_)) .* σ .+ ((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
         nll = nll ./ (100 .* learner.sampler.batch_size)
 
         q = reshape(q, :, 100)

@@ -1,11 +1,45 @@
-export BDQNLearner
+export GDQNLearner
 import ReinforcementLearning.RLBase.update!
 
 using CUDA: randn!
 using Random: randn!
 using StatsBase: sample
 
-mutable struct BDQNLearner{
+struct NoisyDense2
+    w_μ::AbstractMatrix
+    w_ρ::AbstractMatrix
+    b_μ::AbstractVector
+    b_ρ::AbstractVector
+    f::Any
+end
+
+function NoisyDense2(
+    in, out, f=identity; init_μ=glorot_uniform(), init_σ=(dims...) -> fill(0.0017f0, dims)
+)
+    return NoisyDense2(
+        init_μ(out, in),
+        log.(exp.(init_σ(out, in)) .- 1),
+        init_μ(out),
+        log.(exp.(init_σ(out)) .- 1),
+        f,
+    )
+end
+
+Flux.@functor NoisyDense2
+
+function (l::NoisyDense2)(x)
+    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+    tmp_x = reshape(x, size(x, 1), :)
+    μ = l.w_μ * tmp_x .+ l.b_μ
+    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)
+    ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, 100))
+    μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
+end
+
+
+mutable struct GDQNLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
     Tf,
@@ -29,9 +63,10 @@ mutable struct BDQNLearner{
     kl::Float32
     q_var::Float32
     nll::Float32
+    σ::Float32
 end
 
-function BDQNLearner(;
+function GDQNLearner(;
     approximator::Tq,
     target_approximator::Tt,
     loss_func::Tf,
@@ -58,7 +93,7 @@ function BDQNLearner(;
         stack_size = stack_size,
         batch_size = batch_size,
     )
-    return BDQNLearner(
+    return GDQNLearner(
         approximator,
         target_approximator,
         loss_func,
@@ -76,29 +111,24 @@ function BDQNLearner(;
         0.0f0,
         0.0f0,
         0.0f0,
+        0.0f0,
     )
 end
 
-Flux.functor(x::BDQNLearner) = (Q = x.approximator, Qₜ = x.target_approximator),
+Flux.functor(x::GDQNLearner) = (Q = x.approximator, Qₜ = x.target_approximator),
 y -> begin
     x = @set x.approximator = y.Q
     x = @set x.target_approximator = y.Qₜ
     x
 end
 
-function (learner::BDQNLearner)(env)
-    env |>
-    state |>
-    x ->
-        Flux.unsqueeze(x, ndims(x) + 1) |>
-        x ->
-            send_to_device(device(learner), x) |>
-            learner.approximator |>
-            vec |>
-            send_to_host
+function (learner::GDQNLearner)(env)
+    s = send_to_device(device(learner), state(env))
+    s = Flux.unsqueeze(s, ndims(s) + 1)
+    return vec(mean(reshape(learner.approximator(s), :, 100), dims=2)) |> send_to_host
 end
 
-function RLBase.update!(learner::BDQNLearner, t::AbstractTrajectory)
+function RLBase.update!(learner::GDQNLearner, t::AbstractTrajectory)
     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
 
     learner.update_step += 1
@@ -119,10 +149,9 @@ function RLBase.update!(learner::BDQNLearner, t::AbstractTrajectory)
     end
 end
 
-function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
+function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
     Q = learner.approximator
     Qₜ = learner.target_approximator
-    Σ = learner.variance_approximator
     γ = learner.sampler.γ
     n = learner.sampler.n
     batch_size = learner.sampler.batch_size
@@ -150,36 +179,27 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
 
+    q_values = reshape(q_values, :, 100)
     G = r .+ γ^n .* (1 .- t) .* q′
+    G = reshape(G, :, 100)
 
-    noise = rand!(similar(s))[:,:,:,1:5]
+    gs = gradient(params([Q, Σ])) do
+        q_ = Q(s) 
+        q = q_[a, :]
+        nll = cross_entropy_surrogate(learner.sse, permutedims(q, (2,1)), permutedims(G, (2,1)))
 
-    gs = gradient(params(Q)) do
-        noise_q = Q(noise)
-        q = Q(s)[a, :]
-        G_ = repeat(G, 1, 100)
-        σ = Σ(s)[a, :]
-        nll = sum(prod(size(G)) .* σ .- sum((G_ .- q) .^ 2) ./ (2 .* exp.(σ).^2))
-        nll = nll ./ 100
-
-        q = reshape(q, :, 100)
-        noise_q = reshape(noise_q, :, 100)
-        noisy_q = cat(q, noise_q; dims = 1)
-        noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
+        noisy_q = reshape(q_, :, 100) + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
-        const_term = size(noisy_q, 2) * log(2π * 5 ^ 2) / 2
-        ce = const_term .+ sum(noisy_q .^ 2) ./ (size(noisy_q, 2) * 2 * 5.0f0 .^ 2)
-        kl = -ent + ce
 
         Zygote.ignore() do
-            learner.loss = nll .+ kl / learner.sampler.batch_size
+            learner.loss = nll - ent / learner.sampler.batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
-            learner.kl = kl / learner.sampler.batch_size
+            learner.ent = ent / learner.sampler.batch_size
             learner.σ = mean(cpu(exp.(σ)))
         end
-        return nll + kl / learner.sampler.batch_size
+        return nll - ent / learner.sampler.batch_size
     end
-
+    update!(Σ, gs)
     return update!(Q, gs)
 end
