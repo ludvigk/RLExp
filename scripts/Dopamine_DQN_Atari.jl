@@ -169,10 +169,22 @@ function RL.Experiment(
                     Wandb.log(lg, Dict(
                         "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
                     ); step = lg.global_step)
-                    end,
-                    screens = []
+                    screens = []    
+                end,
                 ),
             )
+
+            avg_score = mean(h[1].rewards[1:end-1])
+            avg_length = mean(h[2].steps[1:end-1])
+
+            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
+            with_logger(lg) do
+                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+            end
+        end,
+        CloseLogger(lg),
+    )
+
 
             avg_score = mean(h[1].rewards[1:end-1])
             avg_length = mean(h[2].steps[1:end-1])
