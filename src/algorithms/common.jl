@@ -159,5 +159,5 @@ end
 
 function entropy_surrogate(sse, samples)
     dlog_q = Zygote.@ignore -compute_gradients(sse, samples)
-    return surrogate = sum(dlog_q .* samples) / size(samples, 2)
+    return surrogate = sum(dlog_q .* samples) / size(samples, 1)
 end

@@ -161,7 +161,7 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
     noise = rand!(similar(s))
 
     gs = gradient(params([Q, Σ])) do
-        noise_q = Q(noise)
+        noise_q = Q(noise)[a, :]
         q = Q(s)[a, :]
         G_ = repeat(G, 1, 100)
         σ = Σ(s)[a, :]
