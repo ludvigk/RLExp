@@ -196,7 +196,7 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
             learner.loss = nll - ent / batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
-            learner.#ent = ent / batch_size
+            # learner.ent = ent / batch_size
         end
         return nll #- ent / batch_size
     end
