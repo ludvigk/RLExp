@@ -59,8 +59,8 @@ function RL.Experiment(
             CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init = init),
-            NoisyDense(512, N_ACTIONS; init = init),
+            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
+            NoisyDense(512, N_ACTIONS; init_μ = init),
         ) |> gpu
 
     """
