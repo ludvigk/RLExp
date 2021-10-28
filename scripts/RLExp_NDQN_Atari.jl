@@ -11,6 +11,7 @@ using ReinforcementLearning
 using Setfield
 using Statistics
 using Wandb
+using Zygote
 
 struct NoisyDense3
     w_μ::AbstractMatrix

@@ -180,11 +180,12 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
     end
 
     G = r.+ γ^n .* (1 .- t) .* q′
+    G = repeat!(G, 1, 100)
+    σ = std(q, dims = 2)
 
     gs = gradient(params(Q)) do
         q_ = Q(s)
         q = q_[a, :]
-        σ = std(q, dims = 2)
         nll = sum(log.(σ) .+ (q .- G) .^ 2 ./ (2 .* σ .^ 2)) ./ size(q, 2)
 
         q_ = reshape(q_, :, 100)
