@@ -18,10 +18,11 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 include("RLExp_BDQN_Atari.jl")
 include("RLExp_GDQN_Atari.jl")
 include("Dopamine_DQN_Atari.jl")
+include("Dopamine_NDQN_Atari.jl")
 
 games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
-experiments = [E`RLExp_GDQN_Atari(pong)`]
+experiments = [E`RLExp_NDQN_Atari(pong)`]
 # experiments = [E`Dopamine_DQN_Atari(pong)`]
 
 # pmap(run, experiments)

@@ -13,31 +13,27 @@ using Statistics
 using Wandb
 
 function RL.Experiment(
-    ::Val{:RLExp},
-    ::Val{:GDQN},
+    ::Val{:Dopamine},
+    ::Val{:NDQN},
     ::Val{:Atari},
     name::AbstractString;
-    lr::Real = 0.0000625,
-    bz::Int = 32,
-    tuf::Int = 8_000,
+    save_dir = nothing,
     seed = nothing
 )
-    device = gpu
-
     """
     SEEDS
     """
     rng = Random.GLOBAL_RNG
     Random.seed!(rng, seed)
-    device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
+    device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : device_rng
     Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
 
     """
     SET UP LOGGING
     """
-    simulation = @ntuple name lr bz tuf seed
-    lg = WandbLogger(project = "RLExp", name="GDQN_" * savename(simulation))
-    save_dir = datadir("sim", "GDQN", savename(simulation, "jld2"))
+    simulation = @ntuple name
+    lg = WandbLogger(project = "RLExp", name=savename(simulation))
+    save_dir = datadir("sim", "NDQN", savename(simulation, "jld2"))
 
     """
     SET UP ENVIRONMENT
@@ -63,35 +59,41 @@ function RL.Experiment(
             CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
-        ) |> device
+            NoisyDense(11 * 11 * 64, 512, relu; init = init),
+            NoisyDense(512, N_ACTIONS; init = init),
+        ) |> gpu
 
     """
     CREATE AGENT
     """
     agent = Agent(
         policy = QBasedPolicy(
-            learner = GDQNLearner(
+            learner = DQNLearner(
                 approximator = NeuralNetworkApproximator(
                     model = create_model(),
-                    optimizer = ADAM(lr),
-                ),
+                    optimizer = ADAM(0.0000625),
+                ),  # unlike TF/PyTorch RMSProp doesn't support center
                 target_approximator = NeuralNetworkApproximator(model = create_model()),
                 update_freq = 4,
                 γ = 0.99f0,
                 update_horizon = 1,
-                batch_size = bz,
+                batch_size = 32,
                 stack_size = N_FRAMES,
-                min_replay_history = 20_0,
+                min_replay_history = haskey(ENV, "CI") ? 900 : 20_000,
                 loss_func = mse,
-                target_update_freq = tuf,
+                target_update_freq = 8_000,
                 rng = rng,
             ),
-            explorer = GreedyExplorer(),
+            explorer = EpsilonGreedyExplorer(
+                ϵ_init = 1.0,
+                ϵ_stable = 0.01,
+                decay_steps = 250_000,
+                kind = :linear,
+                rng = rng,
+            ),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = haskey(ENV, "CI") ? 1_000 : 1_000_000,
+            capacity = haskey(ENV, "CI") ? 1_000 : 1_000_00,
             state = Matrix{Float32} => STATE_SIZE,
         ),
     )
@@ -117,8 +119,7 @@ function RL.Experiment(
         reward_per_episode,
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             with_logger(lg) do
-                @info "training" loss = agent.policy.learner.loss ent = agent.policy.learner.ent
-                @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var log_step_increment = 0
+                @info "training" loss = agent.policy.learner.loss
             end
         end,
         DoEveryNEpisode(;n=EPISODE_LOG_FREQ) do t, agent, env
@@ -192,5 +193,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# GDQN <-> Atari($name)")
+    Experiment(agent, env, stop_condition, hook, "# NDQN <-> Atari($name)")
 end

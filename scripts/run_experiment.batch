@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=GDQN
+#SBATCH --job-name=NDQN
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=32GB
 #SBATCH --nodes=1

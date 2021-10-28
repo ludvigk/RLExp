@@ -125,7 +125,7 @@ end
 function (learner::GDQNLearner)(env)
     s = send_to_device(device(learner), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    return vec(mean(reshape(learner.approximator(s), :, 100), dims=2)) |> send_to_host
+    return vec(learner.approximator(s)) |> send_to_host
 end
 
 function RLBase.update!(learner::GDQNLearner, t::AbstractTrajectory)
@@ -179,15 +179,13 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
 
-    q_values = reshape(q_values, :, 100)
-    q′ = reshape(q′, :, 100)
-    G = repeat(r, 1, 100) .+ γ^n .* (1 .- t) .* q′
-    G = reshape(G, :, 100)
+    G = r.+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(Q)) do
         q_ = Q(s)
         q = q_[a, :]
-        nll = cross_entropy_surrogate(learner.sse, permutedims(q, (2,1)), permutedims(G, (2,1)))
+        σ = std(q, dims = 2)
+        nll = sum(log.(σ) .+ (q .- G) .^ 2 ./ (2 .* σ .^ 2)) ./ size(q, 2)
 
         q_ = reshape(q_, :, 100)
         noisy_q = q_ + learner.injected_noise * randn!(similar(q_))
