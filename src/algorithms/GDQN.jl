@@ -193,7 +193,7 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
         # ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
 
         Zygote.ignore() do
-            learner.loss = nll - ent / batch_size
+            learner.loss = nll #- ent / batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
             # learner.ent = ent / batch_size
