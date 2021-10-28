@@ -120,13 +120,7 @@ function RL.Experiment(
                 target_update_freq = 8_000,
                 rng = rng,
             ),
-            explorer = EpsilonGreedyExplorer(
-                ϵ_init = 1.0,
-                ϵ_stable = 0.01,
-                decay_steps = 250_000,
-                kind = :linear,
-                rng = rng,
-            ),
+            explorer = GreedyExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
             capacity = haskey(ENV, "CI") ? 1_000 : 1_000_00,
