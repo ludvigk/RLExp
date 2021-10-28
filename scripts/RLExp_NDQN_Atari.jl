@@ -32,7 +32,7 @@ function NoisyDense3(
     )
 end
 
-Flux.@functor NoisyDense2
+Flux.@functor NoisyDense3
 
 function (l::NoisyDense3)(x)
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
