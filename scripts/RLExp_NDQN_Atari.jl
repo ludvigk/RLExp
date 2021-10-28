@@ -12,6 +12,8 @@ using Setfield
 using Statistics
 using Wandb
 using Zygote
+using Flux: glorot_uniform, unsqueeze
+using NNlib: softplus
 
 struct NoisyDense3
     w_μ::AbstractMatrix
