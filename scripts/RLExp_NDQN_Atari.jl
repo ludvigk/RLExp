@@ -13,7 +13,7 @@ using Statistics
 using Wandb
 
 function RL.Experiment(
-    ::Val{:Dopamine},
+    ::Val{:RLExp},
     ::Val{:NDQN},
     ::Val{:Atari},
     name::AbstractString;
