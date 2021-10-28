@@ -180,7 +180,7 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
     end
 
     G = r.+ γ^n .* (1 .- t) .* q′
-    G = repeat!(G, 1, 100)
+    G = repeat(G, 1, 100)
     σ = std(q, dims = 2)
 
     gs = gradient(params(Q)) do
