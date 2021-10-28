@@ -12,6 +12,39 @@ using Setfield
 using Statistics
 using Wandb
 
+struct NoisyDense3
+    w_μ::AbstractMatrix
+    w_ρ::AbstractMatrix
+    b_μ::AbstractVector
+    b_ρ::AbstractVector
+    f::Any
+end
+
+function NoisyDense3(
+    in, out, f=identity; init_μ=glorot_uniform(), init_σ=(dims...) -> fill(0.0017f0, dims)
+)
+    return NoisyDense3(
+        init_μ(out, in),
+        log.(exp.(init_σ(out, in)) .- 1),
+        init_μ(out),
+        log.(exp.(init_σ(out)) .- 1),
+        f,
+    )
+end
+
+Flux.@functor NoisyDense2
+
+function (l::NoisyDense3)(x)
+    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+    tmp_x = reshape(x, size(x, 1), :)
+    μ = l.w_μ * tmp_x .+ l.b_μ
+    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)
+    ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
+    μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
+end
+
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:NDQN},
@@ -59,8 +92,8 @@ function RL.Experiment(
             CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
+            NoisyDense3(11 * 11 * 64, 512, relu; init_μ = init),
+            NoisyDense3(512, N_ACTIONS; init_μ = init),
         ) |> gpu
 
     """
