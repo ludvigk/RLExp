@@ -64,7 +64,8 @@ function RL.Experiment(
             CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
+            Split(NoisyDense(512, N_ACTIONS; init_μ = init),
+                  NoisyDense(512, N_ACTIONS, softplus; init_μ = init))
         ) |> device
 
     """
@@ -87,7 +88,7 @@ function RL.Experiment(
                 update_horizon = 1,
                 batch_size = bz,
                 stack_size = N_FRAMES,
-                min_replay_history = 20_000,
+                min_replay_history = 2_000,
                 loss_func = mse,
                 target_update_freq = tuf,
                 rng = rng,
@@ -121,7 +122,7 @@ function RL.Experiment(
         reward_per_episode,
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             with_logger(lg) do
-                @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl var = agent.policy.learner.σ
+                @info "training" loss = agent.policy.learner.loss kl = agent.policy.learner.kl
                 @info "training" nll = agent.policy.learner.nll q_var = agent.policy.learner.q_var log_step_increment = 0
             end
         end,

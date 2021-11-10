@@ -158,26 +158,25 @@ function RLBase.update!(learner::BDQNLearner, batch::NamedTuple)
 
     G = r .+ γ^n .* (1 .- t) .* q′
 
-    # allind = CartesianIndex.([(i,j) for i in 1:size(q′, 1), j in size(q′, 2)])
-    # allind = setdiff(allind, a)
+    noise = rand!(similar(s))
 
     gs = gradient(params([Q, Σ])) do
-        q_ = Q(s) 
-        q = q_[a, :]
-        # noise_q = q_[allind, :]
+        noise_q = Q(noise)
+        q = Q(s)[a, :]
         G_ = repeat(G, 1, 100)
         σ = Σ(s)[a, :]
         # σ = 0.001f0
-        nll = sum(prod(size(G_)) .* σ .+ ((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
+        nll = sum(prod(size(G)) .* σ .+ sum((G_ .- q) .^ 2 ./ (2 .* exp.(σ).^2)))
         nll = nll ./ (100 .* learner.sampler.batch_size)
 
         q = reshape(q, :, 100)
-        noisy_q = reshape(q_, :, 100)
+        noise_q = reshape(noise_q, :, 100)
+        noisy_q = cat(q, noise_q; dims = 1)
         noisy_q = noisy_q + learner.injected_noise * randn!(similar(noisy_q))
         ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
-        # const_term = size(noisy_q, 2) * log(2π * 5 ^ 2) / 2
-        # ce = (const_term .+ sum(noisy_q .^ 2 ./ (2 * 5.0f0 .^ 2))) ./ (size(noisy_q, 2))
-        kl = -ent
+        const_term = size(noisy_q, 2) * log(2π * 5 ^ 2) / 2
+        ce = (const_term .+ sum(noisy_q .^ 2 ./ (2 * 5.0f0 .^ 2))) ./ (size(noisy_q, 2))
+        kl = -ent + ce
 
         Zygote.ignore() do
             learner.loss = nll .+ kl / learner.sampler.batch_size

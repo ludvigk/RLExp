@@ -2,6 +2,7 @@ using CUDA
 using CUDA: randn!
 using Flux
 using Flux: glorot_uniform, unsqueeze, @nograd
+using LinearAlgebra
 using NNlib: softplus
 using Zygote
 
@@ -14,7 +15,7 @@ struct NoisyDense
 end
 
 function NoisyDense(
-    in, out, f=identity; init_μ=glorot_uniform(), init_σ=(dims...) -> fill(0.0017f0, dims)
+    in, out, f=identity; init_μ=glorot_uniform, init_σ=(dims...) -> fill(0.0017f0, dims)
 )
     return NoisyDense(
         init_μ(out, in),
@@ -27,20 +28,66 @@ end
 
 Flux.@functor NoisyDense
 
-function (l::NoisyDense)(x)
+function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing)
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
     tmp_x = reshape(x, size(x, 1), :)
     μ = l.w_μ * tmp_x .+ l.b_μ
     σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)
-    if Flux.istraining()
-        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, 100))
-    else
+    if num_samples === nothing
         ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
+    else
+        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, num_samples))
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 end
+
+struct NoisyConv{N, M, F, A, V}
+    f::F
+    w_μ::AbstractMatrix
+    w_ρ::AbstractMatrix
+    b_μ::AbstractVector
+    b_ρ::AbstractVector
+    stride::NTuple{N, Int}
+    pad::NTuple{N, Int}
+    dilation::NTuple{N, Int}
+    groups::Int
+end
+
+function NoisyConv(w_μ::AbstractArray{T,N}, w_ρ::AbstractArray{T,N}, b_μ::AbstractVector, b_ρ::AbstractVector, f = identity; stride = 1, pad = 0, dilation = 1, groups = 1) where {T, N}
+    stride = expand(Val(N-2), stride)
+    dilation = expand(Val(N-2), dilation)
+    pad = calc_padding(Conv, pad, size(w)[1:N-2], dilation, stride)
+    return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups)
+end
+
+function NoisyConv(k::NTuple{N,Integer}, ch::Pair{<:Integer,<:Integer}, f = identity; init_μ = glorot_uniform, init_σ=(dims...) -> fill(0.0017f0, dims), stride = 1, pad = 0, dilation = 1, groups = 1) where N
+    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_μ)
+    b_μ = create_bias(w_μ, init_mu(size(w_μ, N)), size(w_μ, N))
+    w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_σ)
+    b_μ = create_bias(w_μ, init_σ(size(w_μ, N)), size(w_μ, N))
+ 
+    NoisyConv(w_μ::AbstractMatrix, w_ρ::AbstractMatrix, b_μ::AbstractVector, b_ρ::AbstractVector, f; stride = stride, pad = pad, dilation = dilation, groups = groups)
+end
+
+Flux.@functor NoisyConv
+
+function (c::Conv)(x::AbstractArray; num_samples::Union{Int, Nothing}=nothing)
+    # TODO: breaks gpu broadcast :(
+    # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
+    b_μ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
+    cdims = DenseConvDims(x, c.w_μ; stride = c.stride, padding = c.pad, dilation = c.dilation, groups = c.groups)
+    μ = conv(x, c.w_μ, cdims) .+ b_μ
+    if num_samples === nothing
+        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
+    else
+        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, num_samples))
+    end
+    b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
+    σ² = softplus.(c.w_ρ) * x .^ 2 .+ softplus.(b_ρ)
+    c.f.(μ .+ ϵ .* sqrt.(σ²))
+  end
 
 # custom split layer
 struct Split{T}
@@ -56,6 +103,13 @@ function (m::Split)(x::AbstractArray)
         return tuple(map(f -> f(x), m.paths))
     end
     return m.paths[1](x)
+end
+
+function (m::Split)(x::AbstractArray, n)
+    if Flux.istraining()
+        return map(f -> f(x, n), m.paths)
+    end
+    return m.paths[1](x, n)
 end
 
 
@@ -122,11 +176,17 @@ function compute_gradients(
     M = size(xm, 1)
     Kxx, dKxx, _ = grad_gram(xm, xm, lengthscale)
 
-    if !isnothing(sse.η)
-        Kxx = Kxx .+ Diagonal(CUDA.fill(sse.η, size(Kxx, 1)))
+    if typeof(x) <: CuArray
+        if !isnothing(sse.η)
+            Kxx = Kxx .+ Diagonal(CUDA.fill(sse.η, size(Kxx, 1)))
+        end
+        eigen_vals, eigen_vecs = CUDA.CUSOLVER.syevd!('V', 'U', Kxx)
+    else
+        if !isnothing(sse.η)
+            Kxx = Kxx .+ Diagonal(fill(sse.η, size(Kxx, 1)))
+        end
+        eigen_vals, eigen_vecs = eigen(Kxx)
     end
-
-    eigen_vals, eigen_vecs = CUDA.CUSOLVER.syevd!('V', 'U', Kxx)
     num_eigs = sse.num_eigs
     if isnothing(num_eigs) && !isnothing(sse.n_eigen_threshold)
         eigen_arr = mean(reshape(eigen_vals, :, M); dims=1)

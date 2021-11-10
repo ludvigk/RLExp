@@ -180,25 +180,24 @@ function RLBase.update!(learner::GDQNLearner, batch::NamedTuple)
     end
 
     G = r.+ γ^n .* (1 .- t) .* q′
-    G = repeat(G, 1, 100)
-    # σ = std(q, dims = 2)
 
     gs = gradient(params(Q)) do
         q_ = Q(s)
         q = q_[a, :]
-        nll = sum((q .- G) .^ 2)
+        σ = std(q, dims = 2)
+        nll = sum(sum(log.(σ) .+ (q .- G) .^ 2 ./ (2 .* σ .^ 2), dims = 1)) ./ size(q, 2)
 
         q_ = reshape(q_, :, 100)
-        # noisy_q = q_ + learner.injected_noise * randn!(similar(q_))
-        # ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
+        noisy_q = q_ + learner.injected_noise * randn!(similar(q_))
+        ent = entropy_surrogate(learner.sse, permutedims(noisy_q, (2, 1)))
 
         Zygote.ignore() do
-            learner.loss = nll #- ent / batch_size
+            learner.loss = nll - ent / batch_size
             learner.q_var = mean(var(cpu(q); dims = 2))
             learner.nll = nll
-            # learner.ent = ent / batch_size
+            learner.ent = ent / batch_size
         end
-        return nll #- ent / batch_size
+        return nll - ent / batch_size
     end
     return update!(Q, gs)
 end
