@@ -44,7 +44,7 @@ function RL.Experiment(
     save_dir = datadir("sims", "DUQN", savename(simulation, "jld2"))
 
     """
-    CREATE MODEL
+    CREATE MODELS
     """
     init = glorot_uniform(rng)
 
@@ -54,43 +54,14 @@ function RL.Experiment(
         NoisyDense(128, 128, relu; init_μ = init),
         Split(NoisyDense(128, na; init_μ = init),
               NoisyDense(128, na, softplus; init_μ = init))
-    ) |> cpu
-    opt = ADAM(3e-3)
+    ) |> gpu
 
     model2 = Chain(
         Dense(ns, 128, relu; init = init),
         Dense(128, 128, relu; init = init),
         Dense(128, na; init = init),
-    ) |> cpu
-    opt2 = ADAM(3e-3)
+    ) |> gpu
 
-    # u = Product([Uniform(-1.2f0, 0.6f0),
-    #             Uniform(-0.07f0, 0.07f0)])
-    # sse = SpectralSteinEstimator(0.05, nothing, 0.99)
-
-    # for _=1:1_000
-    #     samples = rand(u, 32)
-
-    #     gs = gradient(params(model)) do
-    #         b_all = model(samples, 100)
-    #         b_rand = reshape(b_all[1], :, 100)
-    #         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-    #         pr = [-1 0 1] .* samples[2,:]
-    #         pr = reshape(repeat(pr, 1,  100), :, 100)
-    #         H = sum((b_rand .- 100 .* pr) .^ 2 ./ (2 * 100.0f0 .^ 2)) ./ (size(b_rand, 2) .* 32)
-    #         KL = H - S
-    #     end
-    #     Flux.update!(opt, params(model), gs)
-        
-    #     gs = gradient(params(model2)) do 
-    #         b = model(samples, 100)[1]
-    #         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
-    #         q = model2(samples)
-    #         𝐿 = sum((q .- B̂) .^ 2)
-    #         return 𝐿
-    #     end
-    #     Flux.update!(opt2, params(model2), gs)
-    # end
 
     """
     CREATE AGENT
@@ -100,18 +71,20 @@ function RL.Experiment(
             learner = DUQNLearner(
                 B_approximator = NeuralNetworkApproximator(
                     model = model,
-                    optimizer = ADAM(3e-3),
+                    optimizer = ADAM(1e-3),
                 ),
                 Q_approximator = NeuralNetworkApproximator(
                     model = model2,
-                    optimizer = ADAM(1e-4)
+                    optimizer = ADAM(1e-3)
                 ),
                 γ = 0.99f0,
                 update_horizon = 1,
                 batch_size = 32,
                 min_replay_history = 1,
                 B_update_freq = 1,
-                Q_update_freq = 5,
+                Q_update_freq = 10,
+                updates_per_step = 10,
+                obs_var = 0.01f0,
             ),
             explorer = GreedyExplorer(),
         ),
@@ -137,11 +110,31 @@ function RL.Experiment(
             end
         end,
         DoEveryNEpisode() do t, agent, env
+            @info "evaluating agent at $t step..."
+            p = agent.policy
+            h = ComposedHook(
+                TotalRewardPerEpisode(),
+                StepsPerEpisode(),
+            )
+            s = @elapsed run(
+                p,
+                MountainCarEnv(; T = Float32, max_steps = 200, rng = rng),
+                StopAfterEpisode(100; is_show_progress = false),
+                h,
+            )
+            avg_score = mean(h[1].rewards[1:end-1])
+            avg_length = mean(h[2].steps[1:end-1])
+
+            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
+            p = agent.policy.learner.logging_params
+            p["episode"] += 1
             with_logger(lg) do
+                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
                 @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                @info "training" episode = p["episode"] log_step_increment = 0
             end
         end,
-        DoOnExit(() -> close(lg))
+        CloseLogger(lg),
     )
     stop_condition = StopAfterStep(200_000, is_show_progress=true)
 

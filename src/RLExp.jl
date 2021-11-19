@@ -1,12 +1,11 @@
 module RLExp
 
-export BDQNLearner, atari_env_factory, NoisyDense, Split, BayesianGreedyExplorer
+export BDQNLearner, atari_env_factory, NoisyDense, NoisyConv, Split, BayesianGreedyExplorer
 export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage
 export get_screen
-export NoisyDense2
-export DUQNLearner
+export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -30,6 +29,5 @@ include("algorithms/common.jl")
 include("algorithms/BDQN.jl")
 include("algorithms/GDQN.jl")
 include("algorithms/DUQN.jl")
-include("algorithms/explorers.jl")
 
 end

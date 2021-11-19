@@ -1,21 +1,32 @@
+using Arpack
 using CUDA
 using CUDA: randn!
 using Flux
 using Flux: glorot_uniform, unsqueeze, @nograd
+using KrylovKit
 using LinearAlgebra
 using NNlib: softplus
+using Random
 using Zygote
 
-struct NoisyDense
+abstract type AbstractNoisy end
+
+struct NoisyDense <: AbstractNoisy
     w_μ::AbstractMatrix
     w_ρ::AbstractMatrix
     b_μ::AbstractVector
     b_ρ::AbstractVector
     f::Any
+    rng::AbstractRNG
 end
 
 function NoisyDense(
-    in, out, f=identity; init_μ=glorot_uniform, init_σ=(dims...) -> fill(0.0017f0, dims)
+    in,
+    out,
+    f=identity;
+    init_μ=glorot_uniform,
+    init_σ=(dims...) -> fill(0.0017f0, dims),
+    rng=Random.GLOBAL_RNG,
 )
     return NoisyDense(
         init_μ(out, in),
@@ -23,6 +34,7 @@ function NoisyDense(
         init_μ(out),
         log.(exp.(init_σ(out)) .- 1),
         f,
+        rng,
     )
 end
 
@@ -32,18 +44,18 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing)
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
     tmp_x = reshape(x, size(x, 1), :)
     μ = l.w_μ * tmp_x .+ l.b_μ
-    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)
+    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
     if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
+        ϵ = Zygote.@ignore randn!(l.rng, similar(μ, size(μ, 1), 1))
     else
-        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, num_samples))
+        ϵ = Zygote.@ignore randn!(l.rng, similar(μ, size(μ, 1), 1, num_samples))
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 end
 
-struct NoisyConv{N, M, F, A, V}
+struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F
     w_μ::AbstractMatrix
     w_ρ::AbstractMatrix
@@ -53,22 +65,53 @@ struct NoisyConv{N, M, F, A, V}
     pad::NTuple{N, Int}
     dilation::NTuple{N, Int}
     groups::Int
+    rng::AbstractRNG
 end
 
-function NoisyConv(w_μ::AbstractArray{T,N}, w_ρ::AbstractArray{T,N}, b_μ::AbstractVector, b_ρ::AbstractVector, f = identity; stride = 1, pad = 0, dilation = 1, groups = 1) where {T, N}
+function NoisyConv(w_μ::AbstractArray{T,N},
+                   w_ρ::AbstractArray{T,N},
+                   b_μ::AbstractVector,
+                   b_ρ::AbstractVector,
+                   f = identity;
+                   stride = 1,
+                   pad = 0,
+                   dilation = 1,
+                   groups = 1,
+                   rng = Random.GLOBAL_RNG
+                   ) where {T, N}
     stride = expand(Val(N-2), stride)
     dilation = expand(Val(N-2), dilation)
     pad = calc_padding(Conv, pad, size(w)[1:N-2], dilation, stride)
-    return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups)
+    return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups, rng)
 end
 
-function NoisyConv(k::NTuple{N,Integer}, ch::Pair{<:Integer,<:Integer}, f = identity; init_μ = glorot_uniform, init_σ=(dims...) -> fill(0.0017f0, dims), stride = 1, pad = 0, dilation = 1, groups = 1) where N
+function NoisyConv(k::NTuple{N,Integer},
+                   ch::Pair{<:Integer,<:Integer},
+                   f = identity;
+                   init_μ = glorot_uniform,
+                   init_σ=(dims...) -> fill(0.0017f0, dims),
+                   stride = 1,
+                   pad = 0,
+                   dilation = 1,
+                   groups = 1,
+                   rng = Random.GLOBAL_RNG,
+                   ) where N
     w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_μ)
     b_μ = create_bias(w_μ, init_mu(size(w_μ, N)), size(w_μ, N))
     w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_σ)
     b_μ = create_bias(w_μ, init_σ(size(w_μ, N)), size(w_μ, N))
  
-    NoisyConv(w_μ::AbstractMatrix, w_ρ::AbstractMatrix, b_μ::AbstractVector, b_ρ::AbstractVector, f; stride = stride, pad = pad, dilation = dilation, groups = groups)
+    NoisyConv(w_μ::AbstractMatrix,
+              w_ρ::AbstractMatrix,
+              b_μ::AbstractVector,
+              b_ρ::AbstractVector,
+              f;
+              stride = stride,
+              pad = pad,
+              dilation = dilation,
+              groups = groups,
+              rng = rn
+              )
 end
 
 Flux.@functor NoisyConv
@@ -80,9 +123,9 @@ function (c::Conv)(x::AbstractArray; num_samples::Union{Int, Nothing}=nothing)
     cdims = DenseConvDims(x, c.w_μ; stride = c.stride, padding = c.pad, dilation = c.dilation, groups = c.groups)
     μ = conv(x, c.w_μ, cdims) .+ b_μ
     if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1))
+        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ, 1), 1))
     else
-        ϵ = Zygote.@ignore randn!(similar(μ, size(μ, 1), 1, num_samples))
+        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ, 1), 1, num_samples))
     end
     b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
     σ² = softplus.(c.w_ρ) * x .^ 2 .+ softplus.(b_ρ)
@@ -100,14 +143,14 @@ Flux.@functor Split
 
 function (m::Split)(x::AbstractArray)
     if Flux.istraining()
-        return tuple(map(f -> f(x), m.paths))
+        return map(f -> f(x), m.paths)
     end
     return m.paths[1](x)
 end
 
 function (m::Split)(x::AbstractArray, n)
     if Flux.istraining()
-        return map(f -> f(x, n), m.paths)
+        return map(f -> f(x, n), m.paths)  ## IS THIS SLOW?
     end
     return m.paths[1](x, n)
 end
@@ -116,7 +159,7 @@ end
 # ----- Spectral stein gradient estimator -----
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)
+    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)  ## SLOW
     rb = dropdims(rb; dims=3)
     return exp.(rb)
 end
@@ -132,7 +175,7 @@ function grad_gram(x1::AbstractArray, x2::AbstractArray, lengthscale)
     x1 = Flux.unsqueeze(x1, 2)
     x2 = Flux.unsqueeze(x2, 1)
     lengthscale = reshape(lengthscale, 1, 1, :)
-    Kxx = rbf_kernel(x1, x2, lengthscale)
+    Kxx = rbf_kernel(x1, x2, lengthscale)  ## SLOW
     diff = (x1 .- x2) ./ lengthscale .^ 2
     dKxx_dx1 = Flux.unsqueeze(Kxx, 3) .* (-diff)
     dKxx_dx2 = Flux.unsqueeze(Kxx, 3) .* diff
@@ -146,9 +189,9 @@ Zygote.@nograd function heuristic_lengthscale(x::AbstractArray, xm::AbstractArra
     x1 = Flux.unsqueeze(x, 2)
     x2 = Flux.unsqueeze(xm, 1)
     pdist_mat = abs.(x1 .- x2)
-    pdist_mat = permutedims(pdist_mat, (3, 1, 2))
+    pdist_mat = permutedims(pdist_mat, (3, 1, 2))  ## SLOW
     kernel_width = sort(reshape(pdist_mat, :, x_dim, n_samples * n_basis); dims=3)[
-        :, :, div(end, 2)
+        :, :, div(end, 2) ## SLOW
     ]
     kernel_width = flatten(kernel_width)
     kernel_width = kernel_width .* sqrt(Float32(x_dim))
@@ -166,7 +209,7 @@ abstract type BaseScoreEstimator end
 
 struct SpectralSteinEstimator <: BaseScoreEstimator
     η::Any
-    num_eigs::Any
+    nev::Any
     n_eigen_threshold::Any
 end
 
@@ -177,27 +220,21 @@ function compute_gradients(
     Kxx, dKxx, _ = grad_gram(xm, xm, lengthscale)
 
     if typeof(x) <: CuArray
+        Kxx = cpu(Kxx)
         if !isnothing(sse.η)
-            Kxx = Kxx .+ Diagonal(CUDA.fill(sse.η, size(Kxx, 1)))
+            Kxx = Kxx + sse.η * I
         end
-        eigen_vals, eigen_vecs = CUDA.CUSOLVER.syevd!('V', 'U', Kxx)
+        eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
+		eigen_vecs = hcat(eigen_vecs...)
+        eigen_vals, eigen_vecs = gpu(eigen_vals), gpu(eigen_vecs)
     else
         if !isnothing(sse.η)
-            Kxx = Kxx .+ Diagonal(fill(sse.η, size(Kxx, 1)))
+            Kxx = Kxx + sse.η * I
         end
-        eigen_vals, eigen_vecs = eigen(Kxx)
+        eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
+		eigen_vecs = hcat(eigen_vecs...)
     end
-    num_eigs = sse.num_eigs
-    if isnothing(num_eigs) && !isnothing(sse.n_eigen_threshold)
-        eigen_arr = mean(reshape(eigen_vals, :, M); dims=1)
-        eigen_arr = eigen_arr ./ sum(eigen_arr)
-        eigen_cum = eigen_arr ./ sum(eigen_arr; dims=2)
-        num_eigs = count(eigen_cum .< sse.n_eigen_threshold)
-    end
-    if !isnothing(num_eigs)
-        eigen_vals = eigen_vals[(end - num_eigs + 1):end]
-        eigen_vecs = eigen_vecs[:, (end - num_eigs + 1):end]
-    end
+
     phi_x = nystrom_ext(xm, x, eigen_vecs, eigen_vals, lengthscale)
     dKxx_dx_avg = dropdims(mean(dKxx; dims=1); dims=1)
     beta = -sqrt(M) .* (eigen_vecs' * dKxx_dx_avg)

@@ -1,9 +1,11 @@
 using Base.Iterators: tail
 using Conda
 using CUDA
+using Dates: now
 using Distributions: Uniform, Product
 using DrWatson
 using Flux
+using Flux: Optimiser
 using Logging
 using RLExp
 using Random
@@ -25,7 +27,7 @@ function RL.Experiment(
     """
     SEEDS
     """
-    rng = Random.GLOBAL_RNG
+    rng = MersenneTwister()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
     Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
@@ -40,8 +42,26 @@ function RL.Experiment(
     SET UP LOGGING
     """
     simulation = @ntuple seed
-    lg = WandbLogger(project = "RLExp", name="DUQN_CartPole" * savename(simulation))
-    save_dir = datadir("sims", "DUQN", savename(simulation, "jld2"))
+    lg = WandbLogger(project = "RLExp",
+                     name="DUQN_CartPole_" * savename(simulation),
+                     config = Dict(
+                        "B_lr" => 1e-3,
+                        "Q_lr" => 1e-3,
+                        "B_clip_norm" => 1.0,
+                        "Q_clip_norm" => 1.0,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 10,
+                        "gamma" => 0.99,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 1,
+                        "updates_per_step" => 10,
+                        "obs_var" => 0.01f0,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => seed,
+                     ),
+    )
+    save_dir = datadir("sims", "DUQN", "CartPole", "$(now())")
 
     """
     CREATE MODEL
@@ -50,19 +70,16 @@ function RL.Experiment(
 
 
     model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init),
-        NoisyDense(128, 128, relu; init_μ = init),
-        Split(NoisyDense(128, na; init_μ = init),
-              NoisyDense(128, na, softplus; init_μ = init))
-    ) |> cpu
-    opt = ADAM(3e-3)
+        NoisyDense(ns, 64, relu; init_μ = init, rng = device_rng),
+        NoisyDense(64, 64, relu; init_μ = init, rng = device_rng),
+        NoisyDense(64, na; init_μ = init, rng = device_rng),
+    ) |> gpu
 
     model2 = Chain(
-        Dense(ns, 128, relu; init = init),
-        Dense(128, 128, relu; init = init),
-        Dense(128, na; init = init),
-    ) |> cpu
-    opt2 = ADAM(3e-3)
+        Dense(ns, 64, relu; init = init),
+        Dense(64, 64, relu; init = init),
+        Dense(64, na; init = init),
+    ) |> gpu
 
     # u = Product([Uniform(-2.4f0, 2.4f0),
     #                  Uniform(-10.0f0, 10.0f0),
@@ -79,13 +96,9 @@ function RL.Experiment(
     #         b_noisy = b_rand
     #         S = entropy_surrogate(sse, permutedims(b_noisy, (2, 1)))
 
-    #         # pr = [1 -1] .* (samples[3,:] .< 0) .+ [-1 1] .* (samples[3,:] .> 0)
-    #         pr = [1 2] .* samples[4,:]
-    #         # pr += [1 -1] .* (samples[4,:] .< 0) .+ [-1 1] .* (samples[4,:] .> 0)
-    #         # pr += [1 -1] .* (samples[2,:] .> 0) .+ [-1 1] .* (samples[2,:] .< 0)
-    #         # pr += [1 -1] .* (samples[1,:] .> 0) .+ [-1 1] .* (samples[1,:] .< 0)
+    #         pr = [-1 1] .* samples[4,:]
     #         pr = reshape(repeat(pr, 1,  100), :, 100)
-    #         H = sum((b_noisy .- 10 .* pr) .^ 2 ./ (2 * 100.0f0 .^ 2)) ./ (size(b_noisy, 2) .* 32)
+    #         H = sum((b_noisy .- 40 .* pr) .^ 2 ./ (2 * 100.0f0 .^ 2)) ./ (size(b_noisy, 2) .* 32)
     #         KL = H - S
     #     end
     #     Flux.update!(opt, params(model), gs)
@@ -108,18 +121,20 @@ function RL.Experiment(
             learner = DUQNLearner(
                 B_approximator = NeuralNetworkApproximator(
                     model = model,
-                    optimizer = ADAM(3e-3),
+                    optimizer = Optimiser(ClipNorm(1.0), ADAM(1e-2)),
                 ),
                 Q_approximator = NeuralNetworkApproximator(
                     model = model2,
-                    optimizer = ADAM(1e-4)
+                    optimizer = Optimiser(ClipNorm(1.0), ADAM(3e-3)),
                 ),
                 γ = 0.99f0,
                 update_horizon = 1,
                 batch_size = 32,
                 min_replay_history = 1,
                 B_update_freq = 1,
-                Q_update_freq = 5,
+                Q_update_freq = 20,
+                updates_per_step = 10,
+                obs_var = 0.01f0,
             ),
             explorer = GreedyExplorer(),
         ),
@@ -145,13 +160,30 @@ function RL.Experiment(
             end
         end,
         DoEveryNEpisode() do t, agent, env
+            @info "evaluating agent at $t step..."
+            p = agent.policy
+            h = ComposedHook(
+                TotalRewardPerEpisode(),
+                StepsPerEpisode(),
+            )
+            s = @elapsed run(
+                p,
+                CartPoleEnv(; T = Float32),
+                StopAfterEpisode(100; is_show_progress = false),
+                h,
+            )
+            avg_score = mean(h[1].rewards[1:end-1])
+            avg_length = mean(h[2].steps[1:end-1])
+
+            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
             with_logger(lg) do
+                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
                 @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
             end
         end,
-        DoOnExit(() -> close(lg))
+        CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(10_000, is_show_progress=true)
+    stop_condition = StopAfterStep(5_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
