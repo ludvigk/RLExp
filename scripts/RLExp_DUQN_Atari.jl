@@ -2,9 +2,11 @@ using Base.Iterators: tail
 using BSON: @load, @save
 using Conda
 using CUDA
+using Dates: now
 using Distributions: Uniform, Product
 using DrWatson
 using Flux
+using Flux: Optimiser
 using Images
 using Logging
 using RLExp
@@ -14,30 +16,58 @@ using Setfield
 using Statistics
 using Wandb
 
-applychain(::Tuple{}, x, n) = x
-function applychain(fs::Tuple, x, n)
-    f = first(fs)
-    if isa(f, NoisyDense) || isa(f, NoisyConv) || isa(f, Split{Tuple{NoisyDense, NoisyDense}})
-        y = applychain(tail(fs), f(x, n), n)
+applychain(::Tuple{}, x, n; kwargs...) = x
+function applychain(fs::Tuple, x, n; kwargs...)
+    if isa(first(fs), NoisyDense)
+        return applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
     else
-        y = applychain(tail(fs), f(x), n)
+        return applychain(tail(fs), first(fs)(x), n; kwargs...)
     end
-    y
 end
-(c::Chain)(x, n) = applychain(c.layers, x, n)
+(c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
 
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQN},
     ::Val{:Atari},
-    name::AbstractString;
+    name;
     restore=nothing,
-    seed = 1
-)
+   )
+
+    """
+    SET UP LOGGING
+    """
+    lg = WandbLogger(project = "RLExp",
+                     name="DUQN_Atari($name)",
+                     config = Dict(
+                        "B_lr" => 6.25e-5,
+                        "Q_lr" => 0.001,
+                        "B_clip_norm" => 10.0,
+                        "B_update_freq" => 4,
+                        "Q_update_freq" => 4,
+                        "B_opt" => "ADAM",
+                        "gamma" => 0.99,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 1,
+                        "updates_per_step" => 1,
+                        "λ" => 1.0,
+                        "prior" => "GaussianPrior(0, 10)",
+                        "n_samples" => 100,
+                        "η" => 0.01,
+                        "nev" => 20,
+                        "is_enable_double_DQN" => false,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => 1,
+                     ),
+    )
+    save_dir = datadir("sims", "DUQN", "Atari($name)", "$(now())")
+
     """
     SEEDS
     """
-    rng = Random.GLOBAL_RNG
+    seed = get_config(lg, "seed")
+    rng = MersenneTwister()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
     Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
@@ -56,47 +86,31 @@ function RL.Experiment(
     N_ACTIONS = length(action_space(env))
 
     """
-    SET UP LOGGING
-    """
-    simulation = @ntuple seed
-    lg = WandbLogger(project = "RLExp", name="DUQN_Atari_" * savename(simulation))
-    save_dir = datadir("sims", "DUQN", "CartPole", $(now()))
-
-    """
-    CREATE MODELS
+    CREATE MODEL
     """
     init = glorot_uniform(rng)
+    # init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
 
     if restore === nothing
         B_model = Chain(
             x -> x ./ 255,
-            CrossCor((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
-            CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
-            CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             NoisyDense(512, N_ACTIONS; init_μ = init),
         ) |> gpu
-
-        B_approximator = NeuralNetworkApproximator(
-                        model = B_model,
-                        optimizer = Optimiser(ClipNorm(1.0), ADAM(1e-5)),
-                    )
 
         Q_model = Chain(
             x -> x ./ 255,
-            CrossCor((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
-            CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
-            CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             NoisyDense(512, N_ACTIONS; init_μ = init),
         ) |> gpu
-
-        Q_approximator = NeuralNetworkApproximator(
-                        model = Q_model,
-                        optimizer = Optimiser(ClipNorm(1.0), ADAM(1e-7)),
-                    )
 
     else
         @load restore B_approximator Q_approximator
@@ -106,26 +120,40 @@ function RL.Experiment(
     """
     CREATE AGENT
     """
+    B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+    # B_opt = ADAM(6.25e-5, (0.4, 0.5))
+    prior = eval(Meta.parse(get_config(lg, "prior")))
+
     agent = Agent(
         policy = QBasedPolicy(
             learner = DUQNLearner(
-                B_approximator = B_approximator,
-                Q_approximator = Q_approximator,
-                γ = 0.99f0,
-                update_horizon = 1,
-                batch_size = 32,
-                min_replay_history = 20_000,
-                B_update_freq = 4,
-                Q_update_freq = 4,
-                updates_per_step = 1,
-                obs_var = 0.01f0,
+                B_approximator = NeuralNetworkApproximator(
+                    model = B_model,
+                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt),
+                ),
+                Q_approximator = NeuralNetworkApproximator(
+                    model = Q_model
+                ),
+                Q_lr = get_config(lg, "Q_lr"),
+                γ = get_config(lg, "gamma"),
+                update_horizon = get_config(lg, "update_horizon"),
+                batch_size = get_config(lg, "batch_size"),
+                min_replay_history = get_config(lg, "min_replay_history"),
+                B_update_freq = get_config(lg, "B_update_freq"),
+                Q_update_freq = get_config(lg, "Q_update_freq"),
+                updates_per_step = get_config(lg, "updates_per_step"),
+                λ = get_config(lg, "λ"),
+                n_samples = get_config(lg, "n_samples"),
+                η = get_config(lg, "η"),
+                nev = get_config(lg, "nev"),
+                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
+                prior = prior,
                 stack_size = N_FRAMES,
-                prior=GaussianPrior(0f0, 10f0)
             ),
             explorer = GreedyExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = 500_000,
+            capacity = get_config(lg, "traj_capacity"),
             state = Matrix{Float32} => STATE_SIZE,
         ),
     )
@@ -144,16 +172,20 @@ function RL.Experiment(
     SET UP HOOKS
     """
     step_per_episode = StepsPerEpisode()
-    reward_per_episode = TotalOriginalRewardPerEpisode()
-
+    reward_per_episode = TotalRewardPerEpisode()
     hook = ComposedHook(
         step_per_episode,
         reward_per_episode,
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
-            with_logger(lg) do
-                p = agent.policy.learner.logging_params
-                KL, MSE, H, S, L, Q, V = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"], p["Σ"]
-                @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q V = V log_step_increment = STEP_LOG_FREQ
+            try
+                with_logger(lg) do
+                    p = agent.policy.learner.logging_params
+                    KL, MSE, H, S, L, Q = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"]
+                    @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q log_step_increment = STEP_LOG_FREQ
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         DoEveryNEpisode(;n=EPISODE_LOG_FREQ) do t, agent, env
@@ -162,15 +194,9 @@ function RL.Experiment(
             end
         end,
         DoEveryNStep(;n=EVALUATION_FREQ) do t, agent, env
-            @info "saving model at $t step..."
-            file_dir = save_dir * "/model-$t.bson"
-            @save file_dir B_model = agent.policy.learner.B_approximator Q_model = agent.policy.learner.Q_approximator
-            
             @info "evaluating agent at $t step..."
             p = agent.policy
 
-            # set evaluation epsilon
-            p = @set p.explorer = EpsilonGreedyExplorer(0.001; rng = rng)
             h = ComposedHook(
                 TotalOriginalRewardPerEpisode(),
                 StepsPerEpisode(),
@@ -211,13 +237,19 @@ function RL.Experiment(
                 end,
                 ),
             )
-
             avg_score = mean(h[1].rewards[1:end-1])
             avg_length = mean(h[2].steps[1:end-1])
 
-            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
-            with_logger(lg) do
-                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+            @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
+            try
+                with_logger(lg) do
+                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                    @info "training" episode = t log_step_increment = 0
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         CloseLogger(lg),
@@ -227,5 +259,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQN <-> Atari($(name))")
+    Experiment(agent, env, stop_condition, hook, "# DUQN <-> Atari($name)")
 end

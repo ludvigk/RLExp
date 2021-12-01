@@ -2,7 +2,7 @@ using Arpack
 using CUDA
 using CUDA: randn!
 using Flux
-using Flux: glorot_uniform, unsqueeze, @nograd
+using Flux: glorot_uniform, unsqueeze, @nograd, convfilter, create_bias, expand, calc_padding
 using KrylovKit
 using LinearAlgebra
 using NNlib: softplus
@@ -25,13 +25,13 @@ function NoisyDense(
     out,
     f=identity;
     init_μ=glorot_uniform,
-    init_σ=(dims...) -> fill(0.0017f0, dims),
+    init_σ=(dims...) -> fill(0.017f0, dims),
     rng=Random.GLOBAL_RNG,
 )
     return NoisyDense(
         init_μ(out, in),
         log.(exp.(init_σ(out, in)) .- 1),
-        init_μ(out),
+        zeros(out),
         log.(exp.(init_σ(out)) .- 1),
         f,
         rng,
@@ -40,15 +40,16 @@ end
 
 Flux.@functor NoisyDense
 
-function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing)
+function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
+    rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
     tmp_x = reshape(x, size(x, 1), :)
     μ = l.w_μ * tmp_x .+ l.b_μ
     σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
     if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(l.rng, similar(μ, size(μ, 1), 1))
+        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
     else
-        ϵ = Zygote.@ignore randn!(l.rng, similar(μ, size(μ, 1), 1, num_samples))
+        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
@@ -57,12 +58,12 @@ end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F
-    w_μ::AbstractMatrix
-    w_ρ::AbstractMatrix
-    b_μ::AbstractVector
-    b_ρ::AbstractVector
+    w_μ::A
+    w_ρ::A
+    b_μ::V
+    b_ρ::V
     stride::NTuple{N, Int}
-    pad::NTuple{N, Int}
+    pad::NTuple{M, Int}
     dilation::NTuple{N, Int}
     groups::Int
     rng::AbstractRNG
@@ -81,7 +82,7 @@ function NoisyConv(w_μ::AbstractArray{T,N},
                    ) where {T, N}
     stride = expand(Val(N-2), stride)
     dilation = expand(Val(N-2), dilation)
-    pad = calc_padding(Conv, pad, size(w)[1:N-2], dilation, stride)
+    pad = calc_padding(Conv, pad, size(w_μ)[1:N-2], dilation, stride)
     return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups, rng)
 end
 
@@ -96,13 +97,13 @@ function NoisyConv(k::NTuple{N,Integer},
                    groups = 1,
                    rng = Random.GLOBAL_RNG,
                    ) where N
-    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_μ)
-    b_μ = create_bias(w_μ, init_mu(size(w_μ, N)), size(w_μ, N))
-    w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init_σ)
-    b_μ = create_bias(w_μ, init_σ(size(w_μ, N)), size(w_μ, N))
+    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init = init_μ)
+    b_μ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
+    w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init = init_σ)
+    b_ρ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
  
-    NoisyConv(w_μ::AbstractMatrix,
-              w_ρ::AbstractMatrix,
+    NoisyConv(w_μ::AbstractArray,
+              w_ρ::AbstractArray,
               b_μ::AbstractVector,
               b_ρ::AbstractVector,
               f;
@@ -110,26 +111,27 @@ function NoisyConv(k::NTuple{N,Integer},
               pad = pad,
               dilation = dilation,
               groups = groups,
-              rng = rn
+              rng = rng
               )
 end
 
 Flux.@functor NoisyConv
 
-function (c::Conv)(x::AbstractArray; num_samples::Union{Int, Nothing}=nothing)
+function (c::NoisyConv)(x::AbstractArray, num_samples::Union{Int, Nothing}=nothing)
     # TODO: breaks gpu broadcast :(
     # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
     b_μ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
     cdims = DenseConvDims(x, c.w_μ; stride = c.stride, padding = c.pad, dilation = c.dilation, groups = c.groups)
     μ = conv(x, c.w_μ, cdims) .+ b_μ
     if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ, 1), 1))
+        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1))
     else
-        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ, 1), 1, num_samples))
+        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1, num_samples))
     end
     b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
-    σ² = softplus.(c.w_ρ) * x .^ 2 .+ softplus.(b_ρ)
-    c.f.(μ .+ ϵ .* sqrt.(σ²))
+    σ² = conv(x .^ 2, softplus.(c.w_ρ), cdims) .+ softplus.(b_ρ)
+    r = c.f.(μ .+ ϵ .* sqrt.(σ²))
+    reshape(r, size(r)[1:3]..., :)
   end
 
 # custom split layer

@@ -37,8 +37,9 @@ mutable struct DUQNLearner{
 } <: AbstractLearner
     B_approximator::Tq
     Q_approximator::Tt
+    Q_lr::Float32
     prior::P
-    obs_var::Union{Float32, Nothing}
+    λ::Union{Float32, Nothing}
     min_replay_history::Int
     B_update_freq::Int
     Q_update_freq::Int
@@ -49,6 +50,7 @@ mutable struct DUQNLearner{
     sse::SpectralSteinEstimator
     injected_noise::Float32
     n_samples::Int
+    is_enable_double_DQN::Bool
     measure::M
     training::Bool
     logging_params
@@ -57,28 +59,30 @@ end
 function DUQNLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
+    Q_lr::Real = 0.01f0,
     prior::AbstractPrior = FlatPrior(),
-    obs_var::Union{Float32, Nothing} = nothing,
+    λ::Union{Real, Nothing} = 1.0,
     stack_size::Union{Int, Nothing} = nothing,
-    γ::Float32 = 0.99f0,
+    γ::Real = 0.99f0,
     batch_size::Int = 32,
     update_horizon::Int = 1,
-    min_replay_history::Int = 32,
+    min_replay_history::Int = 100,
     B_update_freq::Int = 1,
     Q_update_freq::Int = 1,
     updates_per_step::Int = 1,
     traces = SARTS,
     update_step::Int = 0,
-    injected_noise::Float32 = 0.01f0,
+    injected_noise::Real = 0.01f0,
     n_samples::Int = 100,
-    η::Float32 = 0.05f0,
+    η::Real = 0.05f0,
     nev::Int = 10,
+    is_enable_double_DQN::Bool = false,
     measure::Union{M, Nothing} = nothing,
     training::Bool = true,
     rng = Random.GLOBAL_RNG,
 ) where {Tq,Tt,M}
     sampler = NStepBatchSampler{traces}(;
-        γ = γ,
+        γ = Float32(γ),
         n = update_horizon,
         stack_size = stack_size,
         batch_size = batch_size,
@@ -86,8 +90,9 @@ function DUQNLearner(;
     return DUQNLearner(
         B_approximator,
         Q_approximator,
+        Float32(Q_lr),
         prior,
-        obs_var,
+        Float32(λ),
         min_replay_history,
         B_update_freq,
         Q_update_freq,
@@ -95,9 +100,10 @@ function DUQNLearner(;
         update_step,
         sampler,
         rng,
-        SpectralSteinEstimator(η, nev, nothing),
-        injected_noise,
+        SpectralSteinEstimator(Float32(η), nev, nothing),
+        Float32(injected_noise),
         n_samples,
+        is_enable_double_DQN,
         measure,
         training,
         DefaultDict(0.0),
@@ -124,104 +130,91 @@ function RLBase.update!(learner::DUQNLearner, t::AbstractTrajectory)
     learner.update_step += 1
 
     learner.update_step % learner.B_update_freq == 0 || learner.update_step % learner.Q_update_freq == 0 || return nothing
-
-    for _=1:learner.updates_per_step
+    
+    if learner.update_step % learner.B_update_freq == 0
         _, batch = sample(learner.rng, t, learner.sampler)
         update!(learner, batch)
+    end
+    if learner.update_step % learner.Q_update_freq == 0
+        η = learner.Q_lr
+        B = learner.B_approximator
+        Q = learner.Q_approximator
+        Bp = Flux.params(B)
+        Qp = Flux.params(Q)
+        p = Qp .- η .* (Qp .- Bp)
+        for _=1:(learner.updates_per_step-1)
+            p = p .- η .* (p .- Bp)
+        end
+        Flux.loadparams!(Q, p)
     end
 end
 
 function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     B = learner.B_approximator
     Q = learner.Q_approximator
-    sse =learner.sse
+    sse = learner.sse
     γ = learner.sampler.γ
     n = learner.sampler.n
     n_samples = learner.n_samples
     batch_size = learner.sampler.batch_size
+    is_enable_double_DQN = learner.is_enable_double_DQN
     D = device(Q)
 
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
 
-    if learner.measure !== nothing
-        u = Product([Uniform(-2.4f0, 2.4f0),
-                     Uniform(-10.0f0, 10.0f0),
-                     Uniform(-0.418f0, 0.418f0),
-                     Uniform(-10.0f0, 10.0f0)])
+    seed = hash(rand())
+    rng_B = Random.MersenneTwister(seed)
+    rng_Q = Random.MersenneTwister(seed)
 
-        samples = rand(u, learner.measure.n_samples) |> gpu
+    if is_enable_double_DQN
+        q_values = B(s′, n_samples, rng = rng_B)
+        rng_B = Random.MersenneTwister(seed)
+    else
+        q_values = Q(s′, n_samples, rng = rng_Q)
     end
 
-    if learner.update_step % learner.B_update_freq == 0
-        q_values = Q(s′)
-        
-        if haskey(batch, :next_legal_actions_mask)
-            l′ = send_to_device(D, batch[:next_legal_actions_mask])
-            q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
-        end
-        
+    if haskey(batch, :next_legal_actions_mask)
+        l′ = send_to_device(D, batch[:next_legal_actions_mask])
+        q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
+    end
+
+    if is_enable_double_DQN
+        selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
+        q′ = Q(s′, n_samples; rng = rng_Q)[selected_actions, :]
+        q′ = dropdims(q′, dims=ndims(q′))
+    else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
-        G = r .+ γ^n .* (1 .- t) .* q′
-        
-        gs = gradient(params(B)) do
-            b_all = B(s, n_samples) ## SLOW
-            # b = b_all[1][a, :]
-            b = b_all[a, :]
-            B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
-            if learner.obs_var === nothing
-                σ = b_all[2][a, :]
-                Σ = dropdims(mean(σ, dims=ndims(σ)), dims=ndims(σ))
-                𝐿 = sum(log.(Σ) .+ (G .- B̂) .^ 2 ./ 2Σ .^ 2)
-            else
-                Σ = learner.obs_var
-                𝐿 = sum((G .- B̂) .^ 2 ./ 2Σ .^ 2)
-            end
-
-            
-            # b_rand = reshape(b_all[1], :, n_samples) ## SLOW
-            b_rand = reshape(b_all, :, n_samples) ## SLOW
-            
-            if learner.measure !== nothing
-                # s_rand = B(samples, n_samples)[1]
-                s_rand = B(samples, n_samples)
-                s_rand = reshape(s_rand, :, n_samples)
-
-                b_rand = cat(b_rand, s_rand, dims=1)
-            end
-
-            S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-            H = learner.prior(s, b_rand) ./ n_samples
-
-            KL = H - S
-
-            Zygote.ignore() do
-                learner.logging_params["KL"] = KL
-                learner.logging_params["H"] = H
-                learner.logging_params["S"] = S
-                learner.logging_params["𝐿"] = 𝐿
-                learner.logging_params["Q"] = mean(B̂)
-                learner.logging_params["Σ"] = mean(Σ)
-            end
-
-            return 𝐿 + KL / batch_size
-        end
-        
-        update!(B, gs)
     end
-    if learner.update_step % learner.Q_update_freq == 0
-        b = B(s, n_samples)
+
+    G = r .+ γ^n .* (1 .- t) .* q′
+
+    gs = gradient(params(B)) do
+        b_all = B(s, n_samples, rng = rng_B) ## SLOW
+        b = b_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
-        
-        gs = gradient(params(Q)) do
-            q = Q(s)
-            𝐿 = sum((q .- B̂) .^ 2) / prod(size(q))
-            Zygote.ignore() do
-                learner.logging_params["mse"] = 𝐿
-            end
-            return 𝐿
+        λ = learner.λ
+        𝐿 = sum((b .- G) .^ 2) / n_samples
+
+        b_rand = reshape(b_all, :, n_samples) ## SLOW
+
+        S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
+        H = learner.prior(s, b_rand) ./ n_samples
+
+        KL = H - S
+
+        Zygote.ignore() do
+            learner.logging_params["KL"] = KL
+            learner.logging_params["H"] = H
+            learner.logging_params["S"] = S
+            learner.logging_params["𝐿"] = 𝐿
+            learner.logging_params["Q"] = mean(B̂)
+            learner.logging_params["Qₜ"] = mean(G)
+            learner.logging_params["B_var"] = mean(var(b, dims=ndims(b)))
+            learner.logging_params["QA"] = mean(getindex.(a, 1))
         end
-        
-        update!(Q, gs)
+
+        return 𝐿 + λ * KL / batch_size
     end
+    update!(B, gs)
 end

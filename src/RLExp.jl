@@ -6,6 +6,7 @@ export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseL
 export ResizeImage
 export get_screen
 export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior
+export stop, CenteredRMSProp
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -25,6 +26,7 @@ using Zygote
 
 include("utils/hooks.jl")
 include("utils/atari.jl")
+include("utils/utils.jl")
 include("algorithms/common.jl")
 include("algorithms/BDQN.jl")
 include("algorithms/GDQN.jl")

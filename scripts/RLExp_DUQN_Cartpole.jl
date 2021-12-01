@@ -14,19 +14,50 @@ using Setfield
 using Statistics
 using Wandb
 
-applychain(::Tuple{}, x, n) = x
-applychain(fs::Tuple, x, n) = applychain(tail(fs), first(fs)(x, n), n)
-(c::Chain)(x, n) = applychain(c.layers, x, n)
+applychain(::Tuple{}, x, n; kwargs...) = x
+applychain(fs::Tuple, x, n; kwargs...) = applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
+(c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
 
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQN},
     ::Val{:Cartpole},
-    seed = 1
-)
+    name,
+   )
+
+    """
+    SET UP LOGGING
+    """
+    lg = WandbLogger(project = "RLExp",
+                     name="DUQN_CartPole",
+                     config = Dict(
+                        "B_lr" => 1e-3,
+                        "Q_lr" => 0.08,
+                        "B_clip_norm" => 1.0,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 1,
+                        "B_opt" => "CenteredRMSProp",
+                        "gamma" => 1.0,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 1,
+                        "updates_per_step" => 1,
+                        "λ" => 1.0,
+                        "prior" => "GaussianPrior(0, 100)",
+                        "n_samples" => 100,
+                        "η" => 0.01,
+                        "nev" => 20,
+                        "is_enable_double_DQN" => false,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => 1,
+                     ),
+    )
+    save_dir = datadir("sims", "DUQN", "CartPole", "$(now())")
+
     """
     SEEDS
     """
+    seed = get_config(lg, "seed")
     rng = MersenneTwister()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
@@ -39,107 +70,61 @@ function RL.Experiment(
     ns, na = length(state(env)), length(action_space(env))
 
     """
-    SET UP LOGGING
-    """
-    simulation = @ntuple seed
-    lg = WandbLogger(project = "RLExp",
-                     name="DUQN_CartPole_" * savename(simulation),
-                     config = Dict(
-                        "B_lr" => 1e-3,
-                        "Q_lr" => 1e-3,
-                        "B_clip_norm" => 1.0,
-                        "Q_clip_norm" => 1.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 10,
-                        "gamma" => 0.99,
-                        "update_horizon" => 1,
-                        "batch_size" => 32,
-                        "min_replay_history" => 1,
-                        "updates_per_step" => 10,
-                        "obs_var" => 0.01f0,
-                        "traj_capacity" => 1_000_000,
-                        "seed" => seed,
-                     ),
-    )
-    save_dir = datadir("sims", "DUQN", "CartPole", "$(now())")
-
-    """
     CREATE MODEL
     """
-    init = glorot_uniform(rng)
+    # init = glorot_uniform(rng)
+    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
 
-
-    model = Chain(
-        NoisyDense(ns, 64, relu; init_μ = init, rng = device_rng),
-        NoisyDense(64, 64, relu; init_μ = init, rng = device_rng),
-        NoisyDense(64, na; init_μ = init, rng = device_rng),
+    B_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, na; init_μ = init, rng = device_rng),
     ) |> gpu
 
-    model2 = Chain(
-        Dense(ns, 64, relu; init = init),
-        Dense(64, 64, relu; init = init),
-        Dense(64, na; init = init),
+    Q_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, na; init_μ = init, rng = device_rng),
     ) |> gpu
 
-    # u = Product([Uniform(-2.4f0, 2.4f0),
-    #                  Uniform(-10.0f0, 10.0f0),
-    #                  Uniform(-0.418f0, 0.418f0),
-    #                  Uniform(-10.0f0, 10.0f0)])
-    # sse = SpectralSteinEstimator(0.05, nothing, 0.99)
+    Flux.loadparams!(Q_model, Flux.params(B_model))
 
-    # for _=1:1_000
-    #     samples = rand(u, 32)
-
-    #     gs = gradient(params(model)) do
-    #         b_all = model(samples, 100)
-    #         b_rand = reshape(b_all[1], :, 100)
-    #         b_noisy = b_rand
-    #         S = entropy_surrogate(sse, permutedims(b_noisy, (2, 1)))
-
-    #         pr = [-1 1] .* samples[4,:]
-    #         pr = reshape(repeat(pr, 1,  100), :, 100)
-    #         H = sum((b_noisy .- 40 .* pr) .^ 2 ./ (2 * 100.0f0 .^ 2)) ./ (size(b_noisy, 2) .* 32)
-    #         KL = H - S
-    #     end
-    #     Flux.update!(opt, params(model), gs)
-        
-    #     gs = gradient(params(model2)) do 
-    #         b = model(samples, 100)[1]
-    #         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
-    #         q = model2(samples)
-    #         𝐿 = sum((q .- B̂) .^ 2)
-    #         return 𝐿
-    #     end
-    #     Flux.update!(opt2, params(model2), gs)
-    # end
 
     """
     CREATE AGENT
     """
+    B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+    prior = eval(Meta.parse(get_config(lg, "prior")))
+
     agent = Agent(
         policy = QBasedPolicy(
             learner = DUQNLearner(
                 B_approximator = NeuralNetworkApproximator(
-                    model = model,
-                    optimizer = Optimiser(ClipNorm(1.0), ADAM(1e-2)),
+                    model = B_model,
+                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                 ),
                 Q_approximator = NeuralNetworkApproximator(
-                    model = model2,
-                    optimizer = Optimiser(ClipNorm(1.0), ADAM(3e-3)),
+                    model = Q_model
                 ),
-                γ = 0.99f0,
-                update_horizon = 1,
-                batch_size = 32,
-                min_replay_history = 1,
-                B_update_freq = 1,
-                Q_update_freq = 20,
-                updates_per_step = 10,
-                obs_var = 0.01f0,
+                Q_lr = get_config(lg, "Q_lr"),
+                γ = get_config(lg, "gamma"),
+                update_horizon = get_config(lg, "update_horizon"),
+                batch_size = get_config(lg, "batch_size"),
+                min_replay_history = get_config(lg, "min_replay_history"),
+                B_update_freq = get_config(lg, "B_update_freq"),
+                Q_update_freq = get_config(lg, "Q_update_freq"),
+                updates_per_step = get_config(lg, "updates_per_step"),
+                λ = get_config(lg, "λ"),
+                n_samples = get_config(lg, "n_samples"),
+                η = get_config(lg, "η"),
+                nev = get_config(lg, "nev"),
+                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
+                prior = prior,
             ),
             explorer = GreedyExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = 1_000_000,
+            capacity = get_config(lg, "traj_capacity"),
             state = Vector{Float32} => ns,
         ),
     )
@@ -153,10 +138,16 @@ function RL.Experiment(
         step_per_episode,
         reward_per_episode,
         DoEveryNStep() do t, agent, env
-            with_logger(lg) do
-                p = agent.policy.learner.logging_params
-                KL, MSE, H, S, L, Q, V = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"], p["Σ"]
-                @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q V = V
+            try
+                with_logger(lg) do
+                    p = agent.policy.learner.logging_params
+                    KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
+                    B_var, QA = p["B_var"], p["QA"]
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         DoEveryNEpisode() do t, agent, env
@@ -175,15 +166,21 @@ function RL.Experiment(
             avg_score = mean(h[1].rewards[1:end-1])
             avg_length = mean(h[2].steps[1:end-1])
 
-            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
-            with_logger(lg) do
-                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
-                @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+            @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
+            try
+                with_logger(lg) do
+                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                    @info "training" episode = t log_step_increment = 0
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(5_000, is_show_progress=true)
+    stop_condition = StopAfterStep(20_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
