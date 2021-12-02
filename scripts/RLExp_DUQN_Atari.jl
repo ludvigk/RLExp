@@ -49,7 +49,7 @@ function RL.Experiment(
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 1,
+                        "min_replay_history" => 20000,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         "prior" => "GaussianPrior(0, 10)",
@@ -57,7 +57,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 20,
                         "is_enable_double_DQN" => false,
-                        "traj_capacity" => 1_000_000,
+                        "traj_capacity" => 200_000,
                         "seed" => 1,
                      ),
     )
@@ -88,15 +88,15 @@ function RL.Experiment(
     """
     CREATE MODEL
     """
-    init = glorot_uniform(rng)
-    # init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    initc = glorot_uniform(rng)
+    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
 
     if restore === nothing
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
-            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
-            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             NoisyDense(512, N_ACTIONS; init_μ = init),
@@ -104,9 +104,9 @@ function RL.Experiment(
 
         Q_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
-            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
-            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             NoisyDense(512, N_ACTIONS; init_μ = init),
@@ -129,7 +129,7 @@ function RL.Experiment(
             learner = DUQNLearner(
                 B_approximator = NeuralNetworkApproximator(
                     model = B_model,
-                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt),
+                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                 ),
                 Q_approximator = NeuralNetworkApproximator(
                     model = Q_model
@@ -190,6 +190,7 @@ function RL.Experiment(
         end,
         DoEveryNEpisode(;n=EPISODE_LOG_FREQ) do t, agent, env
             with_logger(lg) do
+                @info "training" episode = t log_step_increment = 0
                 @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
             end
         end,
@@ -245,7 +246,6 @@ function RL.Experiment(
                 with_logger(lg) do
                     @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
                     @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
-                    @info "training" episode = t log_step_increment = 0
                 end
             catch
                 close(lg)

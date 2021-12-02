@@ -142,9 +142,9 @@ function RLBase.update!(learner::DUQNLearner, t::AbstractTrajectory)
         Bp = Flux.params(B)
         Qp = Flux.params(Q)
         p = Qp .- η .* (Qp .- Bp)
-        for _=1:(learner.updates_per_step-1)
-            p = p .- η .* (p .- Bp)
-        end
+        # for _=1:(learner.updates_per_step-1)
+        #     p = p .- η .* (p .- Bp)
+        # end
         Flux.loadparams!(Q, p)
     end
 end
@@ -165,10 +165,11 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     seed = hash(rand())
     rng_B = Random.MersenneTwister(seed)
-    rng_Q = Random.MersenneTwister(seed)
+    rng_Q = Random.MersenneTwister(seed + 1)
 
     if is_enable_double_DQN
-        q_values = B(s′, n_samples, rng = rng_B)
+        # q_values = B(s′, n_samples, rng = rng_B)
+        q_values = B(s′, n_samples)
         rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples, rng = rng_Q)
