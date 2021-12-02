@@ -56,8 +56,8 @@ function RL.Experiment(
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 20,
-                        "is_enable_double_DQN" => false,
-                        "traj_capacity" => 200_000,
+                        "is_enable_double_DQN" => true,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
