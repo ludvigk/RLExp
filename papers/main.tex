@@ -106,7 +106,9 @@ The Bellman operator on \(Q^\pi\) is defined as
 \(Q\)-function we can define a policy \(\pi(a \vert s) = \arg\max_a Q(s,a)\).
 In deep RL, we model \(Q\) with a neural network \(\hat{Q}_\omega\).
 One way to facilitate exploration in this policy is to introduce uncertainty in the
-\(Q\)-value. \cite{fellows_bayesian_2021} does this by defining the Bayesian Bellman
+\(Q\)-value.
+
+\cite{fellows_bayesian_2021} does this by defining the Bayesian Bellman
 operator (BBO). They define \(P_B(b \vert s, a, \omega)\) as the distribution over
 Bellman functions such that for a noisy sample \(b_i \sim P_B(b \vert s,a,\omega)\),
 \(b_i = \B[\hat{Q}_\omega](s_i, a_i) + \eta_i\). Then we approximate this with a
