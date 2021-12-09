@@ -1,9 +1,11 @@
 using Base.Iterators: tail
 using Conda
 using CUDA
+using Dates: now
 using Distributions: Uniform, Product
 using DrWatson
 using Flux
+using Flux: Optimiser
 using Logging
 using RLExp
 using Random
@@ -12,20 +14,51 @@ using Setfield
 using Statistics
 using Wandb
 
-applychain(::Tuple{}, x, n) = x
-applychain(fs::Tuple, x, n) = applychain(tail(fs), first(fs)(x, n), n)
-(c::Chain)(x, n) = applychain(c.layers, x, n)
+applychain(::Tuple{}, x, n; kwargs...) = x
+applychain(fs::Tuple, x, n; kwargs...) = applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
+(c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
 
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQN},
     ::Val{:MountainCar},
-    seed = 1
-)
+    name,
+   )
+
+    """
+    SET UP LOGGING
+    """
+    lg = WandbLogger(project = "RLExp",
+                     name="DUQN_MountainCar",
+                     config = Dict(
+                        "B_lr" => 1e-3,
+                        "Q_lr" => 0.05,
+                        "B_clip_norm" => 1.0,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 1,
+                        "B_opt" => "ADAM",
+                        "gamma" => 1.0,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 1,
+                        "updates_per_step" => 1,
+                        "λ" => 1.0,
+                        "prior" => "GaussianPrior(0, 100)",
+                        "n_samples" => 100,
+                        "η" => 0.01,
+                        "nev" => 20,
+                        "is_enable_double_DQN" => true,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => 1,
+                     ),
+    )
+    save_dir = datadir("sims", "DUQN", "MountainCar", "$(now())")
+
     """
     SEEDS
     """
-    rng = Random.GLOBAL_RNG
+    seed = get_config(lg, "seed")
+    rng = MersenneTwister()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
     Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
@@ -33,63 +66,65 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = MountainCarEnv(; T = Float32, max_steps = 200, rng = rng)
+    env = MountainCarEnv(; T = Float32, rng = rng)
     ns, na = length(state(env)), length(action_space(env))
 
     """
-    SET UP LOGGING
+    CREATE MODEL
     """
-    simulation = @ntuple seed
-    lg = WandbLogger(project = "RLExp", name="DUQN_MountainCar" * savename(simulation))
-    save_dir = datadir("sims", "DUQN", savename(simulation, "jld2"))
+    # init = glorot_uniform(rng)
+    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
 
-    """
-    CREATE MODELS
-    """
-    init = glorot_uniform(rng)
-
-
-    model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init),
-        NoisyDense(128, 128, relu; init_μ = init),
-        Split(NoisyDense(128, na; init_μ = init),
-              NoisyDense(128, na, softplus; init_μ = init))
+    B_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, na; init_μ = init, rng = device_rng),
     ) |> gpu
 
-    model2 = Chain(
-        Dense(ns, 128, relu; init = init),
-        Dense(128, 128, relu; init = init),
-        Dense(128, na; init = init),
+    Q_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
+        NoisyDense(128, na; init_μ = init, rng = device_rng),
     ) |> gpu
+
+    Flux.loadparams!(Q_model, Flux.params(B_model))
 
 
     """
     CREATE AGENT
     """
+    B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+    prior = eval(Meta.parse(get_config(lg, "prior")))
+
     agent = Agent(
         policy = QBasedPolicy(
             learner = DUQNLearner(
                 B_approximator = NeuralNetworkApproximator(
-                    model = model,
-                    optimizer = ADAM(1e-3),
+                    model = B_model,
+                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                 ),
                 Q_approximator = NeuralNetworkApproximator(
-                    model = model2,
-                    optimizer = ADAM(1e-3)
+                    model = Q_model
                 ),
-                γ = 0.99f0,
-                update_horizon = 1,
-                batch_size = 32,
-                min_replay_history = 1,
-                B_update_freq = 1,
-                Q_update_freq = 10,
-                updates_per_step = 10,
-                obs_var = 0.01f0,
+                Q_lr = get_config(lg, "Q_lr"),
+                γ = get_config(lg, "gamma"),
+                update_horizon = get_config(lg, "update_horizon"),
+                batch_size = get_config(lg, "batch_size"),
+                min_replay_history = get_config(lg, "min_replay_history"),
+                B_update_freq = get_config(lg, "B_update_freq"),
+                Q_update_freq = get_config(lg, "Q_update_freq"),
+                updates_per_step = get_config(lg, "updates_per_step"),
+                λ = get_config(lg, "λ"),
+                n_samples = get_config(lg, "n_samples"),
+                η = get_config(lg, "η"),
+                nev = get_config(lg, "nev"),
+                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
+                prior = prior,
             ),
             explorer = GreedyExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = 1_000_000,
+            capacity = get_config(lg, "traj_capacity"),
             state = Vector{Float32} => ns,
         ),
     )
@@ -103,10 +138,16 @@ function RL.Experiment(
         step_per_episode,
         reward_per_episode,
         DoEveryNStep() do t, agent, env
-            with_logger(lg) do
-                p = agent.policy.learner.logging_params
-                KL, MSE, H, S, L, Q, V = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"], p["Σ"]
-                @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q V = V
+            try
+                with_logger(lg) do
+                    p = agent.policy.learner.logging_params
+                    KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
+                    B_var, QA = p["B_var"], p["QA"]
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         DoEveryNEpisode() do t, agent, env
@@ -118,25 +159,28 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                MountainCarEnv(; T = Float32, max_steps = 200, rng = rng),
+                MountainCarEnv(; T = Float32),
                 StopAfterEpisode(100; is_show_progress = false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])
             avg_length = mean(h[2].steps[1:end-1])
 
-            @info "finished evaluating agent in $s seconds" avg_length = avg_length avg_score = avg_score
-            p = agent.policy.learner.logging_params
-            p["episode"] += 1
-            with_logger(lg) do
-                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
-                @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
-                @info "training" episode = p["episode"] log_step_increment = 0
+            @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
+            try
+                with_logger(lg) do
+                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                    @info "training" episode = t log_step_increment = 0
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
             end
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(200_000, is_show_progress=true)
+    stop_condition = StopAfterStep(100_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

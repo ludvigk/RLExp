@@ -107,6 +107,14 @@ The Bellman operator on \(Q^\pi\) is defined as
 In deep RL, we model \(Q\) with a neural network \(\hat{Q}_\omega\).
 One way to facilitate exploration in this policy is to introduce uncertainty in the
 \(Q\)-value.
+\citet{fortunato_noisy_2019} introduced noisy networks for exploration.
+These are networks with stochastic weights, where each weight \(w^{(l)}_{ij}\)
+has an added pertrubaition sampled from a noise distribution with standard deviation \(\sigma^{(l)}_{ij}\).
+After initializing \(\bm{\mu}\) and \(\bm{\sigma}\) such that the network has sufficient
+stochasticity for exploration, both parameters are learned using standard backpropagation.
+The approach is similar to variational inference schemes such as bayes by backprop~\cite{blundell_weight_2015} where the weights are normally distributed with mean 
+\(\mu^{(l)}_{ij}\) and standard deviation \(\sigma^{(l)}_{ij}\),
+
 
 \cite{fellows_bayesian_2021} does this by defining the Bayesian Bellman
 operator (BBO). They define \(P_B(b \vert s, a, \omega)\) as the distribution over
