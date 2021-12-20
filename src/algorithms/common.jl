@@ -41,43 +41,48 @@ end
 
 Flux.@functor NoisyDense
 
-function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
-    rng = rng === nothing ? l.rng : rng
-    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    tmp_x = reshape(x, size(x, 1), :)
-    μ = l.w_μ * tmp_x .+ l.b_μ
-    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
-    if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
-    else
-        # ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
-        # ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
-        # ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
-        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
-    end
-    μ = reshape(μ, size(μ, 1), size(x, 2), :)
-    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-    return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
-end
-
 # function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
 #     rng = rng === nothing ? l.rng : rng
 #     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
 #     tmp_x = reshape(x, size(x, 1), :)
 #     μ = l.w_μ * tmp_x .+ l.b_μ
-#     wσ² = softplus.(l.w_ρ)
-#     bσ² = softplus.(l.w_ρ)
+#     σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
 #     if num_samples === nothing
-#         wϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), size(μ, 2)))
-#         bϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
+#         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
 #     else
-#         wϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), size(μ, 2), 100))
-#         bϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 100))
+#         # ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+#         # ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+#         # ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
+#         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
 #     end
 #     μ = reshape(μ, size(μ, 1), size(x, 2), :)
 #     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
 #     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 # end
+
+function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
+    rng = rng === nothing ? l.rng : rng
+    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+    tmp_x = reshape(x, size(x, 1), :)
+    μ = l.w_μ * tmp_x .+ l.b_μ
+    wσ² = softplus.(l.w_ρ)
+    bσ² = softplus.(l.w_ρ)
+    if num_samples === nothing
+        wϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), size(μ, 2)))
+        bϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
+    else
+        wϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+        wϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, size(μ, 2), 1))
+        wϵ_3 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+        wϵ = Zygote.@ignore wϵ_1 .* wϵ_2 .* wϵ_2
+        bϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+        bϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+        bϵ = Zygote.@ignore wϵ_1 .* wϵ_2 .* wϵ_2
+    end
+    μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
+end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F
