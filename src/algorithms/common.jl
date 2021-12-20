@@ -49,12 +49,33 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     if num_samples === nothing
         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
     else
-        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
+        ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+        ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+        ϵ = ϵ_1 .* ϵ_2
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 end
+
+# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
+#     rng = rng === nothing ? l.rng : rng
+#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+#     tmp_x = reshape(x, size(x, 1), :)
+#     μ = l.w_μ * tmp_x .+ l.b_μ
+#     wσ² = softplus.(l.w_ρ)
+#     bσ² = softplus.(l.w_ρ)
+#     if num_samples === nothing
+#         wϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), size(μ, 2)))
+#         bϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
+#     else
+#         wϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), size(μ, 2), 100))
+#         bϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 100))
+#     end
+#     μ = reshape(μ, size(μ, 1), size(x, 2), :)
+#     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+#     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
+# end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F
@@ -126,7 +147,7 @@ function (c::NoisyConv)(x::AbstractArray, num_samples::Union{Int, Nothing}=nothi
     if num_samples === nothing
         ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1))
     else
-        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1, num_samples))
+        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1, 1))
     end
     b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
     σ² = conv(x .^ 2, softplus.(c.w_ρ), cdims) .+ softplus.(b_ρ)

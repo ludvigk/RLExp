@@ -49,7 +49,7 @@
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
 
-\title{}
+\title{Scalable and Parameter-Free Optimal Regret Reinforcement Learning}
 
 % The standard author block has changed for UAI 2021 to provide
 % more space for long author lists and allow for complex affiliations
@@ -91,69 +91,119 @@ state \(s_{t+1} \sim P(\cdot \vert s_t, a_t)\). A scalar reward
 interact in a sequence of time steps, a history of observations
 \(\mathcal{H}_t = (s_0, a_0, s_1, r_1, a_1, s_2, r_2, \dots, s_t, r_t)\) is collected.
 The goal is to find a policy \(\pi^\star\), such that sampling actions
-\(a \sim \pi^*(\cdot \vert s)\) maximizes the expected future reward,
-\(J^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \right]\). An efficient
+\(a \sim \pi^*(\cdot \vert s)\) maximizes the expected accumulated and discounted future reward,
+\(J^\pi \defeq \E_\pi \left[ \sum_{t=1}^\infty \gamma^t r_t \right]\). An efficient
 agent must be able to learn from the data it collects, but since the data is
 dependent on the policy, it must also prioritize to explore states and actions that
 the agent can learn a lot from.
 
+The efficiency of exploration can be measured in regret.
+The regret of a policy is the difference in the expected reward obtained by
+following that policy, and the expected reward for an optimal policy.
+An learning algorithm's efficiency in exploration can be measured by its
+cumulative regret over time. One of the simplest reinforcement learning 
+problems is the multi-arm bandit problem. This is an MDP with no state and no
+transition probabilities. One exploration strategy employed in most Q-learning
+algorithms to date, \(\epsilon\)-greedy is provably inefficient, and has a
+regret bound that grows linearly with time. There are several optimal algorithms
+for this problem, but perhaps the simplest one is called Thompson sampling.
+Thompson sampling approximates a posterior distribution of the expected reward
+for each action. The next action is decided by sampling rewards for each action
+from the posterior distribution, and selecting the action that gave the highest
+reward. Bayesian methods been also been shown to behave efficiently with respect
+to cumulative regret \cite{osband_generalization_2016} on general MDPs.
+%\textcolor{red}{Optimal Regret + Thompson sampling }
+
+
 The \(Q\)-function, \(Q^\pi(s,a)\), is defined as the expected reward of taking action
 \(a\) in state \(s\) and then following policy \(\pi\) thereafter:
-\(Q^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=0, a_0=0 \right]\).
+\(Q^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=S, a_0=A \right]\).
 The Bellman operator on \(Q^\pi\) is defined as
-\(\B[Q^\pi](s_t,a_t) \defeq \E_{P(s_{t+1} \vert s_t, a_t)\pi(a_{t+1} \vert s+t)}
+\(\B[Q^\pi](s_t,a_t) \defeq \E_{P(s_{t+1} \vert s_t, a_t)\pi(a_{t+1} \vert s_t)}
 \left[ r(s_{t+1}, s_t, a) + \gamma Q^\pi(s_{t+1}, a_{t+1}) \right]\). With the
-\(Q\)-function we can define a policy \(\pi(a \vert s) = \arg\max_a Q(s,a)\).
-In deep RL, we model \(Q\) with a neural network \(\hat{Q}_\omega\).
-One way to facilitate exploration in this policy is to introduce uncertainty in the
+\(Q\)-function we can define a policy that always picks the action with the 
+highest \(Q\)-value in any state. We can't find \(Q\) exactly, but with a good
+approximation this policy, \(\pi(a \vert s) = \arg\max_a Q(s,a)\), should
+hopefully be close to optimal. In deep RL, we model \(Q\) with a
+neural network \(\hat{Q}_\omega\). One way to facilitate exploration in this
+policy is to introduce uncertainty in the
 \(Q\)-value.
-\citet{fortunato_noisy_2019} introduced noisy networks for exploration.
+\citet{fortunato_noisy_2019} introduced NoisyNet for exploration.
 These are networks with stochastic weights, where each weight \(w^{(l)}_{ij}\)
 has an added pertrubaition sampled from a noise distribution with standard deviation \(\sigma^{(l)}_{ij}\).
-After initializing \(\bm{\mu}\) and \(\bm{\sigma}\) such that the network has sufficient
+After initializing \(\bm{w}\) and \(\bm{\sigma}\) such that the network has sufficient
 stochasticity for exploration, both parameters are learned using standard backpropagation.
-The approach is similar to variational inference schemes such as bayes by backprop~\cite{blundell_weight_2015} where the weights are normally distributed with mean 
-\(\mu^{(l)}_{ij}\) and standard deviation \(\sigma^{(l)}_{ij}\),
+The approach is similar to variational inference schemes such as Bayes by backprop~\citep{blundell_weight_2015} where the weights of a neural network model are assumed to be normally distributed with mean 
+\(\mu^{(l)}_{ij}\) and standard deviation \(\sigma^{(l)}_{ij}\). The objective of
+Bayes by backprop, however, is to approximate the posterior distribution
+\(p(\bm{w} \vert \mathcal{D})\) in a task with a fixed dataset \(\mathcal{D}\).
+The parameter distribution in NoisyNet does not necessarily
+converge to an approximate posterior. This means that it does not have the same
+guarantee on total regret as methods that approximate a posterior over the
+value functions~\citep{osband_generalization_2016}. They do, however, have
+experimental results which shows that the function does not always converge to
+a deterministic solution, but it is unclear why the network learns to introduce
+more noise into the network parameters.
+
+\citet{fortunato_noisy_2019} apply NoisyNet to three reinforcement learning
+algorithms, DQN, Dueling DQN, and A3C, and show improved performance on all
+of them. Later NoisyNet was used in the Rainbow 
+algorithm~\citep{hessel_rainbow_2017}, a combination of six extensions to the
+DQN algorithms~\citep{fortunato_noisy_2019, bellemare_distributional_2017, wang_dueling_2016,van_hasselt_deep_2015,schaul_prioritized_2016,mnih_asynchronous_2016}, that shows state-of-the-art performance across 57 Atari games.
 
 
-\cite{fellows_bayesian_2021} does this by defining the Bayesian Bellman
-operator (BBO). They define \(P_B(b \vert s, a, \omega)\) as the distribution over
-Bellman functions such that for a noisy sample \(b_i \sim P_B(b \vert s,a,\omega)\),
-\(b_i = \B[\hat{Q}_\omega](s_i, a_i) + \eta_i\). Then we approximate this with a
-distribution parameterized by \(\phi\) such that
-\(P(b \vert s,a,\phi) \approx P(b \vert s,a,\omega)\).
-\begin{equation}
-    \B_{\omega, N}^\star(s,a) \defeq \E_{P(\phi \vert \D_\omega^N)} \left[ \hat{B}_\phi(s,a) \right].
-\end{equation}
-Here, \(\hat{B}_\phi(s,a) = \E_{P(b \mid s, a, \phi)}[b]\), is the conditional mean of
-\(P(b \vert s, a, \phi)\), and the data \(\D_\omega^N\) is defined as the collection of
-sampled \(Q\)-values, states and actions \(\D_\omega^N \defeq \{b_i, s_i, a_i\}_{i=1:N}\).
-Under the assumption that each state \(s_i\) is drawn i.i.d from a distribution with
-support over \(\state\), or from an ergodic Markov chain defined over a \(\sigma\)-algebra that is
-countably generated from \(\state\) they find that \(\omega^\star\) such that
-\(\hat{Q}_{\omega^\star} = \B^\star_{\omega^\star, N}\) can be found 
-by minimising the mean squared Bayesian Bellman error (MSBBE):
-\begin{equation}
-    \mathrm{MSBBE}_N(\omega) \defeq \lVert \hat{Q}_{\omega} - \B^\star_{\omega, N} \lVert^2_{\rho, \pi},
-\end{equation}
-And that an unbiased estimate of \(\nabla_\omega \mathrm{MSBBE}_N(\omega)\) can be calculated
-as long as we can sample from \(P(\phi \vert \D_\omega^N)\).
 
-Nonlinear function approximators such as neural networks typically have an intractable
-posterior, so we cannot calculate the posterior analytically. Instead we use a posterior approximation
-\(q(\phi \vert \D_\omega^N) \approx P(\phi \vert \D_\omega^N)\), together with an algorithm
-for approximate inference. \citet{fellows_bayesian_2021} presents the Bayesian Bellman Actor-Critic
-using randomized priors \citep{osband_randomized_2018}, and show state of the art exploratory
-behaviour.
+%To properly adapt Bayesian inference to MDPs, \cite{fellows_bayesian_2021} define the Bayesian Bellman
+%operator (BBO), \(P_B(b \vert s, a, \omega)\), as the distribution over
+%Bellman functions such that for a noisy sample \(b_i \sim P_B(b \vert s,a,\omega)\),
+%\(b_i = \B[\hat{Q}_\omega](s_i, a_i) + \eta_i\). Then approximates this with a
+%distribution parameterized by \(\phi\) such that
+%\(P(b \vert s,a,\phi) \approx P(b \vert s,a,\omega)\).
+%\begin{equation}
+%    \B_{\omega, N}^\star(s,a) \defeq \E_{P(\phi \vert \D_\omega^N)} \left[ \hat{B}_\phi(s,a) \right].
+%\end{equation}
+%Here, \(\hat{B}_\phi(s,a) = \E_{P(b \mid s, a, \phi)}[b]\), is the conditional mean of
+%\(P(b \vert s, a, \phi)\), and the data \(\D_\omega^N\) is defined as the collection of
+%sampled \(Q\)-values, states and actions \(\D_\omega^N \defeq \{b_i, s_i, a_i\}_{i=1:N}\).
+%Under the assumption that each state \(s_i\) is drawn i.i.d from a distribution with
+%support over \(\state\), or from an ergodic Markov chain defined over a \(\sigma\)-algebra that is
+%countably generated from \(\state\) they find that \(\omega^\star\) such that
+%\(\hat{Q}_{\omega^\star} = \B^\star_{\omega^\star, N}\) can be found 
+%by minimising the mean squared Bayesian Bellman error (MSBBE):
+%\begin{equation}
+%    \mathrm{MSBBE}_N(\omega) \defeq \lVert \hat{Q}_{\omega} - \B^\star_{\omega, N} \lVert^2_{\rho, \pi},
+%\end{equation}
+%And that an unbiased estimate of \(\nabla_\omega \mathrm{MSBBE}_N(\omega)\) can be calculated
+%as long as we can sample from \(P(\phi \vert \D_\omega^N)\).
 
-For most approximate inference methods in deep learning, it is difficult to incorporate domain
-knowledge into the prior. Typically the prior distribution is defined on the parameters as \(P(\phi)\),
-while the knowledge exists in the function space \(P(a \vert s)\).
+%Nonlinear function approximators such as neural networks typically have an intractable
+%posterior, so we cannot calculate the posterior analytically. Instead we use a posterior approximation
+%\(q(\phi \vert \D_\omega^N) \approx P(\phi \vert \D_\omega^N)\), together with an algorithm
+%for approximate inference. \citet{fellows_bayesian_2021} presents the Bayesian Bellman Actor-Critic
+%using randomized priors \citep{osband_randomized_2018}, and show state of the art exploratory
+%behaviour.
 
-Functional variational Bayesian neural networks \citep{sun_functional_2019} lets us define a prior on the
-\emph{function space}. In a Q-learning algorithm, this would be a function
-\(f : \state \times \action \rightarrow \R\). For now we generalize, and say that
-\(f : \mathcal{X} \rightarrow \mathcal{Y}\).
+%For most approximate inference methods in deep learning, it is difficult to incorporate domain
+%knowledge into the prior. Typically the prior distribution is defined on the parameters as \(P(\phi)\),
+%while the knowledge exists in the function space \(P(a \vert s)\).
+%This is also the case for randomized priors.
+% We therefore want to
+
+In NoisyNet \citep{fortunato_noisy_2019}, the Q-function space can be seen
+as a stochastic process on the probability space \((\Omega, \mathcal{F}, P)\).
+The stochastic process can simply be written as
+\(\{Q(\bm{s}, \bm{a}) : (\bm{s}, \bm{a}) \in \state \times \action \}\). For
+any \(\omega \in \Omega\), \(Q(\cdot, \cdot, \omega)\) is a sample function
+mapping \(\state \times \action \rightarrow \mathbb{R}\). To simplify notation
+we will denote sample functions as \(f\). NoisyNet, specifically, is a stochastic
+process parameterized by its weights and their standard deviation. We will define
+this parameterized function as \(g_\phi\), and their sampling distribution as
+\(q_\phi \in \mathcal{Q}\). Given a noise vector \(\xi\), we have
+\(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\).
+
+Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
+a variational inference method for neural networks that approximates the 
+posterior distribution in function space.
 \citet{sun_functional_2019} show that for two stochastic processes \(P\) and \(Q\):
 
 \begin{equation}
@@ -168,13 +218,14 @@ at \(\X\). They further show that if \(\f^\X\) are the function values at points
     = \E \left[ \nabla_\phi \f^\X( \nabla_\f \log q(\f^\X) - \nabla_\f \log p(\f^\X)) \right].
 \end{multline}
 
-The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log q(\f^\X)\) and \(\nabla_\f \log p(\f^\X)\).
-To estimate these log-density gradients, they use a spectral Stein gradient estimator \citep{shi_spectral_2018}.
-Given enough function value samples, the spectral Stein gradient estimator can estimate score functions
-for both in-distribution and out-of-distribution samples. This means that we can use it to estimate
-both gradients. \(\nabla_\f \log q(\f^\X)\) is likely intractable intractable, considering \(q_\phi\) is
-a neural network with stochastic weights. Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
-can be easy to compute analytically. To reduce variance in the gradients we aim to define tractable priors.
+The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log q(\f^\X)\)
+and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log q(\f^\X)\) is likely 
+intractable, considering \(q_\phi\) is a neural network with stochastic weights.
+Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
+can be easy to compute analytically. To reduce variance in the gradients we
+define tractable priors in this paper. To estimate the log-density gradient
+\(\nabla_\f \log q(\f^\X)\), they use a spectral Stein gradient estimator
+\citep{shi_spectral_2018}. 
 
 % \section{Background}
 % \citet{fellows_bayesian_2021} defines the Bayesian Bellman operator (BBO) as:
@@ -231,10 +282,32 @@ can be easy to compute analytically. To reduce variance in the gradients we aim 
 % can be easy to compute analytically. To reduce variance in the gradients we aim to define tractable priors.
 
 \section{Method}
-Instead of a prior on the parameter space, we would like to have a prior on the \(Q\)-function space.
-Using the functional variational neural network framework explored earlier, our maximization target
-becomes:
+% Motivation:
+% * Optimal regret
+% * Meaningful priors
+We will present a method that allows the following:
 
+\begin{itemize}
+    \item Optimal regret \textcolor{red}{TODO: define optimal regret}
+    \item Incorporate domain knowledge
+\end{itemize}
+
+\textcolor{red}{A natural step for finding
+the optimal sampling distribution \(q_\phi\) is to minimize the KL-divergence
+between it and the true Q-value function. This is different from the optimization
+scheme in NoisyNet, which only tries to maximize the likelihood that samples from
+\(q_\phi\) comes from the true Q-value function.} \textcolor{green}{This should probably go under method}
+
+We would like to approximate the posterior distribution of the Q value function.
+This would (1) give optimal regret, (2) let us incorporate domain knowledge
+through an appropriate prior distribution.
+We can use the functional variational bayesian neural
+network (FVBNN)~\citep{sun_functional_2019} framework discussed earlier.
+NoisyNet uses one sample from Q for each optimization step. We will instead use
+\(N\) samples
+from Q. This lets us add the KL-term from FVBNN to the loss function that
+encourages stochasticity.
+The maximization target becomes:
 \begin{equation}
     \log p(\D_\omega^N \vert f) - \KL \left[ q(\f^{\D_\omega^N}, \f^M) \Vert p(\f^{\D_\omega^N}, \f^M) \right],
 \end{equation}
@@ -245,18 +318,50 @@ with full support. We will let
 \begin{equation}
     M = \{(s_i, a_j) \; \forall s_i \in \D_\omega^N,\, \forall a_j \in \action\}. 
 \end{equation}
-To justify this we need to show that \(supp(c) = \state \times \action\).
-Under the same assumption about the distribution of each state \(s_i\) from BBO,
-\(supp(c) = \state \times \action\) follows trivially.
+%To justify this we need to show that \(supp(c) = \state \times \action\).
+%Under the same assumption about the distribution of each state \(s_i\) from BBO,
+%\(supp(c) = \state \times \action\) follows trivially.
 
 Since we are modeling \(q_\phi\) with a Bayesian neural network, and \(Q_\omega\) with a neural network,
-we have a bilevel optimization problem. To solve this, we employ a similar strategy to \cite{fellows_bayesian_2021},
+we have a bilevel optimization problem. To solve this, we employ a similar strategy to \citet{fellows_bayesian_2021},
 where we have a two-timescale gradient update. \(\phi\) and \(\omega\) are updated using stochastic
 gradient descent at different timescales to ensure stable convergence.
 
 % We can now define a prior \(P(f)\), however, this prior exists in the space
 % \(P(Q \vert s, a) : (\state \times \action \rightarrow \R) \rightarrow \R\), which can be hard to
 % define. We would like the prior to be of the form \(P(a \vert s)\).
+
+\begin{algorithm}
+\caption{NoisyNet RL}
+\begin{algorithmic}
+    \State \(\D \gets \emptyset\)
+    \State \(s \sim P_0\)
+    \State Initialize \(\phi, \omega\)
+    \While{not converged}
+        \State \(f \sim q_\phi\)
+        \State \(a \sim \arg\max_a f(s,a)\)
+        \State \(s' \sim P(\cdot \vert s,a)\)
+        \State \(r = r(s',a,s)\)
+        \State \(\D \gets \D \cup \{s,a,r,s'\}\)
+        \State \Call{UpdateNoisyNet}{$\phi, \omega, \D$}
+    \EndWhile
+    \Statex
+    \Function{UpdateNoisyNet}{$\phi, \omega, \D$}
+        \State \(T \sim \D\)
+        \State \(f \sim q_\phi\)
+        \State \(b \sim q_\omega\)
+        \State \(\Delta_\mathcal{L} \gets 0\)
+        \For{\(\{s,a,r,s'\} \in T\)}
+            \State \(\bm{q} \gets \max_a \f(s,a)\)
+            \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
+            \State \(G \gets r + \gamma b(s,a)\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert T \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
+        \EndFor
+        \State \(\phi \gets \phi + \eta_\phi \Delta_\mathcal{L}\)
+        \State \(\omega \gets \omega + \eta_\omega (\omega - \phi)\)
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
 
 \begin{algorithm}
 \caption{Functional Bayesian RL}
@@ -274,26 +379,30 @@ gradient descent at different timescales to ensure stable convergence.
     \EndWhile
     \Statex
     \Function{UpdatePosterior}{$\phi, \omega, \D$}
-        \While{not converged}
-            \State \(T \sim \D\)
-            \State \(\f \gets \{f_i \sim q_\phi \text{ for } i=1,\dots,k\}\)
-            \State \(\mathcal{F} \gets \emptyset\)
-            \State \(\Delta_\mathcal{L} \gets 0\)
-            \For{\(\{s,a,r,s'\} \in T\)}
-                \State \(\bm{\hat{a}} \gets \arg\max_a \f(s,a)\)
-                \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
-                \State \(G \gets r + \gamma Q_\omega(s,a)\)
-                \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{k} \frac{1}{\lvert T \rvert} \nabla_\phi \log p(\bm{\hat{a}} \vert G)\)
-            \EndFor
-            \State \(\Delta_\KL \gets SSGE(p, \mathcal{F})\)
-            \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \Delta_\KL)\)
-            \State \(\hat{B}_\phi \gets \frac{1}{k}\frac{1}{\lvert T \rvert}\sum_{i=1}^k \sum_{b \in \mathcal{F}} b\)
-            \State \(\Delta_\omega \gets \sum_{\{s,a,r,s'\} \in T} \nabla_\omega \lVert \hat{B}_\phi(s,a) - Q_\omega(s,a) \rVert^2_2 \)
-            \State \(\omega \gets \omega - \eta_\omega \Delta_\omega\)
-        \EndWhile
+        \State \(T \sim \D\)
+        \State \(f \gets \{f_i \sim q_\phi \mid i=1,\dots,k\}\)
+        \State \(\mathbf{b} \gets \{b_i \sim q_\omega \mid i=1,\dots,k\}\)
+        \State \(\mathcal{F} \gets \emptyset\)
+        \State \(\Delta_\mathcal{L} \gets 0\)
+        \For{\(\{s,a,r,s'\} \in T\)}
+            \State \(\bm{q} \gets \max_a \f(s,a)\)
+            \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
+            \State \(\bm{G} \gets \{r + \gamma b_i(s,a) \mid i = 1, 
+        \dots, k\}\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert T \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
+        \EndFor
+        \State \(\Delta_\KL \gets SSGE(p, \mathcal{F})\)
+        \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \lambda \Delta_\KL)\)
+        \State \(\omega \gets \omega + \eta_\omega (\omega - \phi)\)
     \EndFunction
 \end{algorithmic}
 \end{algorithm}
+
+\section{Experiments}
+\subsection{Uninformative Prior}
+\subsection{Informative Prior}
+
+\section{Discussion}
 
 
 \begin{acknowledgements} % will be removed in pdf for initial submission,
