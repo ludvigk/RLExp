@@ -25,7 +25,8 @@ function NoisyDense(
     out,
     f=identity;
     init_μ=glorot_uniform,
-    init_σ=(dims...) -> fill(0.017f0, dims),
+    init_σ=(dims...) -> fill(0.15f0, dims),
+    # init_σ=(dims...) -> fill(0.017f0, dims),
     rng=Random.GLOBAL_RNG,
 )
     return NoisyDense(
