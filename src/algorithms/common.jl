@@ -50,9 +50,10 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     if num_samples === nothing
         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
     else
-        ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
-        ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
-        ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
+        # ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+        # ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+        # ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
+        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
