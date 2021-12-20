@@ -51,7 +51,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     else
         ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
         ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
-        ϵ = ϵ_1 .* ϵ_2
+        ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
     end
     μ = reshape(μ, size(μ, 1), size(x, 2), :)
     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
