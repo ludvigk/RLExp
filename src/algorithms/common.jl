@@ -68,16 +68,16 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     wσ² = softplus.(l.w_ρ)
     bσ² = softplus.(l.b_ρ)
     if num_samples === nothing
-        wϵ = Zygote.@ignore randn!(rng, similar(x, size(μ, 1), size(μ, 2)))
-        bϵ = Zygote.@ignore randn!(rng, similar(x, size(μ, 1), 1))
+        wϵ = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
+        bϵ = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1))
     else
-        wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(μ, 1), 1, 1))
-        wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(μ, 2), 1))
+        wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), 1, 1))
+        wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(wσ², 2), 1))
         wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
         wϵ = Zygote.@ignore wϵ_1 .* wϵ_2 .* wϵ_2
-        bϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(μ, 1), 1, 1))
+        bϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1, 1))
         bϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
-        bϵ = Zygote.@ignore wϵ_1 .* wϵ_2 .* wϵ_2
+        bϵ = Zygote.@ignore bϵ_1 .* bϵ_2
     end
     # μ = reshape(μ, size(μ, 1), size(x, 2), :)
     w = l.w_μ .+ wϵ .* wσ²
