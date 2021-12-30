@@ -83,7 +83,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     w = l.w_μ .+ wϵ .* wσ²
     b = l.b_μ .+ bϵ .* bσ²
     # σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-    return y = l.f.(bmm(w, tmp_x) .+ b)
+    return y = l.f.(batched_mul(w, tmp_x) .+ b)
 end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
