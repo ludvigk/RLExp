@@ -70,6 +70,10 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     if num_samples === nothing
         wϵ = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
         bϵ = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1))
+
+        w = l.w_μ .+ wϵ .* wσ²
+        b = l.b_μ .+ bϵ .* bσ²
+        return y = l.f.(w * tmp_x .+ b)
     else
         wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), 1, 1))
         wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(wσ², 2), 1))
@@ -78,12 +82,11 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         bϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1, 1))
         bϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
         bϵ = Zygote.@ignore bϵ_1 .* bϵ_2
+
+        w = l.w_μ .+ wϵ .* wσ²
+        b = l.b_μ .+ bϵ .* bσ²
+        return y = l.f.(batched_mul(w, tmp_x) .+ b)
     end
-    # μ = reshape(μ, size(μ, 1), size(x, 2), :)
-    w = l.w_μ .+ wϵ .* wσ²
-    b = l.b_μ .+ bϵ .* bσ²
-    # σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-    return y = l.f.(batched_mul(w, tmp_x) .+ b)
 end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
