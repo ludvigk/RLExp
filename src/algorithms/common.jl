@@ -75,7 +75,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         b = l.b_μ .+ bϵ .* bσ²
         return y = l.f.(w * tmp_x .+ b)
     else
-        # tmp_x = x
+        tmp_x = x
         wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), 1, 1))
         wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(wσ², 2), 1))
         wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
