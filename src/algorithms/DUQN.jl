@@ -187,7 +187,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
     end
-
+    println(size(q′), size(r), size(t))
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
