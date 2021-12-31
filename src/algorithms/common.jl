@@ -63,7 +63,8 @@ Flux.@functor NoisyDense
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    tmp_x = reshape(x, size(x, 1), :)
+    tmp_x = x
+    # tmp_x = reshape(x, size(x, 1), :)
     # μ = l.w_μ * tmp_x .+ l.b_μ
     wσ² = softplus.(l.w_ρ)
     bσ² = softplus.(l.b_ρ)
@@ -85,6 +86,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
+        println(size(w), size(tmp_x))
         return y = l.f.(batched_mul(w, tmp_x) .+ b)
     end
 end
