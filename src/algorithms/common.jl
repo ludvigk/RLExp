@@ -63,12 +63,11 @@ Flux.@functor NoisyDense
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    tmp_x = x
-    # tmp_x = reshape(x, size(x, 1), :)
     # μ = l.w_μ * tmp_x .+ l.b_μ
     wσ² = softplus.(l.w_ρ)
     bσ² = softplus.(l.b_ρ)
     if num_samples === nothing
+        tmp_x = reshape(x, size(x, 1), :)
         wϵ = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
         bϵ = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1))
 
@@ -76,6 +75,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         b = l.b_μ .+ bϵ .* bσ²
         return y = l.f.(w * tmp_x .+ b)
     else
+        # tmp_x = x
         wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), 1, 1))
         wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(wσ², 2), 1))
         wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
@@ -87,7 +87,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
         println(size(w), size(tmp_x))
-        return y = l.f.(batched_mul(w, tmp_x) .+ b)
+        return y = l.f.(batched_mul(w, x) .+ b)
     end
 end
 
