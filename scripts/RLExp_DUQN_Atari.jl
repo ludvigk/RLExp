@@ -51,7 +51,7 @@ function RL.Experiment(
                         "batch_size" => 32,
                         "min_replay_history" => 1000,
                         "updates_per_step" => 1,
-                        "λ" => 1e-2,
+                        "λ" => 1,
                         "prior" => "GaussianPrior(0, 10)",
                         "n_samples" => 100,
                         "η" => 0.01,
