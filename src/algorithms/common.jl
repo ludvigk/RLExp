@@ -66,6 +66,8 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     # μ = l.w_μ * tmp_x .+ l.b_μ
     wσ² = softplus.(l.w_ρ)
     bσ² = softplus.(l.b_ρ)
+    println(size(x))
+
     if num_samples === nothing
         tmp_x = reshape(x, size(x, 1), :)
         wϵ = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
@@ -86,7 +88,6 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
-        println(size(x))
         return y = l.f.(batched_mul(w, x) .+ b)
     end
 end
