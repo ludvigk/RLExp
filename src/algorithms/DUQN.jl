@@ -183,7 +183,6 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
         q′ = Q(s′, n_samples; rng = rng_Q)[selected_actions, :]
-        println(q′)
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
