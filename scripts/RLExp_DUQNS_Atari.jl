@@ -28,7 +28,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:DUQN},
+    ::Val{:DUQNS},
     ::Val{:Atari},
     name;
     restore=nothing,
@@ -38,7 +38,7 @@ function RL.Experiment(
     SET UP LOGGING
     """
     lg = WandbLogger(project = "RLExp",
-                     name="DUQN_Atari($name)",
+                     name="DUQNS_Atari($name)",
                      config = Dict(
                         "B_lr" => 1e-4,
                         "Q_lr" => 1e-3,
@@ -61,7 +61,7 @@ function RL.Experiment(
                         "seed" => 1,
                      ),
     )
-    save_dir = datadir("sims", "DUQN", "Atari($name)", "$(now())")
+    save_dir = datadir("sims", "DUQNS", "Atari($name)", "$(now())")
 
     """
     SEEDS
@@ -99,7 +99,10 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
+            Split(
+                NoisyDense(512, N_ACTIONS; init_μ = init),
+                NoisyDense(512, N_ACTIONS; init_μ = init),
+            )
         ) |> gpu
 
         Q_model = Chain(
@@ -109,7 +112,10 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
-            NoisyDense(512, N_ACTIONS; init_μ = init),
+            Split(
+                NoisyDense(512, N_ACTIONS; init_μ = init),
+                NoisyDense(512, N_ACTIONS; init_μ = init),
+            )
         ) |> gpu
 
     else
@@ -126,7 +132,7 @@ function RL.Experiment(
 
     agent = Agent(
         policy = QBasedPolicy(
-            learner = DUQNLearner(
+            learner = DUQNSLearner(
                 B_approximator = NeuralNetworkApproximator(
                     model = B_model,
                     optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -259,5 +265,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQN <-> Atari($name)")
+    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> Atari($name)")
 end

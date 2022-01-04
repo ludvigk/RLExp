@@ -6,6 +6,7 @@ export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseL
 export ResizeImage
 export get_screen
 export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior
+export DUQNSLearner
 export stop, CenteredRMSProp
 
 using ArcadeLearningEnvironment
@@ -31,5 +32,6 @@ include("algorithms/common.jl")
 include("algorithms/BDQN.jl")
 include("algorithms/GDQN.jl")
 include("algorithms/DUQN.jl")
+include("algorithms/DUQNS.jl")
 
 end
