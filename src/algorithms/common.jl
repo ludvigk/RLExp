@@ -88,7 +88,6 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
         y = l.f.(batched_mul(w, x) .+ b)
-        println(size(y))
         return y
     end
 end
