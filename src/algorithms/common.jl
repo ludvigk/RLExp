@@ -86,7 +86,7 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
-        println(size(w), size(tmp_x))
+        println(size(x))
         return y = l.f.(batched_mul(w, x) .+ b)
     end
 end
@@ -193,7 +193,7 @@ function (m::Split)(x::AbstractArray, n)
 end
 
 
-# ----- Spectral stein gradient estimator -----
+# ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
     rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)  ## SLOW
