@@ -148,7 +148,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
         q_values = B(s′, n_samples)
-        println(size(q_values))
         rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples, rng = rng_Q)
