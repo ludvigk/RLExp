@@ -88,7 +88,6 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
         y = l.f.(batched_mul(w, x) .+ b)
-        println(size(y))
         return y
     end
 end
@@ -180,14 +179,14 @@ Split(paths...) = Split(paths)
 
 Flux.@functor Split
 
-function (m::Split)(x::AbstractArray)
+function (m::Split)(x::AbstractArray; kwargs...)
     if Flux.istraining()
         return map(f -> f(x), m.paths)
     end
     return m.paths[1](x)
 end
 
-function (m::Split)(x::AbstractArray, n)
+function (m::Split)(x::AbstractArray, n; kwargs...)
     if Flux.istraining()
         return map(f -> f(x, n), m.paths)  ## IS THIS SLOW?
     end
