@@ -168,8 +168,9 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s = B(s, n_samples, rng = rng_B) ## SLOW
+        b_all, s_all = B(s, n_samples, rng = rng_B) ## SLOW
         b = b_all[a, :]
+        s = s_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
         𝐿 = s .+ sum((b .- G) .^ 2) ./ (2 * exp.(s) .^2)
