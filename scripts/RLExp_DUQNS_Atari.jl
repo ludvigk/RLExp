@@ -18,7 +18,7 @@ using Wandb
 
 applychain(::Tuple{}, x, n; kwargs...) = x
 function applychain(fs::Tuple, x, n; kwargs...)
-    if isa(first(fs), NoisyDense)
+    if isa(first(fs), NoisyDense) || isa(first(fs), Split)
         return applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
     else
         return applychain(tail(fs), first(fs)(x), n; kwargs...)
