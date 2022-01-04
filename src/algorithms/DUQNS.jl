@@ -148,6 +148,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
         q_values = B(s′, n_samples)
+        println(size(q_values))
         rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples, rng = rng_Q)
@@ -160,9 +161,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
-        q′ = Q(s′, n_samples; rng = rng_Q)
-        println(size(q′))
-        q′ = q′[selected_actions, :]
+        q′ = Q(s′, n_samples; rng = rng_Q)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
