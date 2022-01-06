@@ -69,20 +69,20 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
 
     if num_samples === nothing
         tmp_x = reshape(x, size(x, 1), :)
-        wϵ = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
-        bϵ = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1))
+        wϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
+        bϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1))
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
         return y = l.f.(w * tmp_x .+ b)
     else
         tmp_x = x
-        wϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(wσ², 1), 1, 1))
-        wϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, size(wσ², 2), 1))
-        wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
-        wϵ = Zygote.@ignore wϵ_1 .* wϵ_2 .* wϵ_2
-        bϵ_1 = Zygote.@ignore randn!(rng, similar(x, size(bσ², 1), 1, 1))
-        bϵ_2 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
+        wϵ_1 = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), 1, 1))
+        wϵ_2 = Zygote.@ignore CUDA.randn!(rng, similar(x, 1, size(wσ², 2), num_samples))
+        # wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
+        wϵ = Zygote.@ignore wϵ_1 .* wϵ_2 #.* wϵ_2
+        bϵ_1 = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1, 1))
+        bϵ_2 = Zygote.@ignore CUDA.randn!(rng, similar(x, 1, 1, num_samples))
         bϵ = Zygote.@ignore bϵ_1 .* bϵ_2
 
         w = l.w_μ .+ wϵ .* wσ²

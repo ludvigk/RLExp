@@ -49,7 +49,7 @@
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
 
-\title{Scalable and Parameter-Free Optimal Regret Reinforcement Learning}
+\title{Scalable and Parameter-Free Exploration in Deep Reinforcement Learning}
 
 % The standard author block has changed for UAI 2021 to provide
 % more space for long author lists and allow for complex affiliations
@@ -87,26 +87,26 @@ state space and \(\action\) is the set of available actions. At time \(t=0\) a s
 \(s_0\) is sampled from the distribution \(P_0(\cdot)\). At each timestep an action
 \(a_t \sim \pi(\cdot \vert s_t)\) is selected and the agent transitions to a new state
 state \(s_{t+1} \sim P(\cdot \vert s_t, a_t)\). A scalar reward
-\(r_{t+1} = r(\cdot \vert s_{t+1}, s_t, a_t)\) is observed. As the agent and environement
+\(r_t = r(\cdot \vert s_t, a_t)\) is observed. As the agent and environement
 interact in a sequence of time steps, a history of observations
-\(\mathcal{H}_t = (s_0, a_0, s_1, r_1, a_1, s_2, r_2, \dots, s_t, r_t)\) is collected.
+\(\mathcal{H}_t = (s_0, a_0, r_0, s_1, a_1, r_1, \dots, s_t, a_t, r_t)\) is collected.
 The goal is to find a policy \(\pi^\star\), such that sampling actions
 \(a \sim \pi^*(\cdot \vert s)\) maximizes the expected accumulated and discounted future reward,
-\(J^\pi \defeq \E_\pi \left[ \sum_{t=1}^\infty \gamma^t r_t \right]\). An efficient
+\(J^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \right]\). An efficient
 agent must be able to learn from the data it collects, but since the data is
 dependent on the policy, it must also prioritize to explore states and actions that
 the agent can learn a lot from.
 
 The efficiency of exploration can be measured in regret.
 The regret of a policy is the difference in the expected reward obtained by
-following that policy, and the expected reward for an optimal policy.
+following that policy, and the expected reward of following an optimal policy.
 An learning algorithm's efficiency in exploration can be measured by its
 cumulative regret over time. One of the simplest reinforcement learning 
 problems is the multi-arm bandit problem. This is an MDP with no state and no
 transition probabilities. One exploration strategy employed in most Q-learning
 algorithms to date, \(\epsilon\)-greedy is provably inefficient, and has a
 regret bound that grows linearly with time. There are several optimal algorithms
-for this problem, but perhaps the simplest one is called Thompson sampling.
+for this problem, but perhaps the simplest one is Thompson sampling~\citep{thompson_likelihood_1933}.
 Thompson sampling approximates a posterior distribution of the expected reward
 for each action. The next action is decided by sampling rewards for each action
 from the posterior distribution, and selecting the action that gave the highest
@@ -120,14 +120,14 @@ The \(Q\)-function, \(Q^\pi(s,a)\), is defined as the expected reward of taking 
 \(Q^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=S, a_0=A \right]\).
 The Bellman operator on \(Q^\pi\) is defined as
 \(\B[Q^\pi](s_t,a_t) \defeq \E_{P(s_{t+1} \vert s_t, a_t)\pi(a_{t+1} \vert s_t)}
-\left[ r(s_{t+1}, s_t, a) + \gamma Q^\pi(s_{t+1}, a_{t+1}) \right]\). With the
+\left[ r(s_t, a) + \gamma Q^\pi(s_{t+1}, a_{t+1}) \right]\). With the
 \(Q\)-function we can define a policy that always picks the action with the 
-highest \(Q\)-value in any state. We can't find \(Q\) exactly, but with a good
-approximation this policy, \(\pi(a \vert s) = \arg\max_a Q(s,a)\), should
-hopefully be close to optimal. In deep RL, we model \(Q\) with a
+highest \(Q\)-value in any state. In deep RL, we model \(Q\) with a
 neural network \(\hat{Q}_\omega\). One way to facilitate exploration in this
 policy is to introduce uncertainty in the
-\(Q\)-value.
+\(Q\)-value function.
+
+
 \citet{fortunato_noisy_2019} introduced NoisyNet for exploration.
 These are networks with stochastic weights, where each weight \(w^{(l)}_{ij}\)
 has an added pertrubaition sampled from a noise distribution with standard deviation \(\sigma^{(l)}_{ij}\).
@@ -150,6 +150,8 @@ algorithms, DQN, Dueling DQN, and A3C, and show improved performance on all
 of them. Later NoisyNet was used in the Rainbow 
 algorithm~\citep{hessel_rainbow_2017}, a combination of six extensions to the
 DQN algorithms~\citep{fortunato_noisy_2019, bellemare_distributional_2017, wang_dueling_2016,van_hasselt_deep_2015,schaul_prioritized_2016,mnih_asynchronous_2016}, that shows state-of-the-art performance across 57 Atari games.
+
+In this paper we will introduce an extension to NoisyNet that puts it into a Bayesian context. A limitation of NoisyNet is that the initial uncertainty in the Q-value function is crucial to exploration. If the uncertainty is too high, algorithm will struggle to learn anything, while if the uncertainty is too low, there is nothing incentivizing exploration, and the algorithm will likely be stuck in a poor local minimum.
 
 \section{Background}
 
@@ -288,8 +290,9 @@ define tractable priors in this paper. To estimate the log-density gradient
 We will present a method that allows the following:
 
 \begin{itemize}
-    \item Optimal regret \textcolor{red}{TODO: define optimal regret}
+    \item Optimal regret
     \item Incorporate domain knowledge
+    \item Avoid hyperparameter optimization
 \end{itemize}
 
 \textcolor{red}{A natural step for finding
@@ -399,7 +402,16 @@ gradient descent at different timescales to ensure stable convergence.
 \end{algorithm}
 
 \section{Experiments}
+Since our method is essentially an extension of NoisyNet~\cite{fortunato_noisy_2019}, all experiments will compare the performance results of these two methods.
 \subsection{Uninformative Prior}
+First, it is interesting to see how our method will compare in environments without the advantage of prior knowledge. We hypothesize that the added KL-term will push the algorithm to keep exploring more than NoisyNet, and 
+
+\begin{figure}
+    \includegraphics[width=\columnwidth]{Example_Figure_1}
+    \caption{Example figure 1}
+    \label{fig:fig_1}
+\end{figure}
+
 \subsection{Informative Prior}
 
 \section{Discussion}
