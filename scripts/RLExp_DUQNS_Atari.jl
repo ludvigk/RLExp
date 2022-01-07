@@ -95,9 +95,9 @@ function RL.Experiment(
     if restore === nothing
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc, init_σ = init_σ),
-            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc, init_σ = init_σ),
-            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc, init_σ = init_σ),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
             Split(
