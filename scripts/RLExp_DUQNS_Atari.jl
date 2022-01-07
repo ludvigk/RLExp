@@ -49,7 +49,7 @@ function RL.Experiment(
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 100,
+                        "min_replay_history" => 50000,
                         "updates_per_step" => 1,
                         "λ" => 1,
                         "prior" => "GaussianPrior(0, 10)",
@@ -90,18 +90,19 @@ function RL.Experiment(
     """
     initc = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init_σ(dims) = fill(0.5f0, dims)
 
     if restore === nothing
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc),
-            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
-            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
+            Conv((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = initc, init_σ = init_σ),
+            Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc, init_σ = init_σ),
+            Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc, init_σ = init_σ),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
+            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
             Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init),
-                NoisyDense(512, N_ACTIONS; init_μ = init),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
             )
         ) |> gpu
 

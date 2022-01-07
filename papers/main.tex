@@ -299,9 +299,9 @@ We will present a method that allows the following:
 the optimal sampling distribution \(q_\phi\) is to minimize the KL-divergence
 between it and the true Q-value function. This is different from the optimization
 scheme in NoisyNet, which only tries to maximize the likelihood that samples from
-\(q_\phi\) comes from the true Q-value function.} \textcolor{green}{This should probably go under method}
+\(q_\phi\) comes from the true Q-value function.}
 
-We would like to approximate the posterior distribution of the Q value function.
+We would like to approximate the posterior distribution of the Q-value function.
 This would (1) give optimal regret, (2) let us incorporate domain knowledge
 through an appropriate prior distribution.
 We can use the functional variational bayesian neural
@@ -413,6 +413,14 @@ First, it is interesting to see how our method will compare in environments with
 \end{figure}
 
 \subsection{Informative Prior}
+We will also look at how our method can utilize domain knowledge to improve sample efficiency. We will use the following method to calculate the prior distribution on the Q-values:
+
+\textcolor{red}{Discuss how to go from policy prior to Q-value prior.}
+
+\begin{figure}
+    \includegraphics[width=\columnwidth]{example-image}
+    \caption{Performance on the CartPole-v1 environment.}
+\end{figure}
 
 \section{Discussion}
 
