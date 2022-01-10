@@ -212,8 +212,12 @@ policy.
 
 \subsection{Functional Variational Bayesian Neural Networks}
 There are several ways of approximating the posterior distribution of the weights
-in a neural network with respect to a prior and a dataset. Typically, a static dataset
-\(\D\)
+in a neural network with respect to a prior and a dataset. Typically, the dataset
+\(\D\) is static and with datapoints \(\bm{x}\) and labels \(\bm{y}\), and the 
+prior is defined as a distribution over the weights
+\(p(\bm{w})\)~\citep{rezende_stochastic_2014,blundell_weight_2015,ritter_scalable_2018,maddox_simple_2019}.
+
+
 Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
 a variational inference method for neural networks that approximates the 
 posterior distribution in function space.
