@@ -256,7 +256,6 @@ function compute_gradients(
 )
     M = size(xm, 1)
     Kxx, dKxx, _ = grad_gram(xm, xm, lengthscale)
-    Kxx .+= 0.01f0 .* I
 
     if typeof(x) <: CuArray
         Kxx = cpu(Kxx)
