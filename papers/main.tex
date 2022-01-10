@@ -191,6 +191,7 @@ In this paper we will introduce an extension to NoisyNet that puts it into a Bay
 %This is also the case for randomized priors.
 % We therefore want to
 
+\subsection{Noisy Networks}
 In NoisyNet \citep{fortunato_noisy_2019}, the Q-function space can be seen
 as a stochastic process on the probability space \((\Omega, \mathcal{F}, P)\).
 The stochastic process can simply be written as
@@ -202,8 +203,17 @@ process parameterized by its weights and their standard deviation. We will defin
 this parameterized function as \(g_\phi\), and their sampling distribution as
 \(q_\phi \in \mathcal{Q}\). Given a noise vector \(\xi\), we have
 \(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). This means that NoisyNet
-gives a new policy function for each noise vector \(\xi\).
+gives a new policy function for each noise vector \(\xi\). Although this means
+that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
+out that for the loss function it is optimising, there always exsit a deterministic
+optimal policy. They show through emipirical analysis, however, that this does not
+mean that the policy necessarily disregards the noise and converges to a deterministic
+policy.
 
+\subsection{Functional Variational Bayesian Neural Networks}
+There are several ways of approximating the posterior distribution of the weights
+in a neural network with respect to a prior and a dataset. Typically, a static dataset
+\(\D\)
 Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
 a variational inference method for neural networks that approximates the 
 posterior distribution in function space.
