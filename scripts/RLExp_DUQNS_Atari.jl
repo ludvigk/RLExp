@@ -49,7 +49,7 @@ function RL.Experiment(
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 100,
+                        "min_replay_history" => 50_000,
                         "updates_per_step" => 1,
                         "λ" => 1,
                         "prior" => "GaussianPrior(0, 10)",

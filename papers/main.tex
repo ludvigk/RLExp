@@ -201,7 +201,8 @@ we will denote sample functions as \(f\). NoisyNet, specifically, is a stochasti
 process parameterized by its weights and their standard deviation. We will define
 this parameterized function as \(g_\phi\), and their sampling distribution as
 \(q_\phi \in \mathcal{Q}\). Given a noise vector \(\xi\), we have
-\(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\).
+\(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). This means that NoisyNet
+gives a new policy function for each noise vector \(\xi\).
 
 Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
 a variational inference method for neural networks that approximates the 
@@ -295,11 +296,11 @@ We will present a method that allows the following:
     \item Avoid hyperparameter optimization
 \end{itemize}
 
-\textcolor{red}{A natural step for finding
-the optimal sampling distribution \(q_\phi\) is to minimize the KL-divergence
-between it and the true Q-value function. This is different from the optimization
-scheme in NoisyNet, which only tries to maximize the likelihood that samples from
-\(q_\phi\) comes from the true Q-value function.}
+% A natural step for finding
+% the optimal sampling distribution \(q_\phi\) is to minimize the KL-divergence
+% between it and the true Q-value function. This is different from the optimization
+% scheme in NoisyNet, which only tries to maximize the likelihood that samples from
+% \(q_\phi\) comes from the true Q-value function.
 
 We would like to approximate the posterior distribution of the Q-value function.
 This would (1) give optimal regret, (2) let us incorporate domain knowledge
