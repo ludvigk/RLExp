@@ -41,10 +41,10 @@ function RL.Experiment(
                      name="DUQNS_Atari($name)",
                      config = Dict(
                         "B_lr" => 1e-4,
-                        "Q_lr" => 1e-3,
+                        "Q_lr" => 1,
                         "B_clip_norm" => 10.0,
                         "B_update_freq" => 4,
-                        "Q_update_freq" => 4,
+                        "Q_update_freq" => 40_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99,
                         "update_horizon" => 1,

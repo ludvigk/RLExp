@@ -216,11 +216,17 @@ in a neural network with respect to a prior and a dataset. Typically, the datase
 \(\D\) is static and with datapoints \(\bm{x}\) and labels \(\bm{y}\), and the 
 prior is defined as a distribution over the weights
 \(p(\bm{w})\)~\citep{rezende_stochastic_2014,blundell_weight_2015,ritter_scalable_2018,maddox_simple_2019}.
-
+By defining a prior over the weights, they can use approximate variational inference
+methods to approximate \(p(\bm{w} \vert \D) = \frac{p(\D \vert \bm{w})p(\bm{w})}{p(\D)}\).
+The disadvantage of this is that \(p(\bm{w})\) only acts as a regularizer, and cannot be
+used to incorporate actual prior knowledge. Any prior knowledge we might have about the
+function we are finding would be very difficult to translate into a prior distribution
+in the weight space.
 
 Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
 a variational inference method for neural networks that approximates the 
-posterior distribution in function space.
+posterior distribution in function space. This means that our prior will be a distribution
+over functions, also known as a stochastic process.
 \citet{sun_functional_2019} show that for two stochastic processes \(P\) and \(Q\):
 
 \begin{equation}
