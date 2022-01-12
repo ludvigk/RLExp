@@ -90,7 +90,8 @@ function RL.Experiment(
     """
     initc = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
-    init_σ(dims...) = fill(0.005f0, dims)
+    # init_σ(dims...) = fill(0.005f0, dims)
+    init_σ(dims...) = fill(0.1f0 / Float32(sqrt(dims[end])), dims)
 
     if restore === nothing
         B_model = Chain(
