@@ -40,7 +40,7 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_Atari($name)",
                      config = Dict(
-                        "B_lr" => 1e-5,
+                        "B_lr" => 1e-4,
                         "Q_lr" => 1,
                         "B_clip_norm" => 10.0,
                         "B_update_freq" => 4,
@@ -56,7 +56,7 @@ function RL.Experiment(
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 20,
-                        "is_enable_double_DQN" => true,
+                        "is_enable_double_DQN" => false,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),

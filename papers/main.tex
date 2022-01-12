@@ -226,19 +226,28 @@ Functional variational Bayesian neural networks \citep{sun_functional_2019} is
 a variational inference method for neural networks that approximates the 
 posterior distribution in function space. This means that our prior will be a distribution
 over functions, also known as a stochastic process.
-\citet{sun_functional_2019} show that for two stochastic processes \(P\) and \(Q\):
+\citet{sun_functional_2019} show that for two stochastic processes \(P\) and \(Q\), the
+KL-divergence from \(Q\) to \(P\) is the supremum of the marginal KL-divergences over
+all finite measurement sets. Let \(P_\X\) be the marginal distribution of function values
+at \(\X \in \mathcal{X}^n\), then:
 
 \begin{equation}
     \KL[Q \Vert P] = \sup_{n \in \N, \X \in \mathcal{X}^n} \KL \left[ Q_\X \Vert P_\X \right],
 \end{equation}
 
-where \(\X \in \mathcal{X}^n\) is a finite measurement set and \(P_\X, Q_\X\) are the marginal distributions
-at \(\X\). They further show that if \(\f^\X\) are the function values at points \(\X\), then
+Now the stochastic processes are a neural network \(q_\phi\) and a prior \(p\). In a similar
+manner to NoisyNet, we sample a function \(f\) from \(q\) by sampling a random noise vector
+\(\xi\), and then defining \(f(\bm{x}) = g_\phi(\bm{x}, \xi)\). They further show that the
+gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
 
 \begin{multline}\label{eq:fkl}
-    \nabla_\phi \KL[q_\phi(\f^X) \Vert p(\f^\X)] \\
-    = \E \left[ \nabla_\phi \f^\X( \nabla_\f \log q(\f^\X) - \nabla_\f \log p(\f^\X)) \right].
+    \nabla_\phi \KL[q_\phi(\f^\X) \Vert p(\f^\X)] = \E_q \left[ \nabla_\phi \log q_\phi (\f^\X) \right]\\
+    + \E_\xi \left[ \nabla_\phi \f^\X( \nabla_\f \log q(\f^\X) - \nabla_\f \log p(\f^\X)) \right].
 \end{multline}
+
+The measurement set \(\X\) is created by concatenating the training points \(\X^D\) and a
+set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full support
+in the space of interesting test cases. 
 
 The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log q(\f^\X)\)
 and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log q(\f^\X)\) is likely 
@@ -247,7 +256,7 @@ Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
 can be easy to compute analytically. To reduce variance in the gradients we
 define tractable priors in this paper. To estimate the log-density gradient
 \(\nabla_\f \log q(\f^\X)\), they use a spectral Stein gradient estimator
-\citep{shi_spectral_2018}. 
+\citep{shi_spectral_2018}.
 
 % \section{Background}
 % \citet{fellows_bayesian_2021} defines the Bayesian Bellman operator (BBO) as:
@@ -307,10 +316,11 @@ define tractable priors in this paper. To estimate the log-density gradient
 % Motivation:
 % * Optimal regret
 % * Meaningful priors
-We will present a method that allows the following:
+We will present a method based on functional variational Bayesian neural
+networks~\citep{sun_functional_2019} that allows the following:
 
 \begin{itemize}
-    \item Optimal regret
+    \item Near-optimal regret
     \item Incorporate domain knowledge
     \item Avoid hyperparameter optimization
 \end{itemize}
@@ -322,7 +332,7 @@ We will present a method that allows the following:
 % \(q_\phi\) comes from the true Q-value function.
 
 We would like to approximate the posterior distribution of the Q-value function.
-This would (1) give optimal regret, (2) let us incorporate domain knowledge
+This would (1) give near-optimal regret, (2) let us incorporate domain knowledge
 through an appropriate prior distribution.
 We can use the functional variational bayesian neural
 network (FVBNN)~\citep{sun_functional_2019} framework discussed earlier.
