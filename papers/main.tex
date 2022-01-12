@@ -320,7 +320,7 @@ We will present a method based on functional variational Bayesian neural
 networks~\citep{sun_functional_2019} that allows the following:
 
 \begin{itemize}
-    \item Near-optimal regret
+    \item Efficient exploration
     \item Incorporate domain knowledge
     \item Avoid hyperparameter optimization
 \end{itemize}
@@ -332,33 +332,44 @@ networks~\citep{sun_functional_2019} that allows the following:
 % \(q_\phi\) comes from the true Q-value function.
 
 We would like to approximate the posterior distribution of the Q-value function.
-This would (1) give near-optimal regret, (2) let us incorporate domain knowledge
-through an appropriate prior distribution.
+\citet{osband_why_2017} proove that in finite horizon MDPs posterior sampling for
+reinforcement learning has at least a near-optimal regret bound. They further conjecture
+that this cound can be further improved to show an optimal regret bound. Additionally,
+a posterior sampling based reinfrocement learning algorithm could be made to utilize
+prior information or domain knowledge through an appropriate prior. This should improve
+policy convergence rate.
+Combined with the computational efficiency of posterior sampling, this motivates the
+development of a Bayesian reinforcement learning algorithm with functional priors.
+
 We can use the functional variational bayesian neural
 network (FVBNN)~\citep{sun_functional_2019} framework discussed earlier.
 NoisyNet uses one sample from Q for each optimization step. We will instead use
-\(N\) samples
-from Q. This lets us add the KL-term from FVBNN to the loss function that
+\(N\) samples from Q. This lets us add the KL-term from FVBNN to the loss function that
 encourages stochasticity.
 The maximization target becomes:
 \begin{equation}
-    \log p(\D_\omega^N \vert f) - \KL \left[ q(\f^{\D_\omega^N}, \f^M) \Vert p(\f^{\D_\omega^N}, \f^M) \right],
+    \log p(\D_\omega^N \vert f) - \KL \left[ q(\f^{\D_\omega^N}, \f^\mathbf{M}) \Vert p(\f^{\D_\omega^N}, \f^\mathbf{M}) \right],
 \end{equation}
-where \(\f^{\D_\omega^N}\) is \(f\) applied to the dataset \(\D_\omega^N\), and \(\f^M\) is \(f\) applied to
-a set of i.i.d. random points \(M = \{m_i \sim c \mid i=1,\dots,k\} \subseteq \state \times \action\)
-with full support. We will let
+where \(\f^{\D_\omega^N}\) is \(f\) applied to the dataset \(\D_\omega^N\), and \(\f^\mathbf{M}\) is \(f\) applied to
+a set of i.i.d. random points \(\mathbf{M} = \{m_i \sim c \mid i=1,\dots,k\} \subseteq \state \times \action\)
+with full support. We will let the measurement \(\mathbf{M}\) be the the set of all state-action
+pairs for states we have already explored. If the MDP is ergodic, then \(\textbf{M}\) will eventually
+have full support in \(\state \times \action\).
 
 \begin{equation}
-    M = \{(s_i, a_j) \; \forall s_i \in \D_\omega^N,\, \forall a_j \in \action\}. 
+    \mathbf{M} = \{(s_i, a_j) \; \forall s_i \in \D_\omega^N,\, \forall a_j \in \action\}. 
 \end{equation}
+
+
+
 %To justify this we need to show that \(supp(c) = \state \times \action\).
 %Under the same assumption about the distribution of each state \(s_i\) from BBO,
 %\(supp(c) = \state \times \action\) follows trivially.
 
-Since we are modeling \(q_\phi\) with a Bayesian neural network, and \(Q_\omega\) with a neural network,
-we have a bilevel optimization problem. To solve this, we employ a similar strategy to \citet{fellows_bayesian_2021},
-where we have a two-timescale gradient update. \(\phi\) and \(\omega\) are updated using stochastic
-gradient descent at different timescales to ensure stable convergence.
+% Since we are modeling \(q_\phi\) with a Bayesian neural network, and \(Q_\omega\) with a neural network,
+% we have a bilevel optimization problem. To solve this, we employ a similar strategy to \citet{fellows_bayesian_2021},
+% where we have a two-timescale gradient update. \(\phi\) and \(\omega\) are updated using stochastic
+% gradient descent at different timescales to ensure stable convergence.
 
 % We can now define a prior \(P(f)\), however, this prior exists in the space
 % \(P(Q \vert s, a) : (\state \times \action \rightarrow \R) \rightarrow \R\), which can be hard to
@@ -432,9 +443,13 @@ gradient descent at different timescales to ensure stable convergence.
 \end{algorithm}
 
 \section{Experiments}
-Since our method is essentially an extension of NoisyNet~\cite{fortunato_noisy_2019}, all experiments will compare the performance results of these two methods.
+Our method most closely resembles that of NoisyNet~\cite{fortunato_noisy_2019}, so
+all experiments will mainly compare the performance of these two methods.
 \subsection{Uninformative Prior}
-First, it is interesting to see how our method will compare in environments without the advantage of prior knowledge. We hypothesize that the added KL-term will push the algorithm to keep exploring more than NoisyNet, and 
+First, it is interesting to see how our method will compare to NoisyNet
+in environments without the advantage of prior knowledge.
+We hypothesize that the added KL-term will push the algorithm to keep exploring unexplored
+state-action pairs more than NoisyNet, thus 
 
 \begin{figure}
     \includegraphics[width=\columnwidth]{Example_Figure_1}
@@ -443,9 +458,13 @@ First, it is interesting to see how our method will compare in environments with
 \end{figure}
 
 \subsection{Informative Prior}
-We will also look at how our method can utilize domain knowledge to improve sample efficiency. We will use the following method to calculate the prior distribution on the Q-values:
+One of the benefits of a functional prior is that we can incorporate domain knowledge to
+get more efficient exploration. We will now look at how our method can utilize domain
+knowledge to improve sample efficiency. 
 
-\textcolor{red}{Discuss how to go from policy prior to Q-value prior.}
+% We will use the following method to calculate the prior distribution on the Q-values:
+
+% \textcolor{red}{Discuss how to go from policy prior to Q-value prior.}
 
 \begin{figure}
     \includegraphics[width=\columnwidth]{example-image}
@@ -453,6 +472,8 @@ We will also look at how our method can utilize domain knowledge to improve samp
 \end{figure}
 
 \section{Discussion}
+
+\section{Conclusion}
 
 
 \begin{acknowledgements} % will be removed in pdf for initial submission,

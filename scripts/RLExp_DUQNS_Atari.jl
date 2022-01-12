@@ -49,14 +49,14 @@ function RL.Experiment(
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 50_000,
+                        "min_replay_history" => 5_000,
                         "updates_per_step" => 1,
                         "λ" => 1,
                         "prior" => "GaussianPrior(0, 10)",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 20,
-                        "is_enable_double_DQN" => false,
+                        "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
@@ -90,7 +90,7 @@ function RL.Experiment(
     """
     initc = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
-    init_σ(dims...) = fill(0.0005f0, dims)
+    init_σ(dims...) = fill(0.005f0, dims)
 
     if restore === nothing
         B_model = Chain(
