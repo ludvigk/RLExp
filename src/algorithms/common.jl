@@ -62,7 +62,7 @@ Flux.@functor NoisyDense
 
 function make_noise_sqrt(rng, μ, dims...)
     noise = randn!(rng, similar(μ, dims))
-    noise = clamp.(noise, -3, 3)
+    clamp!(noise, -3, 3)
     return sign.(noise) .* sqrt.(abs.(noise))
 end
 
