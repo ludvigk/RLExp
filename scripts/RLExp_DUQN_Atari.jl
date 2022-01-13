@@ -53,7 +53,7 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 0,
                         "prior" => "GaussianPrior(0, 10)",
-                        "n_samples" => 100,
+                        "n_samples" => 1,
                         "η" => 0.01,
                         "nev" => 20,
                         "is_enable_double_DQN" => true,

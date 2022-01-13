@@ -110,14 +110,14 @@ for this problem, but perhaps the simplest one is Thompson sampling~\citep{thomp
 Thompson sampling approximates a posterior distribution of the expected reward
 for each action. The next action is decided by sampling rewards for each action
 from the posterior distribution, and selecting the action that gave the highest
-reward. Bayesian methods been also been shown to behave efficiently with respect
+reward. Bayesian methods has also been shown to behave efficiently with respect
 to cumulative regret \cite{osband_generalization_2016} on general MDPs.
 %\textcolor{red}{Optimal Regret + Thompson sampling }
 
 
 The \(Q\)-function, \(Q^\pi(s,a)\), is defined as the expected reward of taking action
 \(a\) in state \(s\) and then following policy \(\pi\) thereafter:
-\(Q^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=S, a_0=A \right]\).
+\(Q^\pi(s_0, a_0) \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=S, a_0=A \right]\).
 The Bellman operator on \(Q^\pi\) is defined as
 \(\B[Q^\pi](s_t,a_t) \defeq \E_{P(s_{t+1} \vert s_t, a_t)\pi(a_{t+1} \vert s_t)}
 \left[ r(s_t, a) + \gamma Q^\pi(s_{t+1}, a_{t+1}) \right]\). With the
@@ -344,7 +344,7 @@ development of a Bayesian reinforcement learning algorithm with functional prior
 We can use the functional variational bayesian neural
 network (FVBNN)~\citep{sun_functional_2019} framework discussed earlier.
 NoisyNet uses one sample from Q for each optimization step. We will instead use
-\(N\) samples from Q. This lets us add the KL-term from FVBNN to the loss function that
+\(k\) samples from Q. This lets us add the KL-term from FVBNN to the loss function that
 encourages stochasticity.
 The maximization target becomes:
 \begin{equation}
@@ -424,7 +424,7 @@ have full support in \(\state \times \action\).
     \Statex
     \Function{UpdatePosterior}{$\phi, \omega, \D$}
         \State \(T \sim \D\)
-        \State \(f \gets \{f_i \sim q_\phi \mid i=1,\dots,k\}\)
+        \State \(\f \gets \{f_i \sim q_\phi \mid i=1,\dots,k\}\)
         \State \(\mathbf{b} \gets \{b_i \sim q_\omega \mid i=1,\dots,k\}\)
         \State \(\mathcal{F} \gets \emptyset\)
         \State \(\Delta_\mathcal{L} \gets 0\)
