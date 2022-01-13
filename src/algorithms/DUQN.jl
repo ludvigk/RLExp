@@ -193,20 +193,20 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b_all = B(s, n_samples, rng = rng_B) ## SLOW
         b = b_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
-        λ = learner.λ
+        # λ = learner.λ
         𝐿 = sum((b .- G) .^ 2) / n_samples
 
-        b_rand = reshape(b_all, :, n_samples) ## SLOW
+        # b_rand = reshape(b_all, :, n_samples) ## SLOW
 
-        S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-        H = learner.prior(s, b_rand) ./ n_samples
+        # S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
+        # H = learner.prior(s, b_rand) ./ n_samples
 
-        KL = H - S
+        # KL = H - S
 
         Zygote.ignore() do
-            learner.logging_params["KL"] = KL
-            learner.logging_params["H"] = H
-            learner.logging_params["S"] = S
+            # learner.logging_params["KL"] = KL
+            # learner.logging_params["H"] = H
+            # learner.logging_params["S"] = S
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Q"] = mean(B̂)
             learner.logging_params["Qₜ"] = mean(G)
@@ -214,7 +214,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
             learner.logging_params["QA"] = mean(getindex.(a, 1))
         end
 
-        return 𝐿 + λ * KL / batch_size
+        return 𝐿 #+ λ * KL / batch_size
     end
     update!(B, gs)
 end
