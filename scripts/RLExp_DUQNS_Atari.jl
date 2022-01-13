@@ -115,8 +115,8 @@ function RL.Experiment(
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init),
-                NoisyDense(512, N_ACTIONS; init_μ = init),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
             )
         ) |> gpu
 
