@@ -100,11 +100,16 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
             Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-            )
+                Chain(
+                    NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
+                    NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                ),
+                Chain(
+                    Dense(11 * 11 * 64, 512, relu),
+                    Dense(512, N_ACTIONS),
+                ),
+            ),
         ) |> gpu
 
         Q_model = Chain(
@@ -113,11 +118,16 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
-            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init),
             Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-            )
+                Chain(
+                    NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
+                    NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                ),
+                Chain(
+                    Dense(11 * 11 * 64, 512, relu),
+                    Dense(512, N_ACTIONS),
+                ),
+            ),
         ) |> gpu
 
     else
