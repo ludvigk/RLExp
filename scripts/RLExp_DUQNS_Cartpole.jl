@@ -14,12 +14,19 @@ using Statistics
 using Wandb
 
 applychain(::Tuple{}, x, n; kwargs...) = x
-applychain(fs::Tuple, x, n; kwargs...) = applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
+function applychain(fs::Tuple, x, n; kwargs...)
+    if isa(first(fs), NoisyDense) || isa(first(fs), Split)
+        return applychain(tail(fs), first(fs)(x, n; kwargs...), n; kwargs...)
+    else
+        return applychain(tail(fs), first(fs)(x), n; kwargs...)
+    end
+end
 (c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
+(d::Dense)(x, n; kwargs...) = (d::Dense)(x)
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:DUQN},
+    ::Val{:DUQNS},
     ::Val{:Cartpole},
     name,
    )
@@ -28,30 +35,30 @@ function RL.Experiment(
     SET UP LOGGING
     """
     lg = WandbLogger(project = "RLExp",
-                     name="DUQN_CartPole",
+                     name="DUQNS_CartPole",
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 1.0,
+                        "B_clip_norm" => 10.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 100,
                         "B_opt" => "ADAM",
                         "gamma" => 1.0,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 1,
+                        "min_replay_history" => 100,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
-                        "prior" => "GaussianPrior(0, 100)",
+                        "prior" => "GaussianPrior(0, 10)",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 20,
-                        "is_enable_double_DQN" => false,
-                        "traj_capacity" => 1_000_000,
+                        "is_enable_double_DQN" => true,
+                        "traj_capacity" => 10_000,
                         "seed" => 1,
                      ),
     )
-    save_dir = datadir("sims", "DUQN", "CartPole", "$(now())")
+    save_dir = datadir("sims", "DUQNS", "CartPole", "$(now())")
 
     """
     SEEDS
@@ -73,18 +80,56 @@ function RL.Experiment(
     """
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init_σ(dims...) = fill(0.5f0 / Float32(sqrt(dims[end])), dims)
+
 
     B_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, na; init_μ = init, rng = device_rng),
+        Split(
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+        ),
     ) |> gpu
 
+    # B_model = Chain(
+    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     Split(
+    #         Dense(128, na; bias=false),
+    #         Dense(128, na; bias=false),
+    #     ),
+    # ) |> gpu
+
     Q_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, na; init_μ = init, rng = device_rng),
+        Split(
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+        ),
     ) |> gpu
+
+    # Q_model = Chain(
+    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     Split(
+    #         Dense(128, na; bias=false),
+    #         Dense(128, na; bias=false),
+    #     ),
+    # ) |> gpu
 
     Flux.loadparams!(Q_model, Flux.params(B_model))
 
@@ -97,7 +142,7 @@ function RL.Experiment(
 
     agent = Agent(
         policy = QBasedPolicy(
-            learner = DUQNLearner(
+            learner = DUQNSLearner(
                 B_approximator = NeuralNetworkApproximator(
                     model = B_model,
                     optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -179,10 +224,10 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(20_000, is_show_progress=true)
+    stop_condition = StopAfterStep(10_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQN <-> CartPole")
+    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> CartPole")
 end

@@ -173,8 +173,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         s = s_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(s .+ sum((b .- G) .^ 2, dims=1) ./ (2 * exp.(s) .^2))
-        𝐿 /= n_samples
+        𝐿 = sum(s .+ (b .- G) .^ 2 .* exp.(-s))
+        𝐿 /= n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
 

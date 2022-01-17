@@ -25,7 +25,7 @@ function NoisyDense(
     out,
     f=identity;
     init_μ=glorot_uniform,
-    init_σ=(dims...) -> fill(0.5f0 / Float32(sqrt(dims[end])), dims),
+    init_σ=(dims...) -> fill(0.1f0 / Float32(sqrt(dims[end])), dims),
     # init_σ=(dims...) -> fill(0.017f0, dims),
     rng=Random.GLOBAL_RNG,
 )
@@ -62,7 +62,7 @@ Flux.@functor NoisyDense
 
 function make_noise_sqrt(rng, μ, dims...)
     noise = randn!(rng, similar(μ, dims))
-    clamp!(noise, -3, 3)
+    # clamp!(noise, -3, 3)
     return sign.(noise) .* sqrt.(abs.(noise))
 end
 
