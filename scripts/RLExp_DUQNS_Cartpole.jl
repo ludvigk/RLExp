@@ -37,7 +37,7 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_CartPole",
                      config = Dict(
-                        "B_lr" => 1e-3,
+                        "B_lr" => 5e-4,
                         "Q_lr" => 1.0,
                         "B_clip_norm" => 10.0,
                         "B_update_freq" => 1,
