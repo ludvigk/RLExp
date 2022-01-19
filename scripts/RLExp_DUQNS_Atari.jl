@@ -42,14 +42,14 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-4,
                         "Q_lr" => 1,
-                        "B_clip_norm" => 10.0,
-                        "B_update_freq" => 4,
-                        "Q_update_freq" => 40_000,
+                        "B_clip_norm" => 40.0,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 50_000,
+                        "min_replay_history" => 10_000,
                         "updates_per_step" => 1,
                         "λ" => 1,
                         "prior" => "GaussianPrior(0, 10)",
@@ -57,7 +57,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 20,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000_000,
+                        "traj_capacity" => 100_000,
                         "seed" => 1,
                      ),
     )
@@ -75,7 +75,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    N_FRAMES = 4
+    N_FRAMES = 1
     STATE_SIZE = (84, 84)
     env = atari_env_factory(
         name,
@@ -272,7 +272,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(50_000_000, is_show_progress=true)
+    stop_condition = StopAfterStep(1_000_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

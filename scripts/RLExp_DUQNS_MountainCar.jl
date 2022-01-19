@@ -22,6 +22,7 @@ function applychain(fs::Tuple, x, n; kwargs...)
     end
 end
 (c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
+(d::Dense)(x, n; kwargs...) = (d::Dense)(x)
 
 function RL.Experiment(
     ::Val{:RLExp},
@@ -38,22 +39,23 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 40,
+                        "B_clip_norm" => 1.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 1000,
+                        "min_replay_history" => 32,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
-                        "prior" => "GaussianPrior(0, 100)",
+                        # "prior" => "GaussianPrior(0, 10)",
+                        "prior" => "FlatPrior()",
                         "n_samples" => 100,
                         "η" => 0.01,
-                        "nev" => 20,
+                        "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 30_000,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
@@ -79,36 +81,44 @@ function RL.Experiment(
     """
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+
 
     B_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, rng = device_rng),
-            ),
-            Chain(
-                Dense(ns, 128, relu),
-                Dense(128, 128, relu),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
                 Dense(128, na),
-            ),
         ),
     ) |> gpu
 
+    # B_model = Chain(
+    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     Split(
+    #         Dense(128, na; bias=false),
+    #         Dense(128, na; bias=false),
+    #     ),
+    # ) |> gpu
+
     Q_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, rng = device_rng),
-            ),
-            Chain(
-                Dense(ns, 128, relu),
-                Dense(128, 128, relu),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
                 Dense(128, na),
-            ),
         ),
     ) |> gpu
+
+    # Q_model = Chain(
+    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+    #     Split(
+    #         Dense(128, na; bias=false),
+    #         Dense(128, na; bias=false),
+    #     ),
+    # ) |> gpu
 
     Flux.loadparams!(Q_model, Flux.params(B_model))
 
@@ -203,7 +213,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(100_000, is_show_progress=true)
+    stop_condition = StopAfterStep(30_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

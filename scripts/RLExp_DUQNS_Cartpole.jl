@@ -37,24 +37,25 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_CartPole",
                      config = Dict(
-                        "B_lr" => 5e-4,
+                        "B_lr" => 1e-4,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 10.0,
+                        "B_clip_norm" => 1.0,
                         "B_update_freq" => 1,
-                        "Q_update_freq" => 100,
+                        "Q_update_freq" => 1000,
                         "B_opt" => "ADAM",
-                        "gamma" => 1.0,
+                        "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 100,
+                        "min_replay_history" => 32,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
-                        "prior" => "GaussianPrior(0, 10)",
+                        # "prior" => "GaussianPrior(0, 10)",
+                        "prior" => "FlatPrior()",
                         "n_samples" => 100,
                         "η" => 0.01,
-                        "nev" => 20,
+                        "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 10_000,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
@@ -80,21 +81,15 @@ function RL.Experiment(
     """
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
-    init_σ(dims...) = fill(0.5f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     B_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
                 NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
+                Dense(128, na),
         ),
     ) |> gpu
 
@@ -108,17 +103,11 @@ function RL.Experiment(
     # ) |> gpu
 
     Q_model = Chain(
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
                 NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
+                Dense(128, na),
         ),
     ) |> gpu
 
@@ -224,7 +213,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(10_000, is_show_progress=true)
+    stop_condition = StopAfterStep(30_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

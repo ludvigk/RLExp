@@ -113,17 +113,21 @@ function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
         _, batch = sample(learner.rng, t, learner.sampler)
         update!(learner, batch)
     end
-    if learner.update_step % learner.Q_update_freq == 0
+    if learner.update_step % learner.Q_update_freq == 0 
         η = learner.Q_lr
         B = learner.B_approximator
         Q = learner.Q_approximator
         Bp = Flux.params(B)
         Qp = Flux.params(Q)
-        p = Qp .- η .* (Qp .- Bp)
-        # for _=1:(learner.updates_per_step-1)
-        #     p = p .- η .* (p .- Bp)
-        # end
-        Flux.loadparams!(Q, p)
+        if η == 1
+            Flux.loadparams!(Q, Bp)
+        else
+            p = Qp .- η .* (Qp .- Bp)
+            # for _=1:(learner.updates_per_step-1)
+            #     p = p .- η .* (p .- Bp)
+            # end
+            Flux.loadparams!(Q, p)
+        end
     end
 end
 
@@ -179,7 +183,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b_rand = reshape(b_all, :, n_samples) ## SLOW
 
         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-        H = learner.prior(s, b_rand) ./ n_samples
+        H = learner.prior(s, b_rand) ./ (n_samples * batch_size)
 
         KL = H - S
 
