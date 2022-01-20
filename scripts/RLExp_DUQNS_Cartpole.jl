@@ -37,7 +37,7 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_CartPole",
                      config = Dict(
-                        "B_lr" => 1e-4,
+                        "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
                         "B_clip_norm" => 1.0,
                         "B_update_freq" => 1,
@@ -55,7 +55,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 10_000,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
@@ -87,14 +87,14 @@ function RL.Experiment(
     B_model = Chain(
         Split(
             Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
             ),
             Chain(
-                Dense(ns, 128, relu),
-                Dense(128, 128, relu),
-                Dense(128, na),
+                NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
             ),
         )
     ) |> gpu
@@ -116,9 +116,9 @@ function RL.Experiment(
                 NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             ),
             Chain(
-                Dense(ns, 128, relu),
-                Dense(128, 128, relu),
-                Dense(128, na),
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             ),
         )
     ) |> gpu

@@ -22,9 +22,18 @@ end
 struct MountainCarPrior <: AbstractPrior end
 
 function (p::MountainCarPrior)(s::AbstractArray, t::AbstractArray)
+    μ = s[2,:] .> 0
+    μ = [(2f0 .* μ) zeros(size(μ)) (2f0 .* (1 - μ))]'
+    σ = 1f0
+    return sum((t .- μ) .^ 2 ./ (2σ .^ 2))
+end
+
+
+struct CartpoleCarPrior <: AbstractPrior end
+
+function (p::CartpoleCarPrior)(s::AbstractArray, t::AbstractArray)
     μ = s[2,:]
     μ = [μ zeros(size(μ)) -μ]'
     σ = 0.03f0
     return sum((t .- μ) .^ 2 ./ (2σ .^ 2))
 end
-
