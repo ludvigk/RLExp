@@ -39,7 +39,7 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 1.0,
+                        "B_clip_norm" => 1000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1000,
                         "B_opt" => "ADAM",
@@ -50,7 +50,8 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "MountainCarPrior()",
+                        "prior" => "FlatPrior()",
+                        # "prior" => "MountainCarPrior()",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 10,
@@ -187,7 +188,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode() do t, agent, env
+        DoEveryNEpisode(n = 100) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(

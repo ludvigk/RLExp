@@ -52,7 +52,8 @@ function RL.Experiment(
                         "min_replay_history" => 10_000,
                         "updates_per_step" => 1,
                         "λ" => 1,
-                        "prior" => "GaussianPrior(0, 10)",
+                        "prior" => "FlatPrior()",
+                    #    "prior" => "GaussianPrior(0, 10)",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 20,
@@ -113,15 +114,10 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
+            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
             Split(
-                Chain(
-                    NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
-                    NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                ),
-                Chain(
-                    Dense(11 * 11 * 64, 512, relu),
-                    Dense(512, N_ACTIONS),
-                ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
             ),
         ) |> gpu
 
@@ -195,6 +191,12 @@ function RL.Experiment(
                     p = agent.policy.learner.logging_params
                     KL, MSE, H, S, L, Q = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"]
                     @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q log_step_increment = STEP_LOG_FREQ
+                    
+                    last_layer = agent.policy.learner.approximator.model[end].path[1].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
+                    sul = sum(abs.(last_layer)) / length(last_layer)
+                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
                 end
             catch
                 close(lg)

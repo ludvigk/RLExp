@@ -197,11 +197,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
             learner.logging_params["Qₜ"] = mean(G)
             learner.logging_params["B_var"] = mean(var(b, dims=ndims(b)))
             learner.logging_params["QA"] = mean(getindex.(a, 1))
-
-            last_layer = B.model[end].paths[1][end].w_ρ
-            penultimate_layer = B.model[end].paths[1][end-1].w_ρ
-            learner.logging_params["sigma_ultimate_layer"] = sum(abs.(last_layer)) / length(last_layer)
-            learner.logging_params["sigma_penultimate_layer"] = sum(abs.(penultimate_layer)) / length(penultimate_layer)
         end
 
         return 𝐿 + λ * KL / batch_size

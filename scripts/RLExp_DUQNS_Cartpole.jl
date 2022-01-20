@@ -186,12 +186,15 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-                    sul = p["sigma_ultimate_layer"]
-                    spl = p["sigma_penultimate_layer"]
 
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
                     B_var, QA = p["B_var"], p["QA"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+
+                    last_layer = agent.policy.learner.approximator.model[end].paths[1].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end].paths[1][end-1].w_ρ
+                    sul = sum(abs.(last_layer)) / length(last_layer)
+                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
                 end
             catch
