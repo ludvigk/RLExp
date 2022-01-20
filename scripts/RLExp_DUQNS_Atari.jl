@@ -192,7 +192,7 @@ function RL.Experiment(
                     KL, MSE, H, S, L, Q = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"]
                     @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q log_step_increment = STEP_LOG_FREQ
                     
-                    last_layer = agent.policy.learner.B_approximator.model[end].path[1].w_ρ
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
                     penultimate_layer = agent.policy.learner.B_approximator.model[end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)

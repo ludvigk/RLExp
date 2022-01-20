@@ -49,8 +49,8 @@ function RL.Experiment(
                         "min_replay_history" => 32,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
-                        "prior" => "GaussianPrior(0, 10)",
-                        # "prior" => "FlatPrior()",
+                        # "prior" => "GaussianPrior(0, 10)",
+                        "prior" => "FlatPrior()",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 10,
@@ -191,7 +191,7 @@ function RL.Experiment(
                     B_var, QA = p["B_var"], p["QA"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
 
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
