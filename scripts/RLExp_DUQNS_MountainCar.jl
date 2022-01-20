@@ -46,7 +46,7 @@ function RL.Experiment(
                         "gamma" => 0.99,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 32,
+                        "min_replay_history" => 10_000,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
@@ -55,7 +55,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 10_000,
+                        "traj_capacity" => 100_000,
                         "seed" => 1,
                      ),
     )
@@ -80,7 +80,7 @@ function RL.Experiment(
     CREATE MODEL
     """
     # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
@@ -174,9 +174,13 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
+                    sul = p["sigma_ultimate_layer"]
+                    spl = p["sigma_penultimate_layer"]
+                    
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
                     B_var, QA = p["B_var"], p["QA"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                    @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
                 end
             catch
                 close(lg)
@@ -213,7 +217,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(300_000, is_show_progress=true)
+    stop_condition = StopAfterStep(500_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

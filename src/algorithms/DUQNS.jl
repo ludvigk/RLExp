@@ -152,7 +152,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
         q_values = B(s′, n_samples)
-        rng_B = Random.MersenneTwister(seed)
+        # rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples, rng = rng_Q)
     end
@@ -183,7 +183,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b_rand = reshape(b_all, :, n_samples) ## SLOW
 
         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-        H = learner.prior(s, b_all) ./ (n_samples * batch_size)
+        H = learner.prior(s, b_all) ./ (n_samples)
 
         KL = H - S
 

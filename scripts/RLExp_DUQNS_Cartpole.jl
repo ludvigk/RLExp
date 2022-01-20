@@ -37,9 +37,9 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_CartPole",
                      config = Dict(
-                        "B_lr" => 1e-3,
+                        "B_lr" => 1e-4,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 1.0,
+                        "B_clip_norm" => 1000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1000,
                         "B_opt" => "ADAM",
@@ -80,7 +80,7 @@ function RL.Experiment(
     CREATE MODEL
     """
     # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 

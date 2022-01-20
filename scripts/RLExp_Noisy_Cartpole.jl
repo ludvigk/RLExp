@@ -29,7 +29,7 @@ function RL.Experiment(
                     config = Dict(
                        "B_lr" => 1e-4,
                        "Q_lr" => 1.0,
-                       "B_clip_norm" => 1.0,
+                       "B_clip_norm" => 1000.0,
                        "B_update_freq" => 1,
                        "Q_update_freq" => 1000,
                        "B_opt" => "ADAM",
@@ -70,7 +70,7 @@ function RL.Experiment(
    CREATE MODEL
    """
    # init = glorot_uniform(rng)
-   init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
@@ -93,7 +93,7 @@ function RL.Experiment(
                         ),
                     optimizer = ADAM(1e-4),
                 ) |> gpu,
-                loss_func = huber_loss,
+                loss_func = mse,
                 stack_size = nothing,
                 batch_size = 32,
                 update_horizon = 1,
@@ -136,9 +136,14 @@ function RL.Experiment(
             @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
             try
                 with_logger(lg) do
+                    last_layer = agent.policy.learner.approximator.model[end].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
+                    sul = sum(abs.(last_layer)) / length(last_layer)
+                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = step_per_episode.steps[end]
                     @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
                     @info "training" episode = t log_step_increment = 0
+                    @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
                 end
             catch
                 close(lg)

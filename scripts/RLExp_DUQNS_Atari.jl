@@ -89,7 +89,7 @@ function RL.Experiment(
     CREATE MODEL
     """
     initc = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
+    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
     # init_σ(dims...) = fill(0.005f0, dims)
     init_σ(dims...) = fill(0.1f0 / Float32(sqrt(dims[end])), dims)
 
@@ -100,15 +100,10 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = initc),
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
+            NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
             Split(
-                Chain(
-                    NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
-                    NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                ),
-                Chain(
-                    Dense(11 * 11 * 64, 512, relu),
-                    Dense(512, N_ACTIONS),
-                ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
+                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
             ),
         ) |> gpu
 
