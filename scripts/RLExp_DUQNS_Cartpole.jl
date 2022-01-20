@@ -191,8 +191,8 @@ function RL.Experiment(
                     B_var, QA = p["B_var"], p["QA"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
 
-                    last_layer = agent.policy.learner.approximator.model[end].paths[1].w_ρ
-                    penultimate_layer = agent.policy.learner.approximator.model[end].paths[1][end-1].w_ρ
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
+                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
@@ -232,7 +232,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(20_000, is_show_progress=true)
+    stop_condition = StopAfterStep(30_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
