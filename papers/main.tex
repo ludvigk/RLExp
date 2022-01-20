@@ -428,15 +428,17 @@ have full support in \(\state \times \action\).
         \State \(\mathbf{b} \gets \{b_i \sim q_\omega \mid i=1,\dots,k\}\)
         \State \(\mathcal{F} \gets \emptyset\)
         \State \(\Delta_\mathcal{L} \gets 0\)
+        \State \(S \gets 0\)
         \For{\(\{s,a,r,s'\} \in T\)}
             \State \(\bm{q} \gets \max_a \f(s,a)\)
             \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
             \State \(\bm{G} \gets \{r + \gamma b_i(s,a) \mid i = 1, 
         \dots, k\}\)
-            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert T \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
+            \State \(S \gets S + \frac{1}{k}p(\bm{q} \vert s, a)\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert k \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
         \EndFor
-        \State \(\Delta_\KL \gets SSGE(p, \mathcal{F})\)
-        \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \lambda \Delta_\KL)\)
+        \State \(\Delta_\KL \gets S - SSGE(\mathcal{F})\)
+        \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \Delta_\KL)\)
         \State \(\omega \gets \omega + \eta_\omega (\omega - \phi)\)
     \EndFunction
 \end{algorithmic}

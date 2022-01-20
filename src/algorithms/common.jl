@@ -81,7 +81,7 @@ end
 #     end
 #     noisy_x = x .* ϵ_2
 #     noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
-#     σ² = softplus.(l.w_ρ) * noisy_x .+ softplus.(l.b_ρ)
+#     σ² = l.w_ρ * noisy_x .+ l.b_ρ
 
 #     σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
 

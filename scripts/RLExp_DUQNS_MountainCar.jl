@@ -86,14 +86,19 @@ function RL.Experiment(
 
 
     B_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
                 NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                Dense(128, na),
-        ),
+            ),
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+        )
     ) |> gpu
-
     # B_model = Chain(
     #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
     #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
@@ -104,12 +109,18 @@ function RL.Experiment(
     # ) |> gpu
 
     Q_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
         Split(
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
                 NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                Dense(128, na),
-        ),
+            ),
+            Chain(
+                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            ),
+        )
     ) |> gpu
 
     # Q_model = Chain(
@@ -175,12 +186,14 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-                    sul = p["sigma_ultimate_layer"]
-                    spl = p["sigma_penultimate_layer"]
-                    
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
                     B_var, QA = p["B_var"], p["QA"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                    
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
+                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
+                    sul = sum(abs.(last_layer)) / length(last_layer)
+                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
                 end
             catch
@@ -198,7 +211,7 @@ function RL.Experiment(
             s = @elapsed run(
                 p,
                 MountainCarEnv(; T = Float32),
-                StopAfterEpisode(100; is_show_progress = false),
+                StopAfterEpisode(10; is_show_progress = false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])
@@ -208,6 +221,15 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
+            end
+        end,
+        DoEveryNEpisode() do t, agent, env
+            try
+                with_logger(lg) do
                     @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
                     @info "training" episode = t log_step_increment = 0
                 end

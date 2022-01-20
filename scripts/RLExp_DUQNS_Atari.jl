@@ -42,9 +42,9 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-4,
                         "Q_lr" => 1,
-                        "B_clip_norm" => 40.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 1_000,
+                        "B_clip_norm" => 1000,
+                        "B_update_freq" => 4,
+                        "Q_update_freq" => 40_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99,
                         "update_horizon" => 1,
@@ -58,7 +58,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 20,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 100_000,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
@@ -91,8 +91,7 @@ function RL.Experiment(
     """
     initc = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
-    # init_σ(dims...) = fill(0.005f0, dims)
-    init_σ(dims...) = fill(0.1f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
     if restore === nothing
         B_model = Chain(
@@ -269,7 +268,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(1_000_000, is_show_progress=true)
+    stop_condition = StopAfterStep(50_000_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
