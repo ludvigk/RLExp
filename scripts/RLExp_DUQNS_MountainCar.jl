@@ -50,12 +50,12 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "FlatPrior()",
+                        "prior" => "MountainCarPrior()",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000_000,
+                        "traj_capacity" => 10_000,
                         "seed" => 1,
                      ),
     )
@@ -213,7 +213,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(30_000, is_show_progress=true)
+    stop_condition = StopAfterStep(300_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

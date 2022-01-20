@@ -174,16 +174,16 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     gs = gradient(params(B)) do
         b_all, s_all = B(s, n_samples, rng = rng_B) ## SLOW
         b = b_all[a, :]
-        s = s_all[a, :]
+        ss = s_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(s .+ (b .- G) .^ 2 .* exp.(-s))
+        𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
         𝐿 /= n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
 
         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-        H = learner.prior(s, b_rand) ./ (n_samples * batch_size)
+        H = learner.prior(s, b_all) ./ (n_samples * batch_size)
 
         KL = H - S
 
@@ -191,11 +191,17 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
             learner.logging_params["KL"] = KL
             learner.logging_params["H"] = H
             learner.logging_params["S"] = S
+            learner.logging_params["s"] = mean(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Q"] = mean(B̂)
             learner.logging_params["Qₜ"] = mean(G)
             learner.logging_params["B_var"] = mean(var(b, dims=ndims(b)))
             learner.logging_params["QA"] = mean(getindex.(a, 1))
+
+            last_layer = b.model[end].paths[end]
+            penultimate_layer = b.model[end].paths[end-1]
+            learner.logging_params["sigma_ultimate_layer"] = sum(abs.(last_layer)) / length(last_layer)
+            learner.logging_params["sigma_penultimate_layer"] = sum(abs.(penultimate_layer)) / length(last_layer)
         end
 
         return 𝐿 + λ * KL / batch_size

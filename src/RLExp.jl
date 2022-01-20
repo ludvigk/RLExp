@@ -5,9 +5,10 @@ export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage
 export get_screen
-export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior
+export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior
 export DUQNSLearner
 export stop, CenteredRMSProp
+export MountainCarPrior
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -27,6 +28,7 @@ using Zygote
 
 include("utils/hooks.jl")
 include("utils/atari.jl")
+include("utils/priors.jl")
 include("utils/utils.jl")
 include("algorithms/common.jl")
 include("algorithms/BDQN.jl")

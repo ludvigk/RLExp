@@ -1,4 +1,5 @@
-export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior
+export DUQNLearner
+
 import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
@@ -9,22 +10,6 @@ import Statistics.mean
 Statistics.mean(a::CuArray) = sum(a) / length(a)
 Statistics.mean(a::CuArray, dims) = sum(a, dims) / prod(size(a, dims))
 
-
-abstract type AbstractPrior end
-
-struct FlatPrior <: AbstractPrior end
-(p::FlatPrior)(s::AbstractArray, t::AbstractArray) = zero(eltype(t))
-
-struct GeneralPrior{F} <: AbstractPrior
-    f::F
-end
-(p::GeneralPrior)(s::AbstractArray, t::AbstractArray) = p.f(s, t)
-
-struct GaussianPrior <: AbstractPrior
-    μ
-    σ
-end
-(p::GaussianPrior)(_, t::AbstractArray) = sum((t .- p.μ) .^ 2 ./ (2p.σ .^ 2))
 
 abstract type AbstractMeasure end
 
