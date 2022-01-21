@@ -28,6 +28,7 @@ using Zygote
 
 include("utils/hooks.jl")
 include("utils/atari.jl")
+include("utils/acrobot.jl")
 include("utils/priors.jl")
 include("utils/utils.jl")
 include("algorithms/common.jl")
