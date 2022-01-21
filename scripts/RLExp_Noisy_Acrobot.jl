@@ -18,7 +18,7 @@ using Wandb
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:Noisy},
-    ::Val{:Cartpole},
+    ::Val{:Acrobot},
     name,
     restore=nothing,
    )
@@ -27,9 +27,9 @@ function RL.Experiment(
    SET UP LOGGING
    """
    lg = WandbLogger(project = "RLExp",
-                    name="Noisy_CartPole",
+                    name="Noisy_Acrobot",
                     config = Dict(
-                       "B_lr" => 1e-4,
+                       "B_lr" => 1e-3,
                        "Q_lr" => 1.0,
                        "B_clip_norm" => 1000.0,
                        "B_update_freq" => 1,
@@ -38,7 +38,7 @@ function RL.Experiment(
                        "gamma" => 0.99,
                        "update_horizon" => 1,
                        "batch_size" => 32,
-                       "min_replay_history" => 32,
+                       "min_replay_history" => 10_000,
                        "updates_per_step" => 1,
                        "λ" => 1.0,
                        # "prior" => "GaussianPrior(0, 10)",
@@ -51,7 +51,7 @@ function RL.Experiment(
                        "seed" => 1,
                     ),
    )
-   save_dir = datadir("sims", "Noisy", "CartPole", "$(now())")
+   save_dir = datadir("sims", "Noisy", "Acrobot", "$(now())")
 
    """
    SEEDS
@@ -65,7 +65,7 @@ function RL.Experiment(
    """
    SET UP ENVIRONMENT
    """
-   env = CartPoleEnv(; T = Float32, rng = rng)
+   env = AcrobotEnv(; T = Float32, rng = rng)
    ns, na = length(state(env)), length(action_space(env))
 
    """
@@ -128,7 +128,7 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                CartPoleEnv(; T = Float32),
+                AcrobotEnv(; T = Float32),
                 StopAfterEpisode(100; is_show_progress = false),
                 h,
             )
@@ -160,5 +160,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# Noisy <-> CartPole")
+    Experiment(agent, env, stop_condition, hook, "# Noisy <-> Acrobot")
 end

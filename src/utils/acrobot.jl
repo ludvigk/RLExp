@@ -1,3 +1,7 @@
+export AcrobotEnv
+using ReinforcementLearning.RLEnvs: AcrobotEnv
+using OrdinaryDiffEq
+
 """
 AcrobotEnv(;kwargs...)
 # Keyword arguments

@@ -30,6 +30,7 @@ function RL.Experiment(
     ::Val{:DUQNS},
     ::Val{:Cartpole},
     name,
+    restore=nothing,
    )
 
     """

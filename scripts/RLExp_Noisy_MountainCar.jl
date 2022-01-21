@@ -20,6 +20,7 @@ function RL.Experiment(
     ::Val{:Noisy},
     ::Val{:MountainCar},
     name,
+    restore=nothing,
    )
 
    """

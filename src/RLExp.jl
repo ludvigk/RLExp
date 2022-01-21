@@ -9,6 +9,7 @@ export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior
 export DUQNSLearner
 export stop, CenteredRMSProp
 export MountainCarPrior
+export AcrobotEnv
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight

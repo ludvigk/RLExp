@@ -30,6 +30,7 @@ function RL.Experiment(
     ::Val{:DUQNS},
     ::Val{:Acrobot},
     name,
+    restore=nothing,
    )
 
     """

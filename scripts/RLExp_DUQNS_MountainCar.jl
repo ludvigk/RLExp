@@ -30,6 +30,7 @@ function RL.Experiment(
     ::Val{:DUQNS},
     ::Val{:MountainCar},
     name,
+    restore=nothing,
    )
 
     """
@@ -57,7 +58,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000_000,
+                        "traj_capacity" => 200_000,
                         "seed" => 1,
                      ),
     )
