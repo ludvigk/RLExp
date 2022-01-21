@@ -28,6 +28,7 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{bm}
+\usepackage{subcaption}
 
 %% Provided macros
 % \smaller: Because the class footnote size is essentially LaTeX's \small,
@@ -49,7 +50,7 @@
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
 
-\title{Scalable and Parameter-Free Exploration in Deep Reinforcement Learning}
+\title{Parameter-Free Exploration in Deep Reinforcement Learning}
 
 % The standard author block has changed for UAI 2021 to provide
 % more space for long author lists and allow for complex affiliations
@@ -332,7 +333,7 @@ networks~\citep{sun_functional_2019} that allows the following:
 % \(q_\phi\) comes from the true Q-value function.
 
 We would like to approximate the posterior distribution of the Q-value function.
-\citet{osband_why_2017} proove that in finite horizon MDPs posterior sampling for
+\citet{osband_why_2017} prove that in finite horizon MDPs posterior sampling for
 reinforcement learning has at least a near-optimal regret bound. They further conjecture
 that this cound can be further improved to show an optimal regret bound. Additionally,
 a posterior sampling based reinfrocement learning algorithm could be made to utilize
@@ -430,12 +431,12 @@ have full support in \(\state \times \action\).
         \State \(\Delta_\mathcal{L} \gets 0\)
         \State \(S \gets 0\)
         \For{\(\{s,a,r,s'\} \in T\)}
-            \State \(\bm{q} \gets \max_a \f(s,a)\)
+            \State \(\bm{q_\mu}, \bm{q_\sigma} \gets \max_a \f(s,a)\)
             \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
             \State \(\bm{G} \gets \{r + \gamma b_i(s,a) \mid i = 1, 
         \dots, k\}\)
             \State \(S \gets S + \frac{1}{k}p(\bm{q} \vert s, a)\)
-            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert k \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert k \rvert} \nabla_\phi \log p(\bm{q_\mu} \vert \bm{G}, \bm{q_\sigma})\)
         \EndFor
         \State \(\Delta_\KL \gets S - SSGE(\mathcal{F})\)
         \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \Delta_\KL)\)
@@ -454,7 +455,23 @@ We hypothesize that the added KL-term will push the algorithm to keep exploring 
 state-action pairs more than NoisyNet, thus 
 
 \begin{figure}
-    \includegraphics[width=\columnwidth]{Example_Figure_1}
+    \centering
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/Cartpole_score}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/MountainCar_score}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/Cartpole_score}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/MountainCar_score}
+    \end{subfigure}
     \caption{Example figure 1}
     \label{fig:fig_1}
 \end{figure}
@@ -469,6 +486,15 @@ knowledge to improve sample efficiency.
 % \textcolor{red}{Discuss how to go from policy prior to Q-value prior.}
 
 \begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{example-image}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{example-image}
+    \end{subfigure}
     \includegraphics[width=\columnwidth]{example-image}
     \caption{Performance on the CartPole-v1 environment.}
 \end{figure}

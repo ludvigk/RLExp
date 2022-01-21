@@ -16,14 +16,15 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 @everywhere using DrWatson
 @everywhere @quickactivate :RLExp
 # include("RLExp_DUQN_Atari.jl")
-include("RLExp_DUQNS_Atari.jl")
+# include("RLExp_DUQNS_Atari.jl")
+include("RLExp_Noisy_Atari.jl")
 # include("RLExp_GDQN_Atari.jl")
 # include("Dopamine_DQN_Atari.jl")
 # include("RLExp_NDQN_Atari.jl")
 
 # games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
-experiments = [E`RLExp_DUQNS_Atari(pong)`]
+experiments = [E`RLExp_Noisy_Atari(pong)`]
 # experiments = [E`Dopamine_DQN_Atari(pong)`]
 
 # pmap(run, experiments)
