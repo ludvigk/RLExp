@@ -1,4 +1,5 @@
 using Base.Iterators: tail
+using BSON: @load, @save
 using CUDA
 using Dates: now
 using Distributions: Uniform, Product
@@ -76,103 +77,107 @@ function RL.Experiment(
     env = CartPoleEnv(; T = Float32, rng = rng)
     ns, na = length(state(env)), length(action_space(env))
 
-    """
-    CREATE MODEL
-    """
-    # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
-    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+    if restore === nothing
+        """
+        CREATE MODEL
+        """
+        # init = glorot_uniform(rng)
+        init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
-    B_model = Chain(
-        Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
+        B_model = Chain(
+            Split(
+                Chain(
+                    NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
+                ),
+                Chain(
+                    NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
+                ),
+            )
+        ) |> gpu
+
+        # B_model = Chain(
+        #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        #     Split(
+        #         Dense(128, na),
+        #         Dense(128, na),
+        #     ),
+        # ) |> gpu
+
+        Q_model = Chain(
+            Split(
+                Chain(
+                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                ),
+                Chain(
+                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                ),
+            )
+        ) |> gpu
+
+        # Q_model = Chain(
+        #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        #     Split(
+        #         Dense(128, na),
+        #         Dense(128, na),
+        #     ),
+        # ) |> gpu
+
+        Flux.loadparams!(Q_model, Flux.params(B_model))
+
+
+        """
+        CREATE AGENT
+        """
+        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+        prior = eval(Meta.parse(get_config(lg, "prior")))
+
+        agent = Agent(
+            policy = QBasedPolicy(
+                learner = DUQNSLearner(
+                    B_approximator = NeuralNetworkApproximator(
+                        model = B_model,
+                        optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
+                    ),
+                    Q_approximator = NeuralNetworkApproximator(
+                        model = Q_model,
+                    ),
+                    Q_lr = get_config(lg, "Q_lr"),
+                    γ = get_config(lg, "gamma"),
+                    update_horizon = get_config(lg, "update_horizon"),
+                    batch_size = get_config(lg, "batch_size"),
+                    min_replay_history = get_config(lg, "min_replay_history"),
+                    B_update_freq = get_config(lg, "B_update_freq"),
+                    Q_update_freq = get_config(lg, "Q_update_freq"),
+                    updates_per_step = get_config(lg, "updates_per_step"),
+                    λ = get_config(lg, "λ"),
+                    n_samples = get_config(lg, "n_samples"),
+                    η = get_config(lg, "η"),
+                    nev = get_config(lg, "nev"),
+                    is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
+                    prior = prior,
+                ),
+                explorer = GreedyExplorer(),
             ),
-            Chain(
-                NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
+            trajectory = CircularArraySARTTrajectory(
+                capacity = get_config(lg, "traj_capacity"),
+                state = Vector{Float32} => ns,
             ),
         )
-    ) |> gpu
-
-    # B_model = Chain(
-    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-    #     Split(
-    #         Dense(128, na),
-    #         Dense(128, na),
-    #     ),
-    # ) |> gpu
-
-    Q_model = Chain(
-        Split(
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
-            Chain(
-                NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            ),
-        )
-    ) |> gpu
-
-    # Q_model = Chain(
-    #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-    #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-    #     Split(
-    #         Dense(128, na),
-    #         Dense(128, na),
-    #     ),
-    # ) |> gpu
-
-    Flux.loadparams!(Q_model, Flux.params(B_model))
-
-
-    """
-    CREATE AGENT
-    """
-    B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-    prior = eval(Meta.parse(get_config(lg, "prior")))
-
-    agent = Agent(
-        policy = QBasedPolicy(
-            learner = DUQNSLearner(
-                B_approximator = NeuralNetworkApproximator(
-                    model = B_model,
-                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
-                ),
-                Q_approximator = NeuralNetworkApproximator(
-                    model = Q_model,
-                ),
-                Q_lr = get_config(lg, "Q_lr"),
-                γ = get_config(lg, "gamma"),
-                update_horizon = get_config(lg, "update_horizon"),
-                batch_size = get_config(lg, "batch_size"),
-                min_replay_history = get_config(lg, "min_replay_history"),
-                B_update_freq = get_config(lg, "B_update_freq"),
-                Q_update_freq = get_config(lg, "Q_update_freq"),
-                updates_per_step = get_config(lg, "updates_per_step"),
-                λ = get_config(lg, "λ"),
-                n_samples = get_config(lg, "n_samples"),
-                η = get_config(lg, "η"),
-                nev = get_config(lg, "nev"),
-                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
-                prior = prior,
-            ),
-            explorer = GreedyExplorer(),
-        ),
-        trajectory = CircularArraySARTTrajectory(
-            capacity = get_config(lg, "traj_capacity"),
-            state = Vector{Float32} => ns,
-        ),
-    )
+    else
+        @load restore agent
+    end
 
     """
     SET UP HOOKS
@@ -229,6 +234,10 @@ function RL.Experiment(
                 close(lg)
                 stop("Program most likely terminated through WandB interface.")
             end
+        end,
+        DoEveryNEpisode(n = 100) do t, agent, env
+            @info "Saving agent at step $t to $save_dir"
+            @save save_dir agent
         end,
         CloseLogger(lg),
     )

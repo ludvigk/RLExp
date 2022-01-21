@@ -66,62 +66,62 @@ function make_noise_sqrt(rng, μ, dims...)
     return sign.(noise) .* sqrt.(abs.(noise))
 end
 
-# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
-#     rng = rng === nothing ? l.rng : rng
-#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-#     tmp_x = reshape(x, size(x, 1), :)
-#     μ = l.w_μ * tmp_x .+ l.b_μ
-
-#     if num_samples === nothing
-#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1)
-#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1)
-#     else
-#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1, num_samples)
-#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1, num_samples)
-#     end
-#     noisy_x = x .* ϵ_2
-#     noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
-#     σ² = l.w_ρ * noisy_x .+ l.b_ρ
-
-#     σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
-
-#     μ = reshape(μ, size(μ, 1), size(x, 2), :)
-#     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-#     return y = l.f.(μ .+ σ²)
-# end
-
-
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    # μ = l.w_μ * tmp_x .+ l.b_μ
-    wσ² = l.w_ρ
-    bσ² = l.b_ρ
+    tmp_x = reshape(x, size(x, 1), :)
+    μ = l.w_μ * tmp_x .+ l.b_μ
 
     if num_samples === nothing
-        tmp_x = reshape(x, size(x, 1), :)
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 2), 1)
-        wϵ = ϵ_1 * ϵ_2'
-        # wϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
-        # bϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1))
-        bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1)
-
-        w = l.w_μ .+ wϵ .* wσ²
-        b = l.b_μ .+ bϵ .* bσ²
-        return y = l.f.(w * tmp_x .+ b)
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1)
+        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1)
     else
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, 1, size(l.w_μ, 2), num_samples)
-        wϵ = ϵ_1 .* ϵ_2
-        bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1, num_samples)
-
-        w = l.w_μ .+ wϵ .* wσ²
-        b = l.b_μ .+ bϵ .* bσ²
-        y = l.f.(batched_mul(w, x) .+ b)
-        return y
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1, num_samples)
+        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1, num_samples)
     end
+    noisy_x = x .* ϵ_2
+    noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
+    σ² = l.w_ρ * noisy_x .+ l.b_ρ
+
+    σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
+
+    μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    return y = l.f.(μ .+ σ²)
 end
+
+
+# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
+#     rng = rng === nothing ? l.rng : rng
+#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+#     # μ = l.w_μ * tmp_x .+ l.b_μ
+#     wσ² = l.w_ρ
+#     bσ² = l.b_ρ
+
+#     if num_samples === nothing
+#         tmp_x = reshape(x, size(x, 1), :)
+#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
+#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 2), 1)
+#         wϵ = ϵ_1 * ϵ_2'
+#         # wϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
+#         # bϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1))
+#         bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1)
+
+#         w = l.w_μ .+ wϵ .* wσ²
+#         b = l.b_μ .+ bϵ .* bσ²
+#         return y = l.f.(w * tmp_x .+ b)
+#     else
+#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
+#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, 1, size(l.w_μ, 2), num_samples)
+#         wϵ = ϵ_1 .* ϵ_2
+#         bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1, num_samples)
+
+#         w = l.w_μ .+ wϵ .* wσ²
+#         b = l.b_μ .+ bϵ .* bσ²
+#         y = l.f.(batched_mul(w, x) .+ b)
+#         return y
+#     end
+# end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F

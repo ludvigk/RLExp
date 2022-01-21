@@ -1,4 +1,5 @@
 using Base.Iterators: tail
+using BSON: @load, @save
 using CUDA
 using Dates: now
 using Distributions: Uniform, Product
