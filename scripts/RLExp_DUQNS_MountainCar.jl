@@ -63,6 +63,7 @@ function RL.Experiment(
                      ),
     )
     save_dir = datadir("sims", "DUQNS", "MountainCar", "$(now())")
+    mkpath(save_dir)
 
     """
     SEEDS
@@ -203,7 +204,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n = 100) do t, agent, env
+        DoEveryNEpisode(n = 50) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -213,7 +214,7 @@ function RL.Experiment(
             s = @elapsed run(
                 p,
                 MountainCarEnv(; T = Float32),
-                StopAfterEpisode(10; is_show_progress = false),
+                StopAfterEpisode(30; is_show_progress = false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])

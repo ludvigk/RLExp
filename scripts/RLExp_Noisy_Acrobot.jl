@@ -38,7 +38,7 @@ function RL.Experiment(
                        "gamma" => 0.99,
                        "update_horizon" => 1,
                        "batch_size" => 32,
-                       "min_replay_history" => 10_000,
+                       "min_replay_history" => 32,
                        "updates_per_step" => 1,
                        "λ" => 1.0,
                        # "prior" => "GaussianPrior(0, 10)",
@@ -47,11 +47,12 @@ function RL.Experiment(
                        "η" => 0.01,
                        "nev" => 10,
                        "is_enable_double_DQN" => true,
-                       "traj_capacity" => 1_000_000,
+                       "traj_capacity" => 200_000,
                        "seed" => 1,
                     ),
    )
    save_dir = datadir("sims", "Noisy", "Acrobot", "$(now())")
+   mkpath(save_dir)
 
    """
    SEEDS

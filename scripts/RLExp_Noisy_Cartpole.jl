@@ -23,57 +23,58 @@ function RL.Experiment(
     restore=nothing,
    )
 
-   """
-   SET UP LOGGING
-   """
-   lg = WandbLogger(project = "RLExp",
+    """
+    SET UP LOGGING
+    """
+    lg = WandbLogger(project = "RLExp",
                     name="Noisy_CartPole",
                     config = Dict(
-                       "B_lr" => 1e-4,
-                       "Q_lr" => 1.0,
-                       "B_clip_norm" => 1000.0,
-                       "B_update_freq" => 1,
-                       "Q_update_freq" => 1000,
-                       "B_opt" => "ADAM",
-                       "gamma" => 0.99,
-                       "update_horizon" => 1,
-                       "batch_size" => 32,
-                       "min_replay_history" => 32,
-                       "updates_per_step" => 1,
-                       "λ" => 1.0,
-                       # "prior" => "GaussianPrior(0, 10)",
-                       "prior" => "FlatPrior()",
-                       "n_samples" => 100,
-                       "η" => 0.01,
-                       "nev" => 10,
-                       "is_enable_double_DQN" => true,
-                       "traj_capacity" => 1_000_000,
-                       "seed" => 1,
+                        "B_lr" => 1e-4,
+                        "Q_lr" => 1.0,
+                        "B_clip_norm" => 1000.0,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 1000,
+                        "B_opt" => "ADAM",
+                        "gamma" => 0.99,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 32,
+                        "updates_per_step" => 1,
+                        "λ" => 1.0,
+                        # "prior" => "GaussianPrior(0, 10)",
+                        "prior" => "FlatPrior()",
+                        "n_samples" => 100,
+                        "η" => 0.01,
+                        "nev" => 10,
+                        "is_enable_double_DQN" => true,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => 1,
                     ),
-   )
-   save_dir = datadir("sims", "Noisy", "CartPole", "$(now())")
+    )
+    save_dir = datadir("sims", "Noisy", "CartPole", "$(now())")
+    mkpath(save_dir)
 
-   """
-   SEEDS
-   """
-   seed = get_config(lg, "seed")
-   rng = MersenneTwister()
-   Random.seed!(rng, seed)
-   device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
-   Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
+    """
+    SEEDS
+    """
+    seed = get_config(lg, "seed")
+    rng = MersenneTwister()
+    Random.seed!(rng, seed)
+    device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
+    Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
 
-   """
-   SET UP ENVIRONMENT
-   """
-   env = CartPoleEnv(; T = Float32, rng = rng)
-   ns, na = length(state(env)), length(action_space(env))
+    """
+    SET UP ENVIRONMENT
+    """
+    env = CartPoleEnv(; T = Float32, rng = rng)
+    ns, na = length(state(env)), length(action_space(env))
 
-   """
-   CREATE MODEL
-   """
-   # init = glorot_uniform(rng)
+    """
+    CREATE MODEL
+    """
+    # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
-   init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     agent = Agent(

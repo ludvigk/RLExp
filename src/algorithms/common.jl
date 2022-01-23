@@ -68,8 +68,8 @@ end
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    tmp_x = reshape(x, size(x, 1), :)
-    μ = l.w_μ * tmp_x .+ l.b_μ
+    # tmp_x = reshape(x, size(x, 1), :)
+    μ = batched_mul(l.w_μ, x) .+ l.b_μ
 
     if num_samples === nothing
         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1)
@@ -79,13 +79,13 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1, num_samples)
     end
     noisy_x = x .* ϵ_2
-    noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
-    σ² = l.w_ρ * noisy_x .+ l.b_ρ
+    # noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
+    σ² = (batched_mul(l.w_ρ, noisy_x) .+ l.b_ρ) .* ϵ_1
 
-    σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
+    # σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
 
-    μ = reshape(μ, size(μ, 1), size(x, 2), :)
-    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    # μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    # σ² = reshape(σ², size(μ, 1), size(x, 2), :)
     return y = l.f.(μ .+ σ²)
 end
 

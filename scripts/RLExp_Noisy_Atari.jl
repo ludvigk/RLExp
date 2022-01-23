@@ -63,6 +63,7 @@ function RL.Experiment(
                      ),
     )
     save_dir = datadir("sims", "Noisy", "Atari($name)", "$(now())")
+    mkpath(save_dir)
 
     """
     SEEDS

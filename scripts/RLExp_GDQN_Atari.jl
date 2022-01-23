@@ -38,6 +38,7 @@ function RL.Experiment(
     simulation = @ntuple name lr bz tuf seed
     lg = WandbLogger(project = "RLExp", name="GDQN_" * savename(simulation))
     save_dir = datadir("sim", "GDQN", savename(simulation, "jld2"))
+    mkpath(save_dir)
 
     """
     SET UP ENVIRONMENT

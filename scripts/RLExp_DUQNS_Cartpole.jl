@@ -62,6 +62,7 @@ function RL.Experiment(
                      ),
     )
     save_dir = datadir("sims", "DUQNS", "CartPole", "$(now())")
+    mkpath(save_dir)
 
     """
     SEEDS
@@ -238,7 +239,7 @@ function RL.Experiment(
         end,
         DoEveryNEpisode(n = 100) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save save_dir agent
+            @save (save_dir * "/model_t.bson") agent
         end,
         CloseLogger(lg),
     )
