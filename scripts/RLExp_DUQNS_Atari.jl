@@ -1,5 +1,6 @@
 using Base.Iterators: tail
-using BSON: @load, @save
+# using BSON: @load, @save
+using JLD2
 using Conda
 using CUDA
 using Dates: now
@@ -163,7 +164,8 @@ function RL.Experiment(
             ),
         )
     else
-        @load restore agent
+        agent = load(restore; agent)
+        # @load restore agent
     end
 
     """
@@ -210,7 +212,8 @@ function RL.Experiment(
         end,
         DoEveryNStep(;n=EVALUATION_FREQ) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save (save_dir * "/latest.bson") agent
+            jldsave(save_dir * "/model_latest.jld2"; agent)
+            # @save (save_dir * "/latest.") agent
             @info "evaluating agent at $t step..."
             p = agent.policy
 
