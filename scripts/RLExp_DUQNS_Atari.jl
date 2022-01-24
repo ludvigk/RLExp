@@ -63,6 +63,7 @@ function RL.Experiment(
                      ),
     )
     save_dir = datadir("sims", "DUQNS", "Atari($name)", "$(now())")
+    mkpath(save_dir)
 
     """
     SEEDS
@@ -209,7 +210,7 @@ function RL.Experiment(
         end,
         DoEveryNStep(;n=EVALUATION_FREQ) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save save_dir agent
+            @save (save_dir * "/latest.bson") agent
             @info "evaluating agent at $t step..."
             p = agent.policy
 

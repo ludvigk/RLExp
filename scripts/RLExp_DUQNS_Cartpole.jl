@@ -1,5 +1,6 @@
 using Base.Iterators: tail
-using BSON: @load, @save
+# using BSON: @load, @save
+using JLD2
 using CUDA
 using Dates: now
 using Distributions: Uniform, Product
@@ -178,7 +179,8 @@ function RL.Experiment(
             ),
         )
     else
-        @load restore agent
+        agent = load(restore; agent)
+        # @load restore agent
     end
 
     """
@@ -239,7 +241,7 @@ function RL.Experiment(
         end,
         DoEveryNEpisode(n = 100) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save (save_dir * "/model_t.bson") agent
+            jldsave(save_dir * "/model_$t.jld2"; agent)
         end,
         CloseLogger(lg),
     )
