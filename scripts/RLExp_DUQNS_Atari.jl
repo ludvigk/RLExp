@@ -52,7 +52,7 @@ function RL.Experiment(
                         "batch_size" => 32,
                         "min_replay_history" => 10_000,
                         "updates_per_step" => 1,
-                        "λ" => 1,
+                        "λ" => 1e-6,
                         "prior" => "FlatPrior()",
                     #    "prior" => "GaussianPrior(0, 10)",
                         "n_samples" => 100,

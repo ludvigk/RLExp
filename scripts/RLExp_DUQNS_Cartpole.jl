@@ -41,7 +41,7 @@ function RL.Experiment(
                      name="DUQNS_CartPole",
                      config = Dict(
                         "B_lr" => 1e-4,
-                        "Q_lr" => 1.0,
+                        "Q_lr" => 1,
                         "B_clip_norm" => 1000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1000,
@@ -51,12 +51,13 @@ function RL.Experiment(
                         "batch_size" => 32,
                         "min_replay_history" => 32,
                         "updates_per_step" => 1,
-                        "λ" => 1.0,
+                        "λ" => 1,
                         # "prior" => "GaussianPrior(0, 10)",
                         "prior" => "FlatPrior()",
                         "n_samples" => 100,
-                        "η" => 0.01,
+                        "η" => 0.95,
                         "nev" => 10,
+                        "n_eigen_threshold" => 0.98,
                         "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
@@ -85,7 +86,7 @@ function RL.Experiment(
         CREATE MODEL
         """
         # init = glorot_uniform(rng)
-        init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+        init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
@@ -197,8 +198,8 @@ function RL.Experiment(
                     p = agent.policy.learner.logging_params
 
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    B_var, QA = p["B_var"], p["QA"]
-                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                    B_var, QA, s = p["B_var"], p["QA"], p["s"]
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
 
                     last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ

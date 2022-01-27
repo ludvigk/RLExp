@@ -50,7 +50,7 @@
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
 
-\title{Parameter-Free Exploration in Deep Reinforcement Learning}
+\title{Bayesian Exploration in Deep Reinforcement Learning}
 
 % The standard author block has changed for UAI 2021 to provide
 % more space for long author lists and allow for complex affiliations
@@ -250,14 +250,35 @@ The measurement set \(\X\) is created by concatenating the training points \(\X^
 set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full support
 in the space of interesting test cases. 
 
+The first term is just the expected value of the score function, which is zero.
 The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log q(\f^\X)\)
 and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log q(\f^\X)\) is likely 
 intractable, considering \(q_\phi\) is a neural network with stochastic weights.
 Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
 can be easy to compute analytically. To reduce variance in the gradients we
 define tractable priors in this paper. To estimate the log-density gradient
-\(\nabla_\f \log q(\f^\X)\), they use a spectral Stein gradient estimator
-\citep{shi_spectral_2018}.
+\(\nabla_\f \log q(\f^\X)\), they use the Spectral Stein Gradient Estimator (SSGE)
+\citep{shi_spectral_2018}. In short, this is a method for estimating the gradient
+function of implicit distributions using approximations to eigenfunctions of a 
+kernel based operator. We bring three hyperparameters into the algorithm from this
+method, the number of samples \(k\) from the implicit distribution used to approximate
+the gradient, the number of eigenvectors \(J\) used to approximate the gradient, and
+\(\eta\), a regularization parameter that smooths the gradient function.
+
+The full minimization target for the functional Bayesian neural network becomes
+\begin{multline}
+    {\frac{1}{\lvert \D_s \rvert}} \sum_{()\bm{x}, y) \in D_s} \E_{q_\phi}
+    \left[ p(y \vert f(\bm{x})) \right]\\ - \lambda \KL
+    \left[ q(\f^{\D_s}, \f^\mathbf{M}) \Vert p(\f^{\D_s}, \f^\mathbf{M}) \right].
+\end{multline}
+
+In order for this to match the functional ELBO and be a proper lower bound
+for \(\log p(\D)\), \(\lambda\) should be set as \(\frac{1}{\lvert \D \rvert}\).
+\cite{sun_functional_2019} note, however, that the minimization target is only a lower
+bound for \(\KL \left[ \lvert q(f) \Vert p(f) \right]\), so a larger
+value for \(\lambda\) is likely necessary to prevent overfitting. They use,
+\(\lambda = \frac{1}{\lvert D_s \rvert}\), a value of one over the batch size instead.
+This means that the minimization target becomes a proper lower bound of \(\log p(\D_s)\).
 
 % \section{Background}
 % \citet{fellows_bayesian_2021} defines the Bayesian Bellman operator (BBO) as:
@@ -349,7 +370,7 @@ NoisyNet uses one sample from Q for each optimization step. We will instead use
 encourages stochasticity.
 The maximization target becomes:
 \begin{equation}
-    \log p(\D_\omega^N \vert f) - \KL \left[ q(\f^{\D_\omega^N}, \f^\mathbf{M}) \Vert p(\f^{\D_\omega^N}, \f^\mathbf{M}) \right],
+    \log p(\D_\omega^N \vert f) - \lambda \KL \left[ q(\f^{\D_\omega^N}, \f^\mathbf{M}) \Vert p(\f^{\D_\omega^N}, \f^\mathbf{M}) \right],
 \end{equation}
 where \(\f^{\D_\omega^N}\) is \(f\) applied to the dataset \(\D_\omega^N\), and \(\f^\mathbf{M}\) is \(f\) applied to
 a set of i.i.d. random points \(\mathbf{M} = \{m_i \sim c \mid i=1,\dots,k\} \subseteq \state \times \action\)
@@ -361,7 +382,17 @@ have full support in \(\state \times \action\).
     \mathbf{M} = \{(s_i, a_j) \; \forall s_i \in \D_\omega^N,\, \forall a_j \in \action\}. 
 \end{equation}
 
+To calculate \(\log p(\D_\omega^N \vert f)\) we assume that the observation noise is sampled
+from a Gaussian distribution. We then model the network to produce two output vectors,
+\(\mu\) and \(\rho = \log \sigma\). This gives the following loss function:
 
+\begin{equation}
+    \mathcal{L} = \frac{1}{\lvert \D_s \rvert}\sum_{i=1}^{\lvert \D_s \rvert} \rho_i + \left( \mu_i - q_i \right)^2
+    \exp (-\rho_i) + \lambda \KL[q \Vert p].
+\end{equation}
+
+We take inspiration from \cite{sun_functional_2019} and let \(\lambda\) be one over
+the batch size, \(\frac{1}{\lvert \D_s \rvert}\).
 
 %To justify this we need to show that \(supp(c) = \state \times \action\).
 %Under the same assumption about the distribution of each state \(s_i\) from BBO,
@@ -448,11 +479,39 @@ have full support in \(\state \times \action\).
 \section{Experiments}
 Our method most closely resembles that of NoisyNet~\cite{fortunato_noisy_2019}, so
 all experiments will mainly compare the performance of these two methods.
+
+\subsection{Details and Hyperparameters}
+We compare our method with NoisyNet~\citep{fortunato_noisy_2019} on four different
+environments in the OpenAI Gym~\citep{brockman_openai_2016-2}. The hyperparameters
+are the same as those described in \cite{han_nrowan-dqn_2020}. Our method additionally
+has hyperparameters related to the functional KL-divergence. These are shown in
+Table~\ref{tab:hyperparams}.
+
+\begin{table}
+    \centering
+    \caption{Hyperparameters for LFM.}\label{tab:hyperparams}
+    \begin{tabular}{rl}
+      \toprule % from booktabs package
+      Hyperparameter & Value \\
+      \midrule % from booktabs package
+      \(k\) (number of samples) & 100\\
+      \(J\) (Number of eigenvalues) & 6\\
+      \(\lambda\) & \(\frac{1}{\lvert \mathcal{D}_s \rvert}\)\\
+      \(\eta\) (Regularization coefficient for SSGE) & 0.95\\
+      \bottomrule % from booktabs package
+    \end{tabular}
+\end{table}
+
+
 \subsection{Uninformative Prior}
 First, it is interesting to see how our method will compare to NoisyNet
-in environments without the advantage of prior knowledge.
-We hypothesize that the added KL-term will push the algorithm to keep exploring unexplored
-state-action pairs more than NoisyNet, thus 
+in environments without the advantage of prior knowledge. The training curves
+of our model compared to that of standard NoisyNet-DQN on the four selected OpenAI
+Gym~\citep{brockman_openai_2016} enivornments is shown in Figure~\ref{fig:training_curves}.
+We hypothesize that the added KL-term will push the algorithm keep weight uncertinaty high
+in order to keep a higher uncertainty in the output. While both methods are able to
+find an optimal policy in Cartpole, our method method uses considerably fewer frames
+to do so.
 
 \begin{figure}
     \centering
@@ -466,42 +525,68 @@ state-action pairs more than NoisyNet, thus
     \end{subfigure}
     \begin{subfigure}[b]{0.45\columnwidth}
         \centering
-        \includegraphics[width=\columnwidth]{charts/Cartpole_score}
+        \includegraphics[width=\columnwidth]{example-image}
     \end{subfigure}
     \begin{subfigure}[b]{0.45\columnwidth}
         \centering
-        \includegraphics[width=\columnwidth]{charts/MountainCar_score}
+        \includegraphics[width=\columnwidth]{example-image}
     \end{subfigure}
-    \caption{Example figure 1}
-    \label{fig:fig_1}
+    \caption{Comparison of learning curves of LFM and NoisyNet-DQN on
+    Pong, Cartpole, MountainCar, and Acrobot averaged over 100 episodes.}
+    \label{fig:training_curves}
+\end{figure}
+
+\cite{fortunato_noisy_2019} noted that the learned variance in their weight increased
+in some games despite there existing an optimal deterministic solution, and the loss
+giving no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
+the mean-absolute standard deviation for the penultimate and final layer. It is 
+interesting to see that the standard deviation for NoisyNet continous to decrease
+throughout the training, while LFM decreases faster, but then flattens out earlier.
+This seems to indicate that it has found a policy that 
+
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/penult}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\columnwidth}
+        \centering
+        \includegraphics[width=\columnwidth]{charts/ult}
+    \end{subfigure}
+    \caption{Comparison of mean-absolution standard deviation for NoisyNet and LFM
+    on Cartpole.}
+    \label{fig:mean_std}
 \end{figure}
 
 \subsection{Informative Prior}
 One of the benefits of a functional prior is that we can incorporate domain knowledge to
 get more efficient exploration. We will now look at how our method can utilize domain
-knowledge to improve sample efficiency. 
+knowledge to improve sample efficiency.
 
 % We will use the following method to calculate the prior distribution on the Q-values:
 
 % \textcolor{red}{Discuss how to go from policy prior to Q-value prior.}
 
-\begin{figure}
-    \centering
-    \begin{subfigure}[b]{0.45\columnwidth}
-        \centering
-        \includegraphics[width=\columnwidth]{example-image}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.45\columnwidth}
-        \centering
-        \includegraphics[width=\columnwidth]{example-image}
-    \end{subfigure}
-    \includegraphics[width=\columnwidth]{example-image}
-    \caption{Performance on the CartPole-v1 environment.}
-\end{figure}
+% \begin{figure}
+%     \centering
+%     \begin{subfigure}[b]{0.45\columnwidth}
+%         \centering
+%         \includegraphics[width=\columnwidth]{example-image}
+%     \end{subfigure}
+%     \begin{subfigure}[b]{0.45\columnwidth}
+%         \centering
+%         \includegraphics[width=\columnwidth]{example-image}
+%     \end{subfigure}
+%     \includegraphics[width=\columnwidth]{example-image}
+%     \caption{Performance on the CartPole-v1 environment.}
+% \end{figure}
 
 \section{Discussion}
 
 \section{Conclusion}
+We have developed a method for exploration with a DQN-style algorithm that can
+effectively utilize domain knowledge for faster learning.
 
 
 \begin{acknowledgements} % will be removed in pdf for initial submission,

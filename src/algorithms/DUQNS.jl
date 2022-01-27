@@ -78,7 +78,7 @@ function DUQNSLearner(;
         update_step,
         sampler,
         rng,
-        SpectralSteinEstimator(Float32(η), nev, nothing),
+        SpectralSteinEstimator(Float32(η), nev, 0.99),
         Float32(injected_noise),
         n_samples,
         is_enable_double_DQN,
@@ -177,7 +177,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         ss = s_all[a, :]
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
+        𝐿 = sum(ss ./ 2 .+ (b .- G) .^ 2 .* exp.(-ss))
         𝐿 /= n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
