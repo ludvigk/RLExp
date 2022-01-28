@@ -488,7 +488,7 @@ all experiments will mainly compare the performance of these two methods.
 We compare our method with NoisyNet~\citep{fortunato_noisy_2019} on four different
 environments in the OpenAI Gym~\citep{brockman_openai_2016-2}. The hyperparameters
 are the same as those described in \cite{han_nrowan-dqn_2020}. Our method additionally
-has hyperparameters related to the functional KL-divergence. These are shown in
+has hyperparameters related to the functional KL-divergence. These are reported in
 Table~\ref{tab:hyperparams}.
 
 \begin{table}
@@ -511,9 +511,9 @@ Table~\ref{tab:hyperparams}.
 First, it is interesting to see how our method will compare to NoisyNet
 in environments without the advantage of prior knowledge. The training curves
 of our model compared to that of standard NoisyNet-DQN on the four selected OpenAI
-Gym~\citep{brockman_openai_2016} enivornments is shown in Figure~\ref{fig:training_curves}.
-We hypothesize that the added KL-term will push the algorithm keep weight uncertinaty high
-in order to keep a higher uncertainty in the output. While both methods are able to
+Gym~\citep{brockman_openai_2016} environments is shown in Figure~\ref{fig:training_curves}.
+We hypothesize that the added KL-term will push the algorithm to retain weight uncertainty high
+in order to keep a higher uncertainty in the output. While both methods can
 find an optimal policy in Cartpole, our method uses considerably fewer frames
 to do so.
 
@@ -544,10 +544,10 @@ Future
 
 \cite{fortunato_noisy_2019} noted that the learned variance in their weight increased
 in some games despite there existing an optimal deterministic solution, and the loss
-gives no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
+provides no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
 the mean-absolute standard deviation for the penultimate and final layer. It is 
-interesting to see that the standard deviation for NoisyNet continous to decrease
-throughout the training, while LFM decreases faster, but then flattens out earlier.
+interesting to see that the standard deviation for NoisyNet continues to decrease
+throughout the training while LFM decreases faster, but then flattens out earlier.
 This seems to indicate that it has found a stable policy, where optimizing further would
 be overfitting to noise.
 

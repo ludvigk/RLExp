@@ -114,6 +114,20 @@ function RL.Experiment(
     hook = ComposedHook(
         step_per_episode,
         reward_per_episode,
+        DoEveryNStep() do t, agent, env
+            try
+                with_logger(lg) do
+                    last_layer = agent.policy.learner.approximator.model[end].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
+                    sul = sum(abs.(last_layer)) / length(last_layer)
+                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
+            end
+        end,
         DoEveryNEpisode(n = 50) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
@@ -133,7 +147,7 @@ function RL.Experiment(
             @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
             try
                 with_logger(lg) do
-                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = step_per_episode.steps[end]
+                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
                     @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
                     @info "training" episode = t log_step_increment = 0
                     
