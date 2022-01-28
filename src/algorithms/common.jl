@@ -30,10 +30,10 @@ function NoisyDense(
     rng=Random.GLOBAL_RNG,
 )
     return NoisyDense(
-        init_μ(out, in),
-        init_σ(out, in),
-        zeros(out),
-        init_σ(out),
+        Float32.(init_μ(out, in)),
+        Float32.(init_σ(out, in)),
+        Float32.(zeros(out)),
+        Float32.(init_σ(out)),
         f,
         rng,
     )
@@ -61,7 +61,7 @@ Flux.@functor NoisyDense
 # end
 
 function make_noise_sqrt(rng, μ, dims...)
-    noise = randn!(rng, similar(μ, dims))
+    noise = CUDA.randn(Float32, dims...)
     return sign.(noise) .* sqrt.(abs.(noise))
 end
 
@@ -108,7 +108,8 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
-        return y = l.f.(w * tmp_x .+ b)
+        y = l.f.(w * tmp_x .+ b)
+        return y
     else
         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, 1, size(l.w_μ, 2), num_samples)

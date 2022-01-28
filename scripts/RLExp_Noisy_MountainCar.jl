@@ -66,7 +66,7 @@ function RL.Experiment(
    CREATE MODEL
    """
    # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+   init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
@@ -114,7 +114,7 @@ function RL.Experiment(
     hook = ComposedHook(
         step_per_episode,
         reward_per_episode,
-        DoEveryNEpisode() do t, agent, env
+        DoEveryNEpisode(n = 50) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -124,7 +124,7 @@ function RL.Experiment(
             s = @elapsed run(
                 p,
                 MountainCarEnv(; T = Float32),
-                StopAfterEpisode(100; is_show_progress = false),
+                StopAfterEpisode(30; is_show_progress = false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])
@@ -150,7 +150,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(30_000, is_show_progress=true)
+    stop_condition = StopAfterStep(500_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

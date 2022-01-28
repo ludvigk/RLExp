@@ -84,7 +84,7 @@ function RL.Experiment(
     CREATE MODEL
     """
     # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) ./ Float32(sqrt(b))
+    init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
