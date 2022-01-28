@@ -43,9 +43,9 @@ function RL.Experiment(
                         "Q_lr" => 1.0,
                         "B_clip_norm" => 1000.0,
                         "B_update_freq" => 1,
-                        "Q_update_freq" => 1000,
+                        "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
-                        "gamma" => 0.99,
+                        "gamma" => 0.99f0,
                         "update_horizon" => 1,
                         "batch_size" => 32,
                         "min_replay_history" => 10_000,
@@ -58,7 +58,7 @@ function RL.Experiment(
                         "η" => 0.01,
                         "nev" => 10,
                         "is_enable_double_DQN" => true,
-                        "traj_capacity" => 200_000,
+                        "traj_capacity" => 1_000_000,
                         "seed" => 1,
                      ),
     )
@@ -84,7 +84,7 @@ function RL.Experiment(
     CREATE MODEL
     """
     # init = glorot_uniform(rng)
-    init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+    init(a, b) = (2 .* rand(a, b) .- 1) ./ Float32(sqrt(b))
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 

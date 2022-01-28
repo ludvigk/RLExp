@@ -47,7 +47,7 @@ function RL.Experiment(
                         "B_update_freq" => 4,
                         "Q_update_freq" => 40_000,
                         "B_opt" => "ADAM",
-                        "gamma" => 0.99,
+                        "gamma" => 0.99f0,
                         "update_horizon" => 1,
                         "batch_size" => 32,
                         "min_replay_history" => 10_000,
@@ -93,7 +93,7 @@ function RL.Experiment(
         CREATE MODEL
         """
         initc = glorot_uniform(rng)
-        init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+        init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
         
         B_model = Chain(
@@ -173,7 +173,7 @@ function RL.Experiment(
     """
     EVALUATION_FREQ = 250_000
     STEP_LOG_FREQ = 1_000
-    EPISODE_LOG_FREQ = 100
+    EPISODE_LOG_FREQ = 1
     MAX_EPISODE_STEPS_EVAL = 27_000
 
     screens = []

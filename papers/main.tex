@@ -23,6 +23,7 @@
 \usepackage{mathtools} % amsmath with fixes and additions
 % \usepackage{siunitx} % for proper typesetting of numbers and units
 \usepackage{booktabs} % commands to create good-looking tables
+\usepackage{multicol}
 \usepackage{tikz} % nice language for creating drawings and diagrams
 \usepackage{amssymb}
 \usepackage{algorithm}
@@ -152,7 +153,7 @@ of them. Later NoisyNet was used in the Rainbow
 algorithm~\citep{hessel_rainbow_2017}, a combination of six extensions to the
 DQN algorithms~\citep{fortunato_noisy_2019, bellemare_distributional_2017, wang_dueling_2016,van_hasselt_deep_2015,schaul_prioritized_2016,mnih_asynchronous_2016}, that shows state-of-the-art performance across 57 Atari games.
 
-In this paper we will introduce an extension to NoisyNet that puts it into a Bayesian context. A limitation of NoisyNet is that the initial uncertainty in the Q-value function is crucial to exploration. If the uncertainty is too high, algorithm will struggle to learn anything, while if the uncertainty is too low, there is nothing incentivizing exploration, and the algorithm will likely be stuck in a poor local minimum.
+In this paper, we will introduce an extension to NoisyNet that puts it into a Bayesian context. A limitation of NoisyNet is that the initial uncertainty in the Q-value function is crucial to exploration. If the uncertainty is too high, algorithm will struggle to learn anything, while if the uncertainty is too low, there is nothing incentivizing exploration, and the algorithm will likely be stuck in a poor local minimum.
 
 \section{Background}
 
@@ -206,7 +207,7 @@ this parameterized function as \(g_\phi\), and their sampling distribution as
 \(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). This means that NoisyNet
 gives a new policy function for each noise vector \(\xi\). Although this means
 that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
-out that for the loss function it is optimising, there always exsit a deterministic
+out that for the loss function it is optimising, there always exsists a deterministic
 optimal policy. They show through emipirical analysis, however, that this does not
 mean that the policy necessarily disregards the noise and converges to a deterministic
 policy.
@@ -233,10 +234,10 @@ all finite measurement sets. Let \(P_\X\) be the marginal distribution of functi
 at \(\X \in \mathcal{X}^n\), then:
 
 \begin{equation}
-    \KL[Q \Vert P] = \sup_{n \in \N, \X \in \mathcal{X}^n} \KL \left[ Q_\X \Vert P_\X \right],
+    \KL[A \Vert B] = \sup_{n \in \N, \X \in \mathcal{X}^n} \KL \left[ A_\X \Vert B_\X \right],
 \end{equation}
 
-Now the stochastic processes are a neural network \(q_\phi\) and a prior \(p\). In a similar
+Now the stochastic processes is represented by a neural network \(q_\phi\) and a prior \(p\). In a similar
 manner to NoisyNet, we sample a function \(f\) from \(q\) by sampling a random noise vector
 \(\xi\), and then defining \(f(\bm{x}) = g_\phi(\bm{x}, \xi)\). They further show that the
 gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
@@ -338,6 +339,16 @@ This means that the minimization target becomes a proper lower bound of \(\log p
 % Motivation:
 % * Optimal regret
 % * Meaningful priors
+
+\citet{osband_why_2017} prove that in finite horizon MDPs, posterior sampling for
+reinforcement learning has at least a near-optimal regret bound. They further conjecture
+that this can be improved to show an optimal regret bound. Additionally,
+a posterior sampling-based reinforcement learning algorithm can be made to utilize
+prior information or domain knowledge through an appropriate prior. This should improve
+the policy convergence rate.
+Combined with the computational efficiency of posterior sampling, this motivates the
+development of a Bayesian reinforcement learning algorithm with functional priors.
+
 We will present a method based on functional variational Bayesian neural
 networks~\citep{sun_functional_2019} that allows the following:
 
@@ -347,23 +358,16 @@ networks~\citep{sun_functional_2019} that allows the following:
     \item Avoid hyperparameter optimization
 \end{itemize}
 
+We would like to approximate the posterior distribution of the Q-value function.
+%% BNN useful for both 
+
 % A natural step for finding
 % the optimal sampling distribution \(q_\phi\) is to minimize the KL-divergence
 % between it and the true Q-value function. This is different from the optimization
 % scheme in NoisyNet, which only tries to maximize the likelihood that samples from
 % \(q_\phi\) comes from the true Q-value function.
 
-We would like to approximate the posterior distribution of the Q-value function.
-\citet{osband_why_2017} prove that in finite horizon MDPs posterior sampling for
-reinforcement learning has at least a near-optimal regret bound. They further conjecture
-that this cound can be further improved to show an optimal regret bound. Additionally,
-a posterior sampling based reinfrocement learning algorithm could be made to utilize
-prior information or domain knowledge through an appropriate prior. This should improve
-policy convergence rate.
-Combined with the computational efficiency of posterior sampling, this motivates the
-development of a Bayesian reinforcement learning algorithm with functional priors.
-
-We can use the functional variational bayesian neural
+We can use the functional variational Bayesian neural
 network (FVBNN)~\citep{sun_functional_2019} framework discussed earlier.
 NoisyNet uses one sample from Q for each optimization step. We will instead use
 \(k\) samples from Q. This lets us add the KL-term from FVBNN to the loss function that
@@ -490,14 +494,14 @@ Table~\ref{tab:hyperparams}.
 \begin{table}
     \centering
     \caption{Hyperparameters for LFM.}\label{tab:hyperparams}
-    \begin{tabular}{rl}
+    \begin{tabular}{rll}
       \toprule % from booktabs package
-      Hyperparameter & Value \\
+      \multicolumn{2}{c}{Hyperparameter} & Value \\
       \midrule % from booktabs package
-      \(k\) (number of samples) & 100\\
-      \(J\) (Number of eigenvalues) & 6\\
-      \(\lambda\) & \(\frac{1}{\lvert \mathcal{D}_s \rvert}\)\\
-      \(\eta\) (Regularization coefficient for SSGE) & 0.95\\
+      \(k\)         & Number of function samples & 100\\
+      \(J\)         & Number of eigenvectors & 6\\
+      \(\lambda\)   & KL regularization parameter & \(\frac{1}{\lvert \mathcal{D}_s \rvert}\)\\
+      \(\eta\)      & Regularization coefficient for SSGE & 0.95\\
       \bottomrule % from booktabs package
     \end{tabular}
 \end{table}
@@ -510,8 +514,10 @@ of our model compared to that of standard NoisyNet-DQN on the four selected Open
 Gym~\citep{brockman_openai_2016} enivornments is shown in Figure~\ref{fig:training_curves}.
 We hypothesize that the added KL-term will push the algorithm keep weight uncertinaty high
 in order to keep a higher uncertainty in the output. While both methods are able to
-find an optimal policy in Cartpole, our method method uses considerably fewer frames
+find an optimal policy in Cartpole, our method uses considerably fewer frames
 to do so.
+
+Future 
 
 \begin{figure}
     \centering
@@ -538,11 +544,12 @@ to do so.
 
 \cite{fortunato_noisy_2019} noted that the learned variance in their weight increased
 in some games despite there existing an optimal deterministic solution, and the loss
-giving no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
+gives no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
 the mean-absolute standard deviation for the penultimate and final layer. It is 
 interesting to see that the standard deviation for NoisyNet continous to decrease
 throughout the training, while LFM decreases faster, but then flattens out earlier.
-This seems to indicate that it has found a policy that 
+This seems to indicate that it has found a stable policy, where optimizing further would
+be overfitting to noise.
 
 \begin{figure}
     \centering
@@ -582,11 +589,17 @@ knowledge to improve sample efficiency.
 %     \caption{Performance on the CartPole-v1 environment.}
 % \end{figure}
 
-\section{Discussion}
 
-\section{Conclusion}
-We have developed a method for exploration with a DQN-style algorithm that can
-effectively utilize domain knowledge for faster learning.
+\section{Conclusion and Discussion}
+We have presented a method for exploration with a DQN-style algorithm that can
+effectively utilize domain knowledge for faster learning. Our results show that
+it outperforms standard DQN with NoisyNet exploration with regards to sample efficiency
+on all four selected environments even without prior knowledge.
+
+One interesting avenue for future work is to extend the approach to methods other than
+the standard DQN. A functional Bayesian approach for policy evaluation would permit direct
+prior distribution in policy space rather than in value space, which seems like a
+more intuitive prior in many domains.
 
 
 \begin{acknowledgements} % will be removed in pdf for initial submission,
