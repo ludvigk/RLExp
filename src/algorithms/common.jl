@@ -60,9 +60,10 @@ Flux.@functor NoisyDense
 #     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 # end
 
-function make_noise_sqrt(rng, μ, dims...)
+function make_noise_sqrt(dims...)
     noise = CUDA.randn(Float32, dims...)
-    return sign.(noise) .* sqrt.(abs.(noise))
+    noise .= copysign.(sqrt.(abs.(noise)), noise)
+    return noise
 end
 
 # function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
@@ -93,28 +94,25 @@ end
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-    # μ = l.w_μ * tmp_x .+ l.b_μ
     wσ² = l.w_ρ
     bσ² = l.b_ρ
 
     if num_samples === nothing
         tmp_x = reshape(x, size(x, 1), :)
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, 1, size(l.w_μ, 2))
-        wϵ = ϵ_1 * ϵ_2
-        # wϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
-        # bϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1))
-        bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1)
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1)
+        ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(l.w_μ, 2))
+        wϵ = ϵ_1 .* ϵ_2
+        bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1)
 
-        w = l.w_μ .+ wϵ .* wσ²
-        b = l.b_μ .+ bϵ .* bσ²
-        y = l.f.(w * tmp_x .+ b)
-        return y
+        wϵ .= wϵ .* wσ² .+ l.w_μ
+        bϵ .= bϵ .* bσ² .+ l.b_μ
+
+        return l.f.(wϵ * tmp_x .+ bϵ)
     else
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, x, size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, x, 1, size(l.w_μ, 2), num_samples)
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1)
+        ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(l.w_μ, 2), num_samples)
         wϵ = batched_mul(ϵ_1, ϵ_2)
-        bϵ = Zygote.@ignore make_noise_sqrt(rng, x, size(bσ², 1), 1, num_samples)
+        bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1, num_samples)
 
         w = l.w_μ .+ wϵ .* wσ²
         b = l.b_μ .+ bϵ .* bσ²
