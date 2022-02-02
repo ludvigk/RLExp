@@ -41,7 +41,7 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 1000.0,
+                        "B_clip_norm" => 100000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -50,7 +50,7 @@ function RL.Experiment(
                         "batch_size" => 32,
                         "min_replay_history" => 10_000,
                         "updates_per_step" => 1,
-                        "λ" => 1.0,
+                        "λ" => 0.0,
                         # "prior" => "GaussianPrior(0, 10)",
                         "prior" => "FlatPrior()",
                         # "prior" => "MountainCarPrior()",
@@ -85,7 +85,8 @@ function RL.Experiment(
     """
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
-    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+    # init_σ(dims...) = (2 .* rand(rng, Float32, dims) .- 1) ./ Float32(sqrt(dims[end]))
+    init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
 
 
     B_model = Chain(

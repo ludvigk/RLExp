@@ -203,7 +203,7 @@ mapping \(\state \times \action \rightarrow \mathbb{R}\). To simplify notation
 we will denote sample functions as \(f\). NoisyNet, specifically, is a stochastic
 process parameterized by its weights and their standard deviation. We will define
 this parameterized function as \(g_\phi\), and their sampling distribution as
-\(q_\phi \in \mathcal{Q}\). Given a noise vector \(\xi\), we have
+\(\rho_\phi \in \mathcal{P}\). Given a noise vector \(\xi\), we have
 \(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). This means that NoisyNet
 gives a new policy function for each noise vector \(\xi\). Although this means
 that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
@@ -228,23 +228,23 @@ Functional variational Bayesian neural networks \citep{sun_functional_2019} is
 a variational inference method for neural networks that approximates the 
 posterior distribution in function space. This means that our prior will be a distribution
 over functions, also known as a stochastic process.
-\citet{sun_functional_2019} show that for two stochastic processes \(P\) and \(Q\), the
-KL-divergence from \(Q\) to \(P\) is the supremum of the marginal KL-divergences over
-all finite measurement sets. Let \(P_\X\) be the marginal distribution of function values
+\citet{sun_functional_2019} show that for two stochastic processes \(A\) and \(B\), the
+KL-divergence from \(A\) to \(N\) is the supremum of the marginal KL-divergences over
+all finite measurement sets. Let \(A_\X\) be the marginal distribution of function values
 at \(\X \in \mathcal{X}^n\), then:
 
 \begin{equation}
     \KL[A \Vert B] = \sup_{n \in \N, \X \in \mathcal{X}^n} \KL \left[ A_\X \Vert B_\X \right],
 \end{equation}
 
-Now the stochastic processes is represented by a neural network \(q_\phi\) and a prior \(p\). In a similar
-manner to NoisyNet, we sample a function \(f\) from \(q\) by sampling a random noise vector
+Now the stochastic processes is represented by a neural network \(\rho_\phi\) and a prior \(p\). In a similar
+manner to NoisyNet, we sample a function \(f\) from \(\rho_\phi\) by sampling a random noise vector
 \(\xi\), and then defining \(f(\bm{x}) = g_\phi(\bm{x}, \xi)\). They further show that the
 gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
 
 \begin{multline}\label{eq:fkl}
-    \nabla_\phi \KL[q_\phi(\f^\X) \Vert p(\f^\X)] = \E_q \left[ \nabla_\phi \log q_\phi (\f^\X) \right]\\
-    + \E_\xi \left[ \nabla_\phi \f^\X( \nabla_\f \log q(\f^\X) - \nabla_\f \log p(\f^\X)) \right].
+    \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_\rho \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
+    + \E_\xi \left[ \nabla_\phi \f(\X)( \nabla_\f \log \rho_\phi(\f(\X)) - \nabla_\f \log p(\f(\X))) \right].
 \end{multline}
 
 The measurement set \(\X\) is created by concatenating the training points \(\X^D\) and a
@@ -252,31 +252,31 @@ set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full su
 in the space of interesting test cases. 
 
 The first term is just the expected value of the score function, which is zero.
-The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log q(\f^\X)\)
-and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log q(\f^\X)\) is likely 
-intractable, considering \(q_\phi\) is a neural network with stochastic weights.
+The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log \rho(\f^\X)\)
+and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log \rho(\f^\X)\) is likely 
+intractable, considering \(\rho_\phi\) is a neural network with stochastic weights.
 Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
-can be easy to compute analytically. To reduce variance in the gradients we
+can be easy to compute analytically. To reduce variance in the gradients, we
 define tractable priors in this paper. To estimate the log-density gradient
-\(\nabla_\f \log q(\f^\X)\), they use the Spectral Stein Gradient Estimator (SSGE)
+\(\nabla_\f \log \rho(\f^\X)\), they use the Spectral Stein Gradient Estimator (SSGE)
 \citep{shi_spectral_2018}. In short, this is a method for estimating the gradient
 function of implicit distributions using approximations to eigenfunctions of a 
-kernel based operator. We bring three hyperparameters into the algorithm from this
+kernel-based operator. We bring three hyperparameters into the algorithm from this
 method, the number of samples \(k\) from the implicit distribution used to approximate
 the gradient, the number of eigenvectors \(J\) used to approximate the gradient, and
 \(\eta\), a regularization parameter that smooths the gradient function.
 
 The full minimization target for the functional Bayesian neural network becomes
 \begin{multline}
-    {\frac{1}{\lvert \D_s \rvert}} \sum_{()\bm{x}, y) \in D_s} \E_{q_\phi}
+    {\frac{1}{\lvert \D_s \rvert}} \sum_{(\bm{x}, y) \in D_s} \E_{\rho_\phi}
     \left[ p(y \vert f(\bm{x})) \right]\\ - \lambda \KL
-    \left[ q(\f^{\D_s}, \f^\mathbf{M}) \Vert p(\f^{\D_s}, \f^\mathbf{M}) \right].
+    \left[ \rho_\phi \left(\f(\D_s), \f(\mathbf{M}) \right) \Vert p \left(\f(\D_s), \f(\mathbf{M}) \right) \right].
 \end{multline}
 
 In order for this to match the functional ELBO and be a proper lower bound
 for \(\log p(\D)\), \(\lambda\) should be set as \(\frac{1}{\lvert \D \rvert}\).
 \cite{sun_functional_2019} note, however, that the minimization target is only a lower
-bound for \(\KL \left[ \lvert q(f) \Vert p(f) \right]\), so a larger
+bound for \(\KL \left[ \lvert \rho(f) \Vert p(f) \right]\), so a larger
 value for \(\lambda\) is likely necessary to prevent overfitting. They use,
 \(\lambda = \frac{1}{\lvert D_s \rvert}\), a value of one over the batch size instead.
 This means that the minimization target becomes a proper lower bound of \(\log p(\D_s)\).
@@ -388,11 +388,11 @@ have full support in \(\state \times \action\).
 
 To calculate \(\log p(\D_\omega^N \vert f)\) we assume that the observation noise is sampled
 from a Gaussian distribution. We then model the network to produce two output vectors,
-\(\mu\) and \(\rho = \log \sigma\). This gives the following loss function:
+\(\mu\) and \(\tau = \log \sigma\). This gives the following loss function:
 
 \begin{equation}
-    \mathcal{L} = \frac{1}{\lvert \D_s \rvert}\sum_{i=1}^{\lvert \D_s \rvert} \rho_i + \left( \mu_i - q_i \right)^2
-    \exp (-\rho_i) + \lambda \KL[q \Vert p].
+    \mathcal{L} = \frac{1}{\lvert \D_s \rvert}\sum_{i=1}^{\lvert \D_s \rvert} \tau_i + \left( \mu_i - q_i \right)^2
+    \exp (-\tau_i) + \lambda \KL[\rho \Vert p].
 \end{equation}
 
 We take inspiration from \cite{sun_functional_2019} and let \(\lambda\) be one over
@@ -412,7 +412,7 @@ the batch size, \(\frac{1}{\lvert \D_s \rvert}\).
 % define. We would like the prior to be of the form \(P(a \vert s)\).
 
 \begin{algorithm}
-\caption{NoisyNet RL}
+\caption{DQN-update}
 \begin{algorithmic}
     \State \(\D \gets \emptyset\)
     \State \(s \sim P_0\)
@@ -423,19 +423,23 @@ the batch size, \(\frac{1}{\lvert \D_s \rvert}\).
         \State \(s' \sim P(\cdot \vert s,a)\)
         \State \(r = r(s',a,s)\)
         \State \(\D \gets \D \cup \{s,a,r,s'\}\)
-        \State \Call{UpdateNoisyNet}{$\phi, \omega, \D$}
+        \State \Call{UpdateNet}{$\phi, \omega, \D$}
     \EndWhile
-    \Statex
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{NoisyNet RL}
+\begin{algorithmic}
     \Function{UpdateNoisyNet}{$\phi, \omega, \D$}
         \State \(T \sim \D\)
         \State \(f \sim q_\phi\)
         \State \(b \sim q_\omega\)
         \State \(\Delta_\mathcal{L} \gets 0\)
         \For{\(\{s,a,r,s'\} \in T\)}
-            \State \(\bm{q} \gets \max_a \f(s,a)\)
-            \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
+            \State \(q \gets \max_a f(s,a)\)
             \State \(G \gets r + \gamma b(s,a)\)
-            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert T \rvert} \nabla_\phi \log p(\bm{q} \vert \bm{G})\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert T \rvert} \nabla_\phi \log p(q \vert G)\)
         \EndFor
         \State \(\phi \gets \phi + \eta_\phi \Delta_\mathcal{L}\)
         \State \(\omega \gets \omega + \eta_\omega (\omega - \phi)\)
@@ -446,18 +450,6 @@ the batch size, \(\frac{1}{\lvert \D_s \rvert}\).
 \begin{algorithm}
 \caption{Functional Bayesian RL}
 \begin{algorithmic}
-    \State \(\D \gets \emptyset\)
-    \State \(s \sim P_0\)
-    \State Initialize \(\phi, \omega\)
-    \While{not converged}
-        \State \(f \sim q_\phi\)
-        \State \(a \sim \arg\max_a f(s,a)\)
-        \State \(s' \sim P(\cdot \vert s,a)\)
-        \State \(r = r(s',a,s)\)
-        \State \(\D \gets \D \cup \{s,a,r,s'\}\)
-        \State \Call{UpdatePosterior}{$\phi, \omega, \D$}
-    \EndWhile
-    \Statex
     \Function{UpdatePosterior}{$\phi, \omega, \D$}
         \State \(T \sim \D\)
         \State \(\f \gets \{f_i \sim q_\phi \mid i=1,\dots,k\}\)

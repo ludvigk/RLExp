@@ -62,7 +62,7 @@ Flux.@functor NoisyDense
 
 function make_noise_sqrt(dims...)
     noise = CUDA.randn(Float32, dims...)
-    noise .= copysign.(sqrt.(abs.(noise)), noise)
+    # noise .= copysign.(sqrt.(abs.(noise)), noise)
     return noise
 end
 
