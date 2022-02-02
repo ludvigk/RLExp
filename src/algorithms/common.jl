@@ -100,24 +100,46 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
     if num_samples === nothing
         tmp_x = reshape(x, size(x, 1), :)
         ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(l.w_μ, 2))
-        wϵ = ϵ_1 .* ϵ_2
+        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2))
+        wϵ = ϵ_1
+        # wϵ = Zygote.@ignore ϵ_1 .* ϵ_2
         bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1)
 
-        wϵ .= wϵ .* wσ² .+ l.w_μ
-        bϵ .= bϵ .* bσ² .+ l.b_μ
+        act_w = l.w_μ * tmp_x
+        act_w_std = sqrt.((wσ² .^ 2) * (tmp_x .^ 2))
 
-        return l.f.(wϵ * tmp_x .+ bϵ)
+        # println(size(act_w), size(act_w_std), size(wϵ))
+        act_w_out = act_w .+ act_w_std .* wϵ
+        act_b_out = l.b_μ .+ bσ² .* bϵ
+        
+        # wϵ .= wϵ .* wσ² .+ l.w_μ
+        # bϵ .= bϵ .* bσ² .+ l.b_μ
+
+        return l.f.(act_w_out .+ act_b_out)
     else
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1)
-        ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(l.w_μ, 2), num_samples)
-        wϵ = batched_mul(ϵ_1, ϵ_2)
-        bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1, num_samples)
+        # ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1, num_samples)
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1, num_samples)
+        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2), num_samples)
+        wϵ = ϵ_1
+        # wϵ = batched_mul(ϵ_1, ϵ_2)
+        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1, num_samples)
+        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2), num_samples)
+        # bϵ = batched_mul(ϵ_1, ϵ_2)
+        bϵ = ϵ_1
 
-        w = l.w_μ .+ wϵ .* wσ²
-        b = l.b_μ .+ bϵ .* bσ²
-        y = l.f.(batched_mul(w, x) .+ b)
-        return y
+        act_w = batched_mul(l.w_μ, x)
+        act_w_std = sqrt.(batched_mul(wσ² .^ 2, x .^ 2))
+
+        # println(size(act_w), size(act_w_std), size(wϵ))
+        act_w_out = act_w .+ act_w_std .* wϵ
+        act_b_out = l.b_μ .+ bσ² .* bϵ
+
+        # w = muladd.(l.w_μ, wϵ, wσ²)
+        # b = muladd.(l.b_μ, bϵ, bσ²)
+        return l.f.(act_w_out .+ act_b_out)
+
+        # y = l.f.(batched_mul(w, x) .+ b)
+        # return y
     end
 end
 

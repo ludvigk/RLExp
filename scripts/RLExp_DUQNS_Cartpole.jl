@@ -55,7 +55,7 @@ function RL.Experiment(
                         # "prior" => "GaussianPrior(0, 10)",
                         "prior" => "FlatPrior()",
                         "n_samples" => 100,
-                        "η" => 0.95,
+                        "η" => 0.05,
                         "nev" => 10,
                         "n_eigen_threshold" => 0.98,
                         "is_enable_double_DQN" => true,
@@ -91,17 +91,11 @@ function RL.Experiment(
 
 
         B_model = Chain(
+            NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
             Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
-                ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_σ = init_σ, rng = device_rng),
-                ),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             )
         ) |> gpu
 
@@ -115,17 +109,11 @@ function RL.Experiment(
         # ) |> gpu
 
         Q_model = Chain(
+            NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
             Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             )
         ) |> gpu
 
@@ -201,8 +189,8 @@ function RL.Experiment(
                     B_var, QA, s = p["B_var"], p["QA"], p["s"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
 
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
+                    penultimate_layer = agent.policy.learner.B_approximator.model[end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
