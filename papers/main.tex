@@ -166,7 +166,7 @@ any \(\omega \in \Omega\), \(Q(\cdot, \cdot, \omega)\) is a sample function
 mapping \(\state \times \action \rightarrow \mathbb{R}\). To simplify notation
 we will denote sample functions as \(f\). For a set of multiple sampled functions we will
 use \(\f\), where \(\f(\X)\) means each sampled function evaluated at the same point,
-i.e. \(\{f(\X) \mid f \in \f\}\).
+i.e. \(\{f(\X) \mid f \in \f\}\). 
 
 %To properly adapt Bayesian inference to MDPs, \cite{fellows_bayesian_2021} define the Bayesian Bellman
 %operator (BBO), \(P_B(b \vert s, a, \omega)\), as the distribution over
@@ -205,13 +205,13 @@ i.e. \(\{f(\X) \mid f \in \f\}\).
 % We therefore want to
 
 \subsection{Noisy Networks}
-NoisyNet, specifically, is a stochastic
+NoisyNet can be viewed as a stochastic
 process represented by a neural network with stochastic weights. We will define
 this parameterized function as \(g_\phi\), and their sampling distribution as
-\(\rho_\phi \in \mathcal{P}\). Given a noise vector \(\xi\), we have
+\(\rho_\phi\). Given a noise vector \(\xi\), we have
 \(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). Although this means
 that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
-out that for the loss function it is optimising, there always exsists a deterministic
+out that for the mean squared error loss in DQN, there always exsists a deterministic
 optimal policy. They show through emipirical analysis, however, that this does not
 mean that the policy necessarily disregards the noise and converges to a deterministic
 policy.
@@ -247,7 +247,7 @@ manner to NoisyNet, we sample a function \(f\) from \(\rho_\phi\) by sampling a 
 gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
 
 \begin{multline}\label{eq:fkl}
-    \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_\rho)\phi \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
+    \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_{\rho_\phi} \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
     + \E_\xi \left[ \nabla_\phi \f(\X)( \nabla_\f \log \rho_\phi(\f(\X)) - \nabla_\f \log p(\f(\X))) \right].
 \end{multline}
 
