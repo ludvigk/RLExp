@@ -24,7 +24,8 @@ include("RLExp_DUQNS_Atari.jl")
 
 # games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
-experiments = [E`RLExp_DUQNS_Atari(pong)`]
+experiments = [E`RLExp_Noisyd_Atari(pong)`]
+# experiments = [E`RLExp_DUQNS_Atari(pong)`]
 # experiments = [E`Dopamine_DQN_Atari(pong)`]
 
 # pmap(run, experiments)

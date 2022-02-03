@@ -1,5 +1,6 @@
 using Base.Iterators: tail
-using BSON: @load, @save
+# using BSON: @load, @save
+using JLD2
 using Conda
 using CUDA
 using Dates: now
@@ -43,10 +44,10 @@ function RL.Experiment(
                         "B_lr" => 1e-4,
                         "Q_lr" => 1,
                         "B_clip_norm" => 1000,
-                        "B_update_freq" => 4,
-                        "Q_update_freq" => 40_000,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 8_000,
                         "B_opt" => "ADAM",
-                        "gamma" => 0.99,
+                        "gamma" => 0.99f0,
                         "update_horizon" => 1,
                         "batch_size" => 32,
                         "min_replay_history" => 10_000,
@@ -102,10 +103,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
-            Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-            ),
+            NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
         ) |> gpu
 
         Q_model = Chain(
@@ -115,10 +113,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ = init, init_σ = init_σ),
-            Split(
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
-            ),
+            NoisyDense(512, N_ACTIONS; init_μ = init, init_σ = init_σ),
         ) |> gpu
 
         """
@@ -138,7 +133,7 @@ function RL.Experiment(
                     target_approximator = NeuralNetworkApproximator(
                         model = Q_model
                     ),
-                    γ = get_config(lg, "gamma"),
+                    γ = 0.99f0,
                     loss_func = mse,
                     batch_size = 32,
                     update_horizon = 1,
@@ -156,7 +151,7 @@ function RL.Experiment(
         )
 
     else
-        @load restore agent
+        agent = load(restore; agent)
     end
 
     """
@@ -180,12 +175,8 @@ function RL.Experiment(
         DoEveryNStep(;n=STEP_LOG_FREQ) do t, agent, env
             try
                 with_logger(lg) do
-                    p = agent.policy.learner.logging_params
-                    KL, MSE, H, S, L, Q = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q log_step_increment = STEP_LOG_FREQ
-                    
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end-1].w_ρ
+                    last_layer = agent.policy.learner.approximator.model[end].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
@@ -203,7 +194,7 @@ function RL.Experiment(
         end,
         DoEveryNStep(;n=EVALUATION_FREQ) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save save_dir agent
+            jldsave(save_dir * "/model_latest.jld2"; agent)
             @info "evaluating agent at $t step..."
             p = agent.policy
 

@@ -157,6 +157,17 @@ In this paper, we will introduce an extension to NoisyNet that puts it into a Ba
 
 \section{Background}
 
+Before we dwelve into the background, we need to presicise some notation. Most of the
+theory will be based on stochastic functions. The stochastic process we are interested is
+generating value functions on an MDP, and exists on the probability space on the probability
+space \((\Omega, \mathcal{F}, P)\). It can be written as
+\(\{Q(\bm{s}, \bm{a}) : (\bm{s}, \bm{a}) \in \state \times \action \}\). For
+any \(\omega \in \Omega\), \(Q(\cdot, \cdot, \omega)\) is a sample function
+mapping \(\state \times \action \rightarrow \mathbb{R}\). To simplify notation
+we will denote sample functions as \(f\). For a set of multiple sampled functions we will
+use \(\f\), where \(\f(\X)\) means each sampled function evaluated at the same point,
+i.e. \(\{f(\X) \mid f \in \f\}\).
+
 %To properly adapt Bayesian inference to MDPs, \cite{fellows_bayesian_2021} define the Bayesian Bellman
 %operator (BBO), \(P_B(b \vert s, a, \omega)\), as the distribution over
 %Bellman functions such that for a noisy sample \(b_i \sim P_B(b \vert s,a,\omega)\),
@@ -194,18 +205,11 @@ In this paper, we will introduce an extension to NoisyNet that puts it into a Ba
 % We therefore want to
 
 \subsection{Noisy Networks}
-In NoisyNet \citep{fortunato_noisy_2019}, the Q-function space can be seen
-as a stochastic process on the probability space \((\Omega, \mathcal{F}, P)\).
-The stochastic process can simply be written as
-\(\{Q(\bm{s}, \bm{a}) : (\bm{s}, \bm{a}) \in \state \times \action \}\). For
-any \(\omega \in \Omega\), \(Q(\cdot, \cdot, \omega)\) is a sample function
-mapping \(\state \times \action \rightarrow \mathbb{R}\). To simplify notation
-we will denote sample functions as \(f\). NoisyNet, specifically, is a stochastic
-process parameterized by its weights and their standard deviation. We will define
+NoisyNet, specifically, is a stochastic
+process represented by a neural network with stochastic weights. We will define
 this parameterized function as \(g_\phi\), and their sampling distribution as
 \(\rho_\phi \in \mathcal{P}\). Given a noise vector \(\xi\), we have
-\(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). This means that NoisyNet
-gives a new policy function for each noise vector \(\xi\). Although this means
+\(f(\bm{s}, \bm{a}) = g_\phi(\bm{a}, \bm{s}, \xi)\). Although this means
 that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
 out that for the loss function it is optimising, there always exsists a deterministic
 optimal policy. They show through emipirical analysis, however, that this does not
@@ -243,7 +247,7 @@ manner to NoisyNet, we sample a function \(f\) from \(\rho_\phi\) by sampling a 
 gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
 
 \begin{multline}\label{eq:fkl}
-    \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_\rho \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
+    \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_\rho)\phi \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
     + \E_\xi \left[ \nabla_\phi \f(\X)( \nabla_\f \log \rho_\phi(\f(\X)) - \nabla_\f \log p(\f(\X))) \right].
 \end{multline}
 
@@ -252,13 +256,13 @@ set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full su
 in the space of interesting test cases. 
 
 The first term is just the expected value of the score function, which is zero.
-The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log \rho(\f^\X)\)
-and \(\nabla_\f \log p(\f^\X)\). \(\nabla_\f \log \rho(\f^\X)\) is likely 
+The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log \rho_\phi(\f(\X))\)
+and \(\nabla_\f \log p(\f(\X))\). \(\nabla_\f \log \rho_\phi(\f(\X))\) is likely 
 intractable, considering \(\rho_\phi\) is a neural network with stochastic weights.
-Depending on how we define the prior, however, \(\nabla_\f \log p(\f^\X)\)
+Depending on how we define the prior, however, \(\nabla_\f \log p(\f(\X))\)
 can be easy to compute analytically. To reduce variance in the gradients, we
 define tractable priors in this paper. To estimate the log-density gradient
-\(\nabla_\f \log \rho(\f^\X)\), they use the Spectral Stein Gradient Estimator (SSGE)
+\(\nabla_\f \log \rho_\phi(\f(\X))\), they use the Spectral Stein Gradient Estimator (SSGE)
 \citep{shi_spectral_2018}. In short, this is a method for estimating the gradient
 function of implicit distributions using approximations to eigenfunctions of a 
 kernel-based operator. We bring three hyperparameters into the algorithm from this
@@ -276,7 +280,7 @@ The full minimization target for the functional Bayesian neural network becomes
 In order for this to match the functional ELBO and be a proper lower bound
 for \(\log p(\D)\), \(\lambda\) should be set as \(\frac{1}{\lvert \D \rvert}\).
 \cite{sun_functional_2019} note, however, that the minimization target is only a lower
-bound for \(\KL \left[ \lvert \rho(f) \Vert p(f) \right]\), so a larger
+bound for \(\KL \left[ \lvert \rho_\phi(f) \Vert p(f) \right]\), so a larger
 value for \(\lambda\) is likely necessary to prevent overfitting. They use,
 \(\lambda = \frac{1}{\lvert D_s \rvert}\), a value of one over the batch size instead.
 This means that the minimization target becomes a proper lower bound of \(\log p(\D_s)\).
@@ -392,7 +396,7 @@ from a Gaussian distribution. We then model the network to produce two output ve
 
 \begin{equation}
     \mathcal{L} = \frac{1}{\lvert \D_s \rvert}\sum_{i=1}^{\lvert \D_s \rvert} \tau_i + \left( \mu_i - q_i \right)^2
-    \exp (-\tau_i) + \lambda \KL[\rho \Vert p].
+    \exp (-\tau_i) + \lambda \KL[\rho_\phi \Vert p].
 \end{equation}
 
 We take inspiration from \cite{sun_functional_2019} and let \(\lambda\) be one over
@@ -459,11 +463,12 @@ the batch size, \(\frac{1}{\lvert \D_s \rvert}\).
         \State \(S \gets 0\)
         \For{\(\{s,a,r,s'\} \in T\)}
             \State \(\bm{q_\mu}, \bm{q_\sigma} \gets \max_a \f(s,a)\)
+            \State \(\bm{q_\sigma^\prime} \gets \max (\bm{q_\sigma}, \sigma_t)\)
             \State \(\mathcal{F} \gets \mathcal{F} \cup \f(s,a)\)
             \State \(\bm{G} \gets \{r + \gamma b_i(s,a) \mid i = 1, 
         \dots, k\}\)
             \State \(S \gets S + \frac{1}{k}p(\bm{q} \vert s, a)\)
-            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert k \rvert} \nabla_\phi \log p(\bm{q_\mu} \vert \bm{G}, \bm{q_\sigma})\)
+            \State \(\Delta_\mathcal{L} \gets \Delta_\mathcal{L} - \frac{1}{\lvert k \rvert} \nabla_\phi \log p(\bm{q_\mu} \vert \bm{G}, \bm{q_\sigma^\prime})\)
         \EndFor
         \State \(\Delta_\KL \gets S - SSGE(\mathcal{F})\)
         \State \(\phi \gets \phi + \eta_\phi (\Delta_\mathcal{L} - \Delta_\KL)\)
