@@ -131,27 +131,20 @@ function RL.Experiment(
         agent = Agent(
             policy = QBasedPolicy(
                 learner = DQNLearner(
-                    B_approximator = NeuralNetworkApproximator(
+                    approximator = NeuralNetworkApproximator(
                         model = B_model,
                         optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                     ),
-                    Q_approximator = NeuralNetworkApproximator(
+                    target_approximator = NeuralNetworkApproximator(
                         model = Q_model
                     ),
-                    Q_lr = get_config(lg, "Q_lr"),
                     γ = get_config(lg, "gamma"),
-                    update_horizon = get_config(lg, "update_horizon"),
-                    batch_size = get_config(lg, "batch_size"),
-                    min_replay_history = get_config(lg, "min_replay_history"),
-                    B_update_freq = get_config(lg, "B_update_freq"),
-                    Q_update_freq = get_config(lg, "Q_update_freq"),
-                    updates_per_step = get_config(lg, "updates_per_step"),
-                    λ = get_config(lg, "λ"),
-                    n_samples = get_config(lg, "n_samples"),
-                    η = get_config(lg, "η"),
-                    nev = get_config(lg, "nev"),
-                    is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
-                    prior = prior,
+                    loss_func = mse,
+                    batch_size = 32,
+                    update_horizon = 1,
+                    min_replay_history = 32,
+                    update_freq = 4,
+                    target_update_freq = 8_000,
                     stack_size = N_FRAMES,
                 ),
                 explorer = GreedyExplorer(),

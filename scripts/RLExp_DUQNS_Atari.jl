@@ -45,7 +45,7 @@ function RL.Experiment(
                         "Q_lr" => 1,
                         "B_clip_norm" => 1000,
                         "B_update_freq" => 4,
-                        "Q_update_freq" => 40_000,
+                        "Q_update_freq" => 8_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99f0,
                         "update_horizon" => 1,
