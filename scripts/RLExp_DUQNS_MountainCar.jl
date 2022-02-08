@@ -41,7 +41,7 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 100000.0,
+                        "B_clip_norm" => 10.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -52,8 +52,8 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "FlatPrior()",
-                        # "prior" => "MountainCarPrior()",
+                        # "prior" => "FlatPrior()",
+                        "prior" => "MountainCarPrior()",
                         "n_samples" => 100,
                         "η" => 0.95,
                         "nev" => 6,
@@ -179,8 +179,8 @@ function RL.Experiment(
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    B_var, QA = p["B_var"], p["QA"]
-                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                    B_var, QA, s = p["B_var"], p["QA"], p["s"]
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
                     
                     last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
                     penultimate_layer = agent.policy.learner.B_approximator.model[end-1].w_ρ

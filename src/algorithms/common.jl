@@ -248,7 +248,7 @@ end
 # ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)  ## SLOW
+    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2 .+ 1e-6); dims=3)  ## SLOW
     rb = dropdims(rb; dims=3)
     return exp.(rb)
 end
@@ -265,7 +265,7 @@ function grad_gram(x1::AbstractArray, x2::AbstractArray, lengthscale)
     x2 = Flux.unsqueeze(x2, 1)
     lengthscale = reshape(lengthscale, 1, 1, :)
     Kxx = rbf_kernel(x1, x2, lengthscale)  ## SLOW
-    diff = (x1 .- x2) ./ lengthscale .^ 2
+    diff = (x1 .- x2) ./ (lengthscale .^ 2 .+ 1e-8)
     dKxx_dx1 = Flux.unsqueeze(Kxx, 3) .* (-diff)
     dKxx_dx2 = Flux.unsqueeze(Kxx, 3) .* diff
     return Kxx, dKxx_dx1, dKxx_dx2
@@ -284,14 +284,14 @@ Zygote.@nograd function heuristic_lengthscale(x::AbstractArray, xm::AbstractArra
     ]
     kernel_width = flatten(kernel_width)
     kernel_width = kernel_width .* sqrt(Float32(x_dim))
-    return kernel_width = kernel_width .+ (kernel_width .< 1e-6)
+    return kernel_width = kernel_width .+ (kernel_width .< 1e-8)
 end
 
 function nystrom_ext(x, eval_points, eigen_vecs, eigen_vals, lengthscale)
     M = size(x, 1)
     Kxxm = gram(eval_points, x, lengthscale)
     phi_x = sqrt(M) .* (Kxxm * eigen_vecs)
-    return phi_x = phi_x ./ Flux.unsqueeze(eigen_vals, 1)
+    return phi_x = phi_x ./ (Flux.unsqueeze(eigen_vals, 1) .+ 1e-8)
 end
 
 abstract type BaseScoreEstimator end
@@ -337,14 +337,14 @@ function compute_gradients(
     phi_x = nystrom_ext(xm, x, eigen_vecs, eigen_vals, lengthscale)
     dKxx_dx_avg = dropdims(mean(dKxx; dims=1); dims=1)
     beta = -sqrt(M) .* (eigen_vecs' * dKxx_dx_avg)
-    beta = beta ./ Flux.unsqueeze(eigen_vals, 2)
+    beta = beta ./ (Flux.unsqueeze(eigen_vals, 2) .+ 1e-8)
     return phi_x * beta
 end
 
 function compute_gradients(sse, x::AbstractArray, xm::AbstractArray)
     _xm = cat(x, xm; dims=1)
     lengthscale = heuristic_lengthscale(_xm, _xm)
-    return compute_gradients(sse, x, xm, lengthscale)
+     return compute_gradients(sse, x, xm, lengthscale)
 end
 
 function compute_gradients(sse, xm::AbstractArray)

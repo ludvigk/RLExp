@@ -1,4 +1,4 @@
-export FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior
+export FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior
 
 
 
@@ -22,18 +22,19 @@ end
 struct MountainCarPrior <: AbstractPrior end
 
 function (p::MountainCarPrior)(s::AbstractArray, t::AbstractArray)
-    μ = s[2,:] .> 0
-    μ = [(2f0 .* μ) zeros(size(μ)) (2f0 .* (1 - μ))]'
+    # μ = abs.(s[2,:])
+    μ = Zygote.@ignore 100f0 .* gpu([-1 -1; 0 0; 1 1]) * s
     σ = 1f0
     return sum((t .- μ) .^ 2 ./ (2σ .^ 2))
 end
 
 
-struct CartpoleCarPrior <: AbstractPrior end
+struct CartpolePrior <: AbstractPrior end
 
-function (p::CartpoleCarPrior)(s::AbstractArray, t::AbstractArray)
-    μ = s[2,:]
-    μ = [μ zeros(size(μ)) -μ]'
-    σ = 0.03f0
+function (p::CartpolePrior)(s::AbstractArray, t::AbstractArray)
+    # μ = Zygote.@ignore view(s .> 0, 3, :)
+    # μ = Zygote.@ignore [(1 .+ μ) (1 .- μ)]' .* 100f0
+    μ = Zygote.@ignore 100f0 .* gpu([0 0 0 0; 0 0 1 1]) * s
+    σ = 10f0
     return sum((t .- μ) .^ 2 ./ (2σ .^ 2))
 end

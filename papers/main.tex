@@ -213,8 +213,7 @@ this parameterized function as \(g_\phi\), and their sampling distribution as
 that NoisyNet can model stochastic policies, \citet{fortunato_noisy_2019} point
 out that for the mean squared error loss in DQN, there always exsists a deterministic
 optimal policy. They show through emipirical analysis, however, that this does not
-mean that the policy necessarily disregards the noise and converges to a deterministic
-policy.
+mean that the policy necessarily converges to a deterministic policy.
 
 \subsection{Functional Variational Bayesian Neural Networks}
 There are several ways of approximating the posterior distribution of the weights
@@ -241,7 +240,23 @@ at \(\X \in \mathcal{X}^n\), then:
     \KL[A \Vert B] = \sup_{n \in \N, \X \in \mathcal{X}^n} \KL \left[ A_\X \Vert B_\X \right],
 \end{equation}
 
-Now the stochastic processes is represented by a neural network \(\rho_\phi\) and a prior \(p\). In a similar
+We will use this identity to approximate the functional KL-divergence by sampling 
+measurement sets \(\X \in \mathcal{X}^n\). Note that because this KL-divergence is a 
+supremum, sampling measurment sets will always give us an underestimate of the true
+KL-divergence. 
+
+In our case \(\mathcal{X} = \state \times \action\). First we start by
+defining \(\X^D\) as the set of datapoints \(\D \in \state \times \action\) that we have
+explored, but we also need points outside of what we have already explored. Sampling points
+from undiscovered states is difficult, however, since we typically don't know what the set
+of possible states includes. Since we know that each state only supports a finite number of
+actions, we propose to let \(\X^M\) be a set of state-action pairs that 
+The measurement set \(\X\) is created by concatenating the training points \(\X^D\) and a
+set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full support
+in the space of interesting test cases. 
+
+Now the stochastic processes is represented by a neural network \(g_\phi\) with sampling
+distribution \(\rho_\phi\) and a prior \(p\). In a similar
 manner to NoisyNet, we sample a function \(f\) from \(\rho_\phi\) by sampling a random noise vector
 \(\xi\), and then defining \(f(\bm{x}) = g_\phi(\bm{x}, \xi)\). They further show that the
 gradient of the KL-divergence for functions evaluated at the measurement set \(\X\) is
@@ -250,10 +265,6 @@ gradient of the KL-divergence for functions evaluated at the measurement set \(\
     \nabla_\phi \KL[q_\phi(\f(\X)) \Vert p(\f(\X))] = \E_{\rho_\phi} \left[ \nabla_\phi \log \rho_\phi (\f(\X)) \right]\\
     + \E_\xi \left[ \nabla_\phi \f(\X)( \nabla_\f \log \rho_\phi(\f(\X)) - \nabla_\f \log p(\f(\X))) \right].
 \end{multline}
-
-The measurement set \(\X\) is created by concatenating the training points \(\X^D\) and a
-set of \(M\) points \(\X^M\) drawn from some distribution \(c\) that has full support
-in the space of interesting test cases. 
 
 The first term is just the expected value of the score function, which is zero.
 The difficult part in \eqref{eq:fkl} is to estimate \(\nabla_\f \log \rho_\phi(\f(\X))\)
@@ -378,9 +389,9 @@ NoisyNet uses one sample from Q for each optimization step. We will instead use
 encourages stochasticity.
 The maximization target becomes:
 \begin{equation}
-    \log p(\D_\omega^N \vert f) - \lambda \KL \left[ q(\f^{\D_\omega^N}, \f^\mathbf{M}) \Vert p(\f^{\D_\omega^N}, \f^\mathbf{M}) \right],
+    \log p(\D_\omega^N \vert f) - \lambda \KL \left[ q(\f(\D_\omega^N), \f(\mathbf{M})) \Vert p(\f({\D_\omega^N}), \f(\mathbf{M})) \right],
 \end{equation}
-where \(\f^{\D_\omega^N}\) is \(f\) applied to the dataset \(\D_\omega^N\), and \(\f^\mathbf{M}\) is \(f\) applied to
+where \(\f({\D_\omega^N})\) is \(f\) applied to the dataset \(\D_\omega^N\), and \(\f(\mathbf{M})\) is \(f\) applied to
 a set of i.i.d. random points \(\mathbf{M} = \{m_i \sim c \mid i=1,\dots,k\} \subseteq \state \times \action\)
 with full support. We will let the measurement \(\mathbf{M}\) be the the set of all state-action
 pairs for states we have already explored. If the MDP is ergodic, then \(\textbf{M}\) will eventually
@@ -566,7 +577,9 @@ be overfitting to noise.
 \subsection{Informative Prior}
 One of the benefits of a functional prior is that we can incorporate domain knowledge to
 get more efficient exploration. We will now look at how our method can utilize domain
-knowledge to improve sample efficiency.
+knowledge to improve sample efficiency. To measure the effectiveness of priors we will use
+a distribution that has a higher concentration of large Q-values for actions that we want
+to incentivize.
 
 % We will use the following method to calculate the prior distribution on the Q-values:
 
