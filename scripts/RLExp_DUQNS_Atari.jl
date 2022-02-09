@@ -41,7 +41,7 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_Atari($name)",
                      config = Dict(
-                        "B_lr" => 0.0000625,
+                        "B_lr" => 0.0001,
                         "Q_lr" => 1,
                         "B_clip_norm" => 10_000,
                         "B_update_freq" => 4,
