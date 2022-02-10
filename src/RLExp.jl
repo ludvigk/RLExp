@@ -5,7 +5,7 @@ export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage
 export get_screen
-export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior
+export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior, AcrobotPrior
 export DUQNSLearner
 export stop, CenteredRMSProp
 export MountainCarPrior

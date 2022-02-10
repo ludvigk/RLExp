@@ -1,5 +1,5 @@
 % \documentclass{uai2021} % for initial submission
-\documentclass[]{uai2021} % after acceptance, for a revised
+\documentclass[]{uai2022} % after acceptance, for a revised
                                     % version; also before submission to
                                     % see how the non-anonymous paper
                                     % would look like
@@ -50,6 +50,8 @@
 \newcommand{\state}{\mathcal{S}}
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
+
+% \setlength{\tabcolsep}{12pt}
 
 \title{Bayesian Exploration in Deep Reinforcement Learning}
 
@@ -102,17 +104,17 @@ the agent can learn a lot from.
 The efficiency of exploration can be measured in regret.
 The regret of a policy is the difference in the expected reward obtained by
 following that policy, and the expected reward of following an optimal policy.
-An learning algorithm's efficiency in exploration can be measured by its
+A learning algorithm's efficiency in exploration can be measured by its
 cumulative regret over time. One of the simplest reinforcement learning 
 problems is the multi-arm bandit problem. This is an MDP with no state and no
 transition probabilities. One exploration strategy employed in most Q-learning
-algorithms to date, \(\epsilon\)-greedy is provably inefficient, and has a
+algorithms to date, \(\epsilon\)-greedy, is provably inefficient, and has a
 regret bound that grows linearly with time. There are several optimal algorithms
 for this problem, but perhaps the simplest one is Thompson sampling~\citep{thompson_likelihood_1933}.
 Thompson sampling approximates a posterior distribution of the expected reward
 for each action. The next action is decided by sampling rewards for each action
-from the posterior distribution, and selecting the action that gave the highest
-reward. Bayesian methods has also been shown to behave efficiently with respect
+from the posterior distribution and selecting the action that gave the highest
+reward. Bayesian methods have also been shown to behave efficiently with respect
 to cumulative regret \cite{osband_generalization_2016} on general MDPs.
 %\textcolor{red}{Optimal Regret + Thompson sampling }
 
@@ -132,7 +134,7 @@ policy is to introduce uncertainty in the
 
 \citet{fortunato_noisy_2019} introduced NoisyNet for exploration.
 These are networks with stochastic weights, where each weight \(w^{(l)}_{ij}\)
-has an added pertrubaition sampled from a noise distribution with standard deviation \(\sigma^{(l)}_{ij}\).
+has an added perturbation sampled from a noise distribution with standard deviation \(\sigma^{(l)}_{ij}\).
 After initializing \(\bm{w}\) and \(\bm{\sigma}\) such that the network has sufficient
 stochasticity for exploration, both parameters are learned using standard backpropagation.
 The approach is similar to variational inference schemes such as Bayes by backprop~\citep{blundell_weight_2015} where the weights of a neural network model are assumed to be normally distributed with mean 
@@ -143,8 +145,8 @@ The parameter distribution in NoisyNet does not necessarily
 converge to an approximate posterior. This means that it does not have the same
 guarantee on total regret as methods that approximate a posterior over the
 value functions~\citep{osband_generalization_2016}. They do, however, have
-experimental results which shows that the function does not always converge to
-a deterministic solution, but it is unclear why the network learns to introduce
+experimental results which show that the function does not always converge to
+a deterministic solution. It is unclear why the network learns to introduce
 more noise into the network parameters.
 
 \citet{fortunato_noisy_2019} apply NoisyNet to three reinforcement learning
@@ -218,13 +220,13 @@ mean that the policy necessarily converges to a deterministic policy.
 \subsection{Functional Variational Bayesian Neural Networks}
 There are several ways of approximating the posterior distribution of the weights
 in a neural network with respect to a prior and a dataset. Typically, the dataset
-\(\D\) is static and with datapoints \(\bm{x}\) and labels \(\bm{y}\), and the 
+\(\D\) is given and with datapoints \(\bm{x}\) and labels \(\bm{y}\), and the 
 prior is defined as a distribution over the weights
 \(p(\bm{w})\)~\citep{rezende_stochastic_2014,blundell_weight_2015,ritter_scalable_2018,maddox_simple_2019}.
 By defining a prior over the weights, they can use approximate variational inference
 methods to approximate \(p(\bm{w} \vert \D) = \frac{p(\D \vert \bm{w})p(\bm{w})}{p(\D)}\).
 The disadvantage of this is that \(p(\bm{w})\) only acts as a regularizer, and is not
-used to incorporate prior knowledge. Any prior knowledge we might have about the optimizer
+used to incorporate prior knowledge. Any prior knowledge we might have about the target
 function would be very difficult to translate into a prior distribution in the weight space.
 
 Functional variational Bayesian neural networks \citep{sun_functional_2019} is 
@@ -232,7 +234,7 @@ a variational inference method for neural networks that approximates the
 posterior distribution in function space. This means that our prior will be a distribution
 over functions, also known as a stochastic process.
 \citet{sun_functional_2019} show that for two stochastic processes \(A\) and \(B\), the
-KL-divergence from \(A\) to \(N\) is the supremum of the marginal KL-divergences over
+KL-divergence from \(A\) to \(B\) is the supremum of the marginal KL-divergences over
 all finite measurement sets. Let \(A_\X\) be the marginal distribution of function values
 at \(\X \in \mathcal{X}^n\), then:
 
@@ -242,13 +244,13 @@ at \(\X \in \mathcal{X}^n\), then:
 
 We will use this identity to approximate the functional KL-divergence by sampling 
 measurement sets \(\X \in \mathcal{X}^n\). Note that because this KL-divergence is a 
-supremum, sampling measurment sets will always give us an underestimate of the true
+supremum, sampling measurement sets will always give us an underestimate of the true
 KL-divergence. 
 
-In our case \(\mathcal{X} = \state \times \action\). First we start by
-defining \(\X^D\) as the set of datapoints \(\D \in \state \times \action\) that we have
-explored, but we also need points outside of what we have already explored. Sampling points
-from undiscovered states is difficult, however, since we typically don't know what the set
+In our case \(\mathcal{X} = \state \times \action\) and \(\X = \begin{bmatrix} s^T & a^T \end{bmatrix}^T\). First we start by
+defining \(\X^D\) as the set of data points \(\D \in \state \times \action\) that we have
+explored, but we also need points outside what we have already explored. Sampling points
+from undiscovered states is difficult, because we typically do not know what the set
 of possible states includes. Since we know that each state only supports a finite number of
 actions, we propose to let \(\X^M\) be a set of state-action pairs that 
 The measurement set \(\X\) is created by concatenating the training points \(\X^D\) and a
@@ -276,8 +278,7 @@ define tractable priors in this paper. To estimate the log-density gradient
 \(\nabla_\f \log \rho_\phi(\f(\X))\), they use the Spectral Stein Gradient Estimator (SSGE)
 \citep{shi_spectral_2018}. In short, this is a method for estimating the gradient
 function of implicit distributions using approximations to eigenfunctions of a 
-kernel-based operator. We bring three hyperparameters into the algorithm from this
-method, the number of samples \(k\) from the implicit distribution used to approximate
+kernel-based operator. They bring three hyperparameters into the algorithm, the number of samples \(k\) from the implicit distribution used to approximate
 the gradient, the number of eigenvectors \(J\) used to approximate the gradient, and
 \(\eta\), a regularization parameter that smooths the gradient function.
 
@@ -521,7 +522,7 @@ in environments without the advantage of prior knowledge. The training curves
 of our model compared to that of standard NoisyNet-DQN on the four selected OpenAI
 Gym~\citep{brockman_openai_2016} environments is shown in Figure~\ref{fig:training_curves}.
 We hypothesize that the added KL-term will push the algorithm to retain weight uncertainty high
-in order to keep a higher uncertainty in the output. While both methods can
+to keep a higher uncertainty in the output. While both methods can
 find an optimal policy in Cartpole, our method uses considerably fewer frames
 to do so.
 
@@ -555,7 +556,7 @@ in some games despite there existing an optimal deterministic solution, and the 
 provides no incentive to maintain any uncertainty. Figure~\ref{fig:mean_std} shows
 the mean-absolute standard deviation for the penultimate and final layer. It is 
 interesting to see that the standard deviation for NoisyNet continues to decrease
-throughout the training while LFM decreases faster, but then flattens out earlier.
+throughout the training while LFM decreases faster but then flattens out earlier.
 This seems to indicate that it has found a stable policy, where optimizing further would
 be overfitting to noise.
 
@@ -576,10 +577,37 @@ be overfitting to noise.
 
 \subsection{Informative Prior}
 One of the benefits of a functional prior is that we can incorporate domain knowledge to
-get more efficient exploration. We will now look at how our method can utilize domain
+get more efficient exploration. We will now see how our method can utilize domain
 knowledge to improve sample efficiency. To measure the effectiveness of priors we will use
 a distribution that has a higher concentration of large Q-values for actions that we want
 to incentivize.
+
+\begin{align}
+    p(\bm{s},a) &\sim \mathcal{N}(\bm{\mu}, \sigma I ), \text{ where}\\
+    \bm{\mu} &= \lambda_1 + \lambda_2 \mathrm{A}_a \bm{s} \nonumber
+\end{align}
+
+% \begin{table}
+%     \centering
+%     \caption{Prior parameters}\label{tab:hyperparams}
+%     \begin{tabular}{cccl}
+%       \toprule % from booktabs package
+%       Environment & \(\lambda_1\) & \(\lambda_2\) & \(\mathrm{A}\) \\
+%       \midrule % from booktabs package
+%       Cartpole & 0 & 100 & \(\begin{bmatrix} 0 & 0 & 1 & 1 \\
+%                                              0 & 0 & -1 & -1
+%                              \end{bmatrix}\)\\
+%       MountainCar & 100 & 100 & \(\begin{bmatrix} 0 & -1 \\
+%                                                   0 & 0 \\
+%                                                   0 & 1
+%                                 \end{bmatrix}\)\\
+%       Acrobot & 100 & 100 & \(\begin{bmatrix} 0 & -1 & 0 & -1 & 0 & 0 \\
+%                                                0 & 0 & 0 & 0 & 0 & 0 \\
+%                                                0 & 1 & 0 & 1 & 0 & 0
+%                             \end{bmatrix}\)\\
+%       \bottomrule % from booktabs package
+%     \end{tabular}
+% \end{table}
 
 % We will use the following method to calculate the prior distribution on the Q-values:
 

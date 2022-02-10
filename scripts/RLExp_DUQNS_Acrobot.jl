@@ -53,6 +53,7 @@ function RL.Experiment(
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
                         "prior" => "FlatPrior()",
+                        # "prior" => "AcrobotPrior(1)",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 10,
@@ -62,6 +63,7 @@ function RL.Experiment(
                      ),
     )
     save_dir = datadir("sims", "DUQNS", "Acrobot", "$(now())")
+    mkpath(save_dir)
 
     """
     SEEDS
@@ -84,7 +86,7 @@ function RL.Experiment(
         """
         # init = glorot_uniform(rng)
         init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
-        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+        init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
 
 
         B_model = Chain(
@@ -238,7 +240,7 @@ function RL.Experiment(
         end,
         DoEveryNEpisode(n = 100) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
-            @save save_dir agent
+            jldsave(save_dir * "/model_latest.jld2"; agent)
         end,
         CloseLogger(lg),
     )

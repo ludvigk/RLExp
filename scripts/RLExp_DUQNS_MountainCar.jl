@@ -53,7 +53,7 @@ function RL.Experiment(
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
                         # "prior" => "FlatPrior()",
-                        "prior" => "MountainCarPrior(1)",
+                        "prior" => "MountainCarPrior(10)",
                         "n_samples" => 100,
                         "η" => 0.95,
                         "nev" => 6,

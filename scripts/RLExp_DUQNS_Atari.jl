@@ -44,8 +44,8 @@ function RL.Experiment(
                         "B_lr" => 0.0001,
                         "Q_lr" => 1,
                         "B_clip_norm" => 10_000,
-                        "B_update_freq" => 4,
-                        "Q_update_freq" => 8_000,
+                        "B_update_freq" => 1,
+                        "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99f0,
                         "update_horizon" => 1,
@@ -94,7 +94,7 @@ function RL.Experiment(
         """
         initc = glorot_uniform(rng)
         init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
-        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+        init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
         
         B_model = Chain(
             x -> x ./ 255,
