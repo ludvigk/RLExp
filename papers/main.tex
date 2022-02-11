@@ -30,6 +30,9 @@
 \usepackage{algpseudocode}
 \usepackage{bm}
 \usepackage{subcaption}
+\usepackage{etoolbox}
+\usepackage{lmodern}
+\usepackage{siunitx}
 
 %% Provided macros
 % \smaller: Because the class footnote size is essentially LaTeX's \small,
@@ -51,7 +54,14 @@
 \newcommand{\action}{\mathcal{A}}
 \newcommand{\KL}{\mathrm{KL}}
 
-% \setlength{\tabcolsep}{12pt}
+
+\sisetup{detect-weight,mode=text}
+% for avoiding siunitx using bold extended
+\renewrobustcmd{\bfseries}{\fontseries{b}\selectfont}
+\renewrobustcmd{\boldmath}{}
+\newrobustcmd{\tB}{\bfseries}
+
+\setlength{\tabcolsep}{2pt}
 
 \title{Bayesian Exploration in Deep Reinforcement Learning}
 
@@ -587,27 +597,47 @@ to incentivize.
     \bm{\mu} &= \lambda_1 + \lambda_2 \mathrm{A}_a \bm{s} \nonumber
 \end{align}
 
-% \begin{table}
-%     \centering
-%     \caption{Prior parameters}\label{tab:hyperparams}
-%     \begin{tabular}{cccl}
-%       \toprule % from booktabs package
-%       Environment & \(\lambda_1\) & \(\lambda_2\) & \(\mathrm{A}\) \\
-%       \midrule % from booktabs package
-%       Cartpole & 0 & 100 & \(\begin{bmatrix} 0 & 0 & 1 & 1 \\
-%                                              0 & 0 & -1 & -1
-%                              \end{bmatrix}\)\\
-%       MountainCar & 100 & 100 & \(\begin{bmatrix} 0 & -1 \\
-%                                                   0 & 0 \\
-%                                                   0 & 1
-%                                 \end{bmatrix}\)\\
-%       Acrobot & 100 & 100 & \(\begin{bmatrix} 0 & -1 & 0 & -1 & 0 & 0 \\
-%                                                0 & 0 & 0 & 0 & 0 & 0 \\
-%                                                0 & 1 & 0 & 1 & 0 & 0
-%                             \end{bmatrix}\)\\
-%       \bottomrule % from booktabs package
-%     \end{tabular}
-% \end{table}
+\begin{table}
+    \centering
+    \caption{Prior parameters}\label{tab:prior_hyperparams}
+    \begin{tabular}{lccc}
+      \toprule % from booktabs package
+      Environment & \(\lambda_1\) & \(\lambda_2\) & \(\mathrm{A}\) \\
+      \midrule % from booktabs package
+      Cartpole & 0 & 100 & \(\begin{bmatrix} 0 & 0 & 1 & 1 \\
+                                             0 & 0 & -1 & -1
+                             \end{bmatrix}\)\\\addlinespace[0.3em]
+      MountainCar & 100 & 100 & \(\begin{bmatrix} 0 & -1 \\
+                                                  0 & 0 \\
+                                                  0 & 1
+                                \end{bmatrix}\)\\\addlinespace[0.3em]
+      Acrobot & 100 & 100 & \(\begin{bmatrix} 0 & -1 & 0 & -1 & -0.1 & -0.05 \\
+                                               0 & 0 & 0 & 0 & 0 & 0 \\
+                                               0 & 1 & 0 & 1 & 0.1 & 0.05
+                            \end{bmatrix}\)\\
+      \bottomrule % from booktabs package
+    \end{tabular}
+\end{table}
+
+\begin{table}
+    \centering
+    \caption{Number of episodes to beat select environments.}\label{tab:prior_results}
+    \begin{tabular}{cccc}
+        \toprule
+        Prior & Cartpole & MountainCar & Acrobot\\
+        \midrule
+        \(\sigma = 1\)  & \tB 14  & 100 &\\
+        \(\sigma = 10\) &     33  & 1700 &\\
+        \(\sigma = 50\) &     113 & &\\
+        Flat prior      &     117 & 1650 &\\
+        \(\sigma = 50\) &     177 & &\\
+        \(\sigma = 20\) &     232 & &\\
+        \(\sigma = 10\) &     N/A & &\\
+        \midrule
+        NoisyNet        &         & 1700 &\\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 % We will use the following method to calculate the prior distribution on the Q-values:
 

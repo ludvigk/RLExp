@@ -74,13 +74,13 @@ struct AcrobotPrior <: AbstractPrior
 end
 
 function AcrobotPrior()
-    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.2f0 -0.1f0; 0 0 0 0 0 0; 0 1 0 1 0.2f0 0.1f0]) * s
+    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
     σ = 10f0
     return AcrobotPrior(μ, σ)
 end
 
 function AcrobotPrior(σ)
-    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.2f0 -0.1f0; 0 0 0 0 0 0; 0 1 0 1 0.2f0 0.1f0]) * s
+    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
     return AcrobotPrior(μ, Float32(σ))
 end
 

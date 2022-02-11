@@ -1,5 +1,5 @@
 using Base.Iterators: tail
-using BSON: @load, @save
+using JLD2
 using CUDA
 using Dates: now
 using Distributions: Uniform, Product
@@ -52,8 +52,8 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "FlatPrior()",
-                        # "prior" => "AcrobotPrior(1)",
+                        # "prior" => "FlatPrior()",
+                        "prior" => "AcrobotPrior(1)",
                         "n_samples" => 100,
                         "η" => 0.01,
                         "nev" => 10,
@@ -179,7 +179,7 @@ function RL.Experiment(
             ),
         )
     else
-        @load restore agent
+        agent = load(restore; agent)
     end
 
     """

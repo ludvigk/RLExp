@@ -31,7 +31,7 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQN_MountainCar",
                      config = Dict(
-                        "B_lr" => 1e-3,
+                        "B_lr" => 1e-4,
                         "Q_lr" => 0.05,
                         "B_clip_norm" => 1.0,
                         "B_update_freq" => 1,

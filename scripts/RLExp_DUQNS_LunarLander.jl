@@ -28,7 +28,7 @@ end
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQNS},
-    ::Val{:MountainCar},
+    ::Val{:LunarLander},
     name,
     restore=nothing,
    )
@@ -37,11 +37,11 @@ function RL.Experiment(
     SET UP LOGGING
     """
     lg = WandbLogger(project = "RLExp",
-                     name="DUQNS_MountainCar",
+                     name="DUQNS_LunarLander",
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 10.0,
+                        "B_clip_norm" => 10000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -52,8 +52,8 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        # "prior" => "FlatPrior()",
-                        "prior" => "MountainCarPrior(50)",
+                        "prior" => "FlatPrior()",
+                        # "prior" => "LunarLanderPrior(1)",
                         "n_samples" => 100,
                         "η" => 0.95,
                         "nev" => 6,
@@ -62,7 +62,7 @@ function RL.Experiment(
                         "seed" => 1,
                      ),
     )
-    save_dir = datadir("sims", "DUQNS", "MountainCar", "$(now())")
+    save_dir = datadir("sims", "DUQNS", "LunarLander", "$(now())")
     mkpath(save_dir)
 
     """
@@ -77,7 +77,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = MountainCarEnv(; T = Float32, rng = rng)
+    env = GymEnv("LunarLander-v2"; seed=1)
     ns, na = length(state(env)), length(action_space(env))
 
     """
@@ -237,7 +237,7 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                MountainCarEnv(; T = Float32),
+                GymEnv("LunarLander-v2"; seed=1),
                 StopAfterEpisode(100; is_show_progress = false),
                 h,
             )
@@ -272,5 +272,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> MountainCar")
+    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> LunarLander")
 end

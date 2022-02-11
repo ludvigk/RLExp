@@ -9,7 +9,7 @@ export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, Ca
 export DUQNSLearner
 export stop, CenteredRMSProp
 export MountainCarPrior
-export AcrobotEnv
+export AcrobotEnv, GymEnv
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -29,6 +29,7 @@ using Zygote
 
 include("utils/hooks.jl")
 include("utils/atari.jl")
+include("utils/gym.jl")
 include("utils/acrobot.jl")
 include("utils/priors.jl")
 include("utils/utils.jl")
