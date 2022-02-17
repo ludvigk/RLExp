@@ -40,9 +40,8 @@ function GymEnv(name::String; seed::Union{Int, Nothing}=nothing)
         act_space,
         PyNULL(),
     )
-    env = discrete2standard_discrete(env)
     reset!(env) # reset immediately to init env.state
-    env
+    discrete2standard_discrete(env)
 end
 
 Base.nameof(env::GymEnv) = env.pyenv.__class__.__name__

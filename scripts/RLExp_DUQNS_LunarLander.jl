@@ -39,9 +39,9 @@ function RL.Experiment(
     lg = WandbLogger(project = "RLExp",
                      name="DUQNS_LunarLander",
                      config = Dict(
-                        "B_lr" => 1e-3,
+                        "B_lr" => 1e-2,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 10000.0,
+                        "B_clip_norm" => 10.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -52,8 +52,8 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "FlatPrior()",
-                        # "prior" => "LunarLanderPrior(1)",
+                        "prior" => "LunarLanderPrior(50)",
+                        # "prior" => "FlatPrior()",
                         "n_samples" => 100,
                         "η" => 0.95,
                         "nev" => 6,
@@ -78,6 +78,7 @@ function RL.Experiment(
     SET UP ENVIRONMENT
     """
     env = GymEnv("LunarLander-v2"; seed=1)
+    env = discrete2standard_discrete(env)
     ns, na = length(state(env)), length(action_space(env))
 
     """
@@ -228,7 +229,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n = 50) do t, agent, env
+        DoEveryNEpisode(n = 10) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(

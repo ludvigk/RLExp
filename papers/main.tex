@@ -101,7 +101,7 @@ state space and \(\action\) is the set of available actions. At time \(t=0\) a s
 \(s_0\) is sampled from the distribution \(P_0(\cdot)\). At each timestep an action
 \(a_t \sim \pi(\cdot \vert s_t)\) is selected and the agent transitions to a new state
 state \(s_{t+1} \sim P(\cdot \vert s_t, a_t)\). A scalar reward
-\(r_t = r(\cdot \vert s_t, a_t)\) is observed. As the agent and environement
+\(r_t = r(s_t, a_t)\) is observed. As the agent and environement
 interact in a sequence of time steps, a history of observations
 \(\mathcal{H}_t = (s_0, a_0, r_0, s_1, a_1, r_1, \dots, s_t, a_t, r_t)\) is collected.
 The goal is to find a policy \(\pi^\star\), such that sampling actions
@@ -109,7 +109,7 @@ The goal is to find a policy \(\pi^\star\), such that sampling actions
 \(J^\pi \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \right]\). An efficient
 agent must be able to learn from the data it collects, but since the data is
 dependent on the policy, it must also prioritize to explore states and actions that
-the agent can learn a lot from.
+the agent has little information on.
 
 The efficiency of exploration can be measured in regret.
 The regret of a policy is the difference in the expected reward obtained by
@@ -125,13 +125,13 @@ Thompson sampling approximates a posterior distribution of the expected reward
 for each action. The next action is decided by sampling rewards for each action
 from the posterior distribution and selecting the action that gave the highest
 reward. Bayesian methods have also been shown to behave efficiently with respect
-to cumulative regret \cite{osband_generalization_2016} on general MDPs.
+to cumulative regret \citep{osband_generalization_2016} on general MDPs.
 %\textcolor{red}{Optimal Regret + Thompson sampling }
 
 
 The \(Q\)-function, \(Q^\pi(s,a)\), is defined as the expected reward of taking action
 \(a\) in state \(s\) and then following policy \(\pi\) thereafter:
-\(Q^\pi(s_0, a_0) \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert s_0=S, a_0=A \right]\).
+\(Q^\pi(s_0, a_0) \defeq \E_\pi \left[ \sum_{t=0}^\infty \gamma^t r_t \vert S=s, A_0=a \right]\).
 The Bellman operator on \(Q^\pi\) is defined as
 \(\B[Q^\pi](s_t,a_t) \defeq \E_{P(s_{t+1} \vert s_t, a_t)\pi(a_{t+1} \vert s_t)}
 \left[ r(s_t, a) + \gamma Q^\pi(s_{t+1}, a_{t+1}) \right]\). With the
@@ -169,7 +169,7 @@ In this paper, we will introduce an extension to NoisyNet that puts it into a Ba
 
 \section{Background}
 
-Before we dwelve into the background, we need to presicise some notation. Most of the
+Before we dwelve into the background, we need to define some notation. Most of the
 theory will be based on stochastic functions. The stochastic process we are interested is
 generating value functions on an MDP, and exists on the probability space on the probability
 space \((\Omega, \mathcal{F}, P)\). It can be written as
@@ -506,7 +506,7 @@ all experiments will mainly compare the performance of these two methods.
 \subsection{Details and Hyperparameters}
 We compare our method with NoisyNet~\citep{fortunato_noisy_2019} on four different
 environments in the OpenAI Gym~\citep{brockman_openai_2016-2}. The hyperparameters
-are the same as those described in \cite{han_nrowan-dqn_2020}. Our method additionally
+are the same as those described  \cite{han_nrowan-dqn_2020}. Our method additionally
 has hyperparameters related to the functional KL-divergence. These are reported in
 Table~\ref{tab:hyperparams}.
 
@@ -594,12 +594,14 @@ to incentivize.
 
 \begin{align}
     p(\bm{s},a) &\sim \mathcal{N}(\bm{\mu}, \sigma I ), \text{ where}\\
-    \bm{\mu} &= \lambda_1 + \lambda_2 \mathrm{A}_a \bm{s} \nonumber
+    \bm{\mu} &= \lambda_1 + \nu \lambda_2 \mathrm{A}_a \bm{s} \nonumber
 \end{align}
 
 \begin{table}
     \centering
     \caption{Prior parameters}\label{tab:prior_hyperparams}
+    \begingroup
+    \setlength\arraycolsep{3pt}
     \begin{tabular}{lccc}
       \toprule % from booktabs package
       Environment & \(\lambda_1\) & \(\lambda_2\) & \(\mathrm{A}\) \\
@@ -607,16 +609,17 @@ to incentivize.
       Cartpole & 0 & 100 & \(\begin{bmatrix} 0 & 0 & 1 & 1 \\
                                              0 & 0 & -1 & -1
                              \end{bmatrix}\)\\\addlinespace[0.3em]
-      MountainCar & 100 & 100 & \(\begin{bmatrix} 0 & -1 \\
+      MountainCar & -100 & 100 & \(\begin{bmatrix} 0 & -1 \\
                                                   0 & 0 \\
                                                   0 & 1
                                 \end{bmatrix}\)\\\addlinespace[0.3em]
-      Acrobot & 100 & 100 & \(\begin{bmatrix} 0 & -1 & 0 & -1 & -0.1 & -0.05 \\
+      Acrobot & -100 & 100 & \(\begin{bmatrix} 0 & -1 & 0 & -1 & -0.2 & -0.1 \\
                                                0 & 0 & 0 & 0 & 0 & 0 \\
-                                               0 & 1 & 0 & 1 & 0.1 & 0.05
+                                               0 & 1 & 0 & 1 & 0.2 & 0.1
                             \end{bmatrix}\)\\
       \bottomrule % from booktabs package
     \end{tabular}
+    \endgroup
 \end{table}
 
 \begin{table}
@@ -624,17 +627,17 @@ to incentivize.
     \caption{Number of episodes to beat select environments.}\label{tab:prior_results}
     \begin{tabular}{cccc}
         \toprule
-        Prior & Cartpole & MountainCar & Acrobot\\
+        Prior & Cartpole & MountainCar & LunarLander\\
         \midrule
-        \(\sigma = 1\)  & \tB 14  & 100 &\\
-        \(\sigma = 10\) &     33  & 1700 &\\
-        \(\sigma = 50\) &     113 & &\\
-        Flat prior      &     117 & 1650 &\\
-        \(\sigma = 50\) &     177 & &\\
-        \(\sigma = 20\) &     232 & &\\
-        \(\sigma = 10\) &     N/A & &\\
+        \(\nu = 1, \sigma = 1\)   & \tB 14  & 100 &\\
+        \(\nu = 1, \sigma = 10\)  &     33  & 1700 &\\
+        \(\nu = 1, \sigma = 50\)  &     113 & 1250 &\\
+        Flat prior                &     117 & 1650 &\\
+        \(\nu = -1, \sigma = 50\) &     177 & &\\
+        \(\nu = -1, \sigma = 20\) &     232 & &\\
+        \(\nu = -1, \sigma = 10\) &     --- & &\\
         \midrule
-        NoisyNet        &         & 1700 &\\
+        NoisyNet                  &     219 & 1700 &\\
         \bottomrule
     \end{tabular}
 \end{table}

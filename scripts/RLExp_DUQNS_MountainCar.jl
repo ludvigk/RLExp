@@ -41,7 +41,7 @@ function RL.Experiment(
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 10.0,
+                        "B_clip_norm" => 5.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -53,7 +53,7 @@ function RL.Experiment(
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
                         # "prior" => "FlatPrior()",
-                        "prior" => "MountainCarPrior(50)",
+                        "prior" => "MountainCarPrior(10)",
                         "n_samples" => 100,
                         "η" => 0.95,
                         "nev" => 6,
@@ -217,11 +217,28 @@ function RL.Experiment(
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
-                    sul = sum(abs.(last_layer)) / length(last_layer)
-                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end]
+                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1]
+                    sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
+                    spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
+                    wul = maximum(abs.(last_layer.w_μ))
+                    wpl = maximum(abs.(penultimate_layer.w_μ))
+                    ssul = maximum(abs.(last_layer.w_ρ))
+                    sspl = maximum(abs.(penultimate_layer.w_ρ))
                     @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
+                    @info "network" w_max_ultimate_layer = wul w_max_penultimate_layer = wpl log_step_increment = 0
+                    @info "network" sigma_max_ultimate_layer = ssul sigma_max_penultimate_layer = sspl log_step_increment = 0
+                    last_layer = agent.policy.learner.B_approximator.model[end].paths[2][end]
+                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[2][end-1]
+                    sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
+                    spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
+                    wul = maximum(abs.(last_layer.w_μ))
+                    wpl = maximum(abs.(penultimate_layer.w_μ))
+                    ssul = maximum(abs.(last_layer.w_ρ))
+                    sspl = maximum(abs.(penultimate_layer.w_ρ))
+                    @info "network" s_sigma_ultimate_layer = sul s_sigma_penultimate_layer = spl log_step_increment = 0
+                    @info "network" s_w_max_ultimate_layer = wul s_w_max_penultimate_layer = wpl log_step_increment = 0
+                    @info "network" s_sigma_max_ultimate_layer = ssul s_sigma_max_penultimate_layer = sspl log_step_increment = 0
                 end
             catch
                 close(lg)

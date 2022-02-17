@@ -144,7 +144,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
-
     seed = hash(rand())
     rng_B = Random.MersenneTwister(seed)
     rng_Q = Random.MersenneTwister(seed + 1)
@@ -174,7 +173,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     gs = gradient(params(B)) do
         b_all, s_all = B(s, n_samples, rng = rng_B) ## SLOW
         b = b_all[a, :]
-        ss = clamp.(s_all[a, :], -10, 4)
+        ss = clamp.(s_all[a, :], -2, 4)
         # ss = sum(ss, dims=2) / n_samples
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
@@ -183,9 +182,20 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         𝐿 /= n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
+        b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
 
         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
         H = learner.prior(s, b_all) ./ (n_samples)
+
+        if any(isnan, [S, H, 𝐿]) || any(isinf, [S, H, 𝐿])
+            @show S
+            @show H
+            @show 𝐿
+            @show ss
+            @show b
+            Flux.stop()
+        end
+
 
         KL = H - S
 
@@ -202,6 +212,11 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         end
 
         return 𝐿 + λ * KL / batch_size
+    end
+    fff(x) = any(isnan, x)
+    if any(fff.(gs))
+        @show gs.grads
+        Flux.stop()
     end
     update!(B, gs)
 end

@@ -1,6 +1,6 @@
 export stop, CenteredRMSProp
 
-const ϵ = 1e-8
+const ϵ = 1f-6
 
 stop(text="Stop.") = throw(StopException(text))
 

@@ -1,4 +1,5 @@
 export FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior, AcrobotPrior
+export LunarLanderPrior
 
 
 
@@ -25,14 +26,14 @@ struct MountainCarPrior <: AbstractPrior
 end
 
 function MountainCarPrior()
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
+    μ = s -> Zygote.@ignore -100 .- 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
     # μ = s -> Zygote.@ignore 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
     σ = 10f0
     return CartpolePrior(μ, σ)
 end
 
 function MountainCarPrior(σ)
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
+    μ = s -> Zygote.@ignore -100 .- 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
@@ -74,13 +75,13 @@ struct AcrobotPrior <: AbstractPrior
 end
 
 function AcrobotPrior()
-    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
+    μ = s -> Zygote.@ignore 100 .+ 1000f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
     σ = 10f0
     return AcrobotPrior(μ, σ)
 end
 
 function AcrobotPrior(σ)
-    μ = s -> Zygote.@ignore 100 .+ 100f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
+    μ = s -> Zygote.@ignore 100 .+ 1000f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
     return AcrobotPrior(μ, Float32(σ))
 end
 
@@ -89,5 +90,35 @@ function AcrobotPrior(μ, σ::Float64)
 end
 
 function (p::AcrobotPrior)(s::AbstractArray, t::AbstractArray)
+    return sum((t .- p.μ(s)) .^ 2 ./ (2p.σ .^ 2))
+end
+
+struct LunarLanderPrior <: AbstractPrior
+    μ
+    σ
+end
+
+function LunarLanderPrior()
+    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1 0 -1 0 0 1 1;
+                                                 1 0 -1 0 0 0 0 -1;
+                                                 0 0 0 1 0 0 -1 -1;
+                                                 -1 0 1 0 0 0 -1 0]) * s
+    σ = 10f0
+    return LunarLanderPrior(μ, σ)
+end
+
+function LunarLanderPrior(σ)
+    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1 0 -1 0 0 1 1;
+                                                 1 0 -1 0 0 0 0 -1;
+                                                 0 0 0 1 0 0 -1 -1;
+                                                -1 0 1 0 0 0 -1 0]) * s
+    return LunarLanderPrior(μ, Float32(σ))
+end
+
+function LunarLanderPrior(μ, σ::Float64)
+    return LunarLanderPrior(μ, Float32(σ))
+end
+
+function (p::LunarLanderPrior)(s::AbstractArray, t::AbstractArray)
     return sum((t .- p.μ(s)) .^ 2 ./ (2p.σ .^ 2))
 end

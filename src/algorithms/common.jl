@@ -106,11 +106,11 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1)
 
         act_w = l.w_μ * tmp_x
-        act_w_std = sqrt.((wσ² .^ 2) * (tmp_x .^ 2))
+        act_w_std = sqrt.(max.((wσ² .^ 2) * (tmp_x .^ 2), 1f-6))
 
         # println(size(act_w), size(act_w_std), size(wϵ))
         act_w_out = act_w .+ act_w_std .* wϵ
-        act_b_out = l.b_μ .+ bσ² .* bϵ
+        act_b_out = l.b_μ .+ bσ² .^ 2 .* bϵ
         
         # wϵ .= wϵ .* wσ² .+ l.w_μ
         # bϵ .= bϵ .* bσ² .+ l.b_μ
@@ -128,11 +128,18 @@ function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union
         bϵ = ϵ_1
 
         act_w = batched_mul(l.w_μ, x)
-        act_w_std = sqrt.(batched_mul(wσ² .^ 2, x .^ 2))
+        act_w_std = sqrt.(max.(batched_mul(wσ² .^ 2, x .^ 2), 1f-6))
+        if any(isnan, act_w_std) || any(isinf, act_w)
+            @show act_w_std
+            @show act_w
+            @show l.w_μ
+            @show x
+            Flux.stop()
+        end
 
         # println(size(act_w), size(act_w_std), size(wϵ))
         act_w_out = act_w .+ act_w_std .* wϵ
-        act_b_out = l.b_μ .+ bσ² .* bϵ
+        act_b_out = l.b_μ .+ bσ² .^ 2 .* bϵ
 
         # w = muladd.(l.w_μ, wϵ, wσ²)
         # b = muladd.(l.b_μ, bϵ, bσ²)
@@ -248,7 +255,7 @@ end
 # ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2 .+ 1e-6); dims=3)  ## SLOW
+    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2 .+ 1f-6); dims=3)  ## SLOW
     rb = dropdims(rb; dims=3)
     return exp.(rb)
 end
@@ -265,7 +272,7 @@ function grad_gram(x1::AbstractArray, x2::AbstractArray, lengthscale)
     x2 = Flux.unsqueeze(x2, 1)
     lengthscale = reshape(lengthscale, 1, 1, :)
     Kxx = rbf_kernel(x1, x2, lengthscale)  ## SLOW
-    diff = (x1 .- x2) ./ (lengthscale .^ 2 .+ 1e-8)
+    diff = (x1 .- x2) ./ (lengthscale .^ 2 .+ 1f-6)
     dKxx_dx1 = Flux.unsqueeze(Kxx, 3) .* (-diff)
     dKxx_dx2 = Flux.unsqueeze(Kxx, 3) .* diff
     return Kxx, dKxx_dx1, dKxx_dx2
@@ -284,14 +291,14 @@ Zygote.@nograd function heuristic_lengthscale(x::AbstractArray, xm::AbstractArra
     ]
     kernel_width = flatten(kernel_width)
     kernel_width = kernel_width .* sqrt(Float32(x_dim))
-    return kernel_width = kernel_width .+ (kernel_width .< 1e-8)
+    return kernel_width = kernel_width .+ (kernel_width .< 1f-6)
 end
 
 function nystrom_ext(x, eval_points, eigen_vecs, eigen_vals, lengthscale)
     M = size(x, 1)
     Kxxm = gram(eval_points, x, lengthscale)
     phi_x = sqrt(M) .* (Kxxm * eigen_vecs)
-    return phi_x = phi_x ./ (Flux.unsqueeze(eigen_vals, 1) .+ 1e-8)
+    return phi_x = phi_x ./ (Flux.unsqueeze(eigen_vals, 1) .+ 1f-6)
 end
 
 abstract type BaseScoreEstimator end
@@ -317,27 +324,31 @@ function compute_gradients(
         eigen_vals, eigen_vecs = eigen(Symmetric(Kxx), sortby = x -> -x)
         # c = cumsum(eigen_vals) ./ sum(eigen_vals)
         # nev = findfirst(x -> x > 0.99, c)
-        nev = sse.nev
+        # nev = sse.nev
+        c = cumsum(eigen_vals)
+        nev = findfirst(x -> x > 0.99, c ./ c[end])
+
         eigen_vals = eigen_vals[1:nev]
         eigen_vecs = eigen_vecs[:, 1:nev]
+        eigen_vals = max.(eigen_vals, 1f-4)
 		# eigen_vecs = hcat(eigen_vecs...)
         eigen_vals, eigen_vecs = gpu(eigen_vals), gpu(eigen_vecs)
     else
-        if !isnothing(sse.η)
-            Kxx = Kxx + sse.η * I
-        end
-        eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
-        c = cumsum(eigen_vals)
-        nev = findfirst(x -> x > 0.99, c ./ c[end])
-        eigen_vals = eigen_vals[1:nev]
-        eigen_vecs = eigen_vecs[1:nev]
-		eigen_vecs = hcat(eigen_vecs...)
+        # if !isnothing(sse.η)
+        #     Kxx = Kxx + sse.η * I
+        # end
+        # eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
+        # c = cumsum(eigen_vals)
+        # nev = findfirst(x -> x > 0.99, c ./ c[end])
+        # eigen_vals = eigen_vals[1:nev]
+        # eigen_vecs = eigen_vecs[1:nev]
+		# eigen_vecs = hcat(eigen_vecs...)
     end
 
     phi_x = nystrom_ext(xm, x, eigen_vecs, eigen_vals, lengthscale)
     dKxx_dx_avg = dropdims(mean(dKxx; dims=1); dims=1)
     beta = -sqrt(M) .* (eigen_vecs' * dKxx_dx_avg)
-    beta = beta ./ (Flux.unsqueeze(eigen_vals, 2) .+ 1e-8)
+    beta = beta ./ (Flux.unsqueeze(eigen_vals, 2) .+ 1f-6)
     return phi_x * beta
 end
 
