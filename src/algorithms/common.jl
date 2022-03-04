@@ -60,11 +60,11 @@ Flux.@functor NoisyDense
 #     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 # end
 
-function make_noise_sqrt(dims...)
-    noise = CUDA.randn(Float32, dims...)
-    # noise .= copysign.(sqrt.(abs.(noise)), noise)
-    return noise
-end
+# function make_noise_sqrt(dims...)
+#     noise = CUDA.randn(Float32, dims...)
+#     noise .= copysign.(sqrt.(abs.(noise)), noise)
+#     return noise
+# end
 
 # function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
 #     rng = rng === nothing ? l.rng : rng
@@ -93,60 +93,31 @@ end
 
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
-    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
     wσ² = l.w_ρ
     bσ² = l.b_ρ
 
     if num_samples === nothing
         tmp_x = reshape(x, size(x, 1), :)
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1)
-        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2))
-        wϵ = ϵ_1
-        # wϵ = Zygote.@ignore ϵ_1 .* ϵ_2
-        bϵ = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1)
+        ϵ = Zygote.@ignore CUDA.randn(Float32,size(bσ², 1), 1)
 
         act_w = l.w_μ * tmp_x
         act_w_std = sqrt.(max.((wσ² .^ 2) * (tmp_x .^ 2), 1f-6))
 
-        # println(size(act_w), size(act_w_std), size(wϵ))
-        act_w_out = act_w .+ act_w_std .* wϵ
-        act_b_out = l.b_μ .+ bσ² .^ 2 .* bϵ
-        
-        # wϵ .= wϵ .* wσ² .+ l.w_μ
-        # bϵ .= bϵ .* bσ² .+ l.b_μ
+        mean_out = act_w .+ l.b_μ 
+        noise_out = (bσ² .^ 2 .+ act_w_std) .* ϵ
 
-        return l.f.(act_w_out .+ act_b_out)
+        return l.f.(mean_out .+ noise_out)
     else
-        # ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1, num_samples)
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(l.w_μ, 1), 1, num_samples)
-        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2), num_samples)
-        wϵ = ϵ_1
-        # wϵ = batched_mul(ϵ_1, ϵ_2)
-        ϵ_1 = Zygote.@ignore make_noise_sqrt(size(bσ², 1), 1, num_samples)
-        # ϵ_2 = Zygote.@ignore make_noise_sqrt(1, size(x, 2), num_samples)
-        # bϵ = batched_mul(ϵ_1, ϵ_2)
-        bϵ = ϵ_1
+        x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+        ϵ = Zygote.@ignore CUDA.randn(Float32, size(bσ², 1), 1, num_samples)
 
         act_w = batched_mul(l.w_μ, x)
         act_w_std = sqrt.(max.(batched_mul(wσ² .^ 2, x .^ 2), 1f-6))
-        if any(isnan, act_w_std) || any(isinf, act_w)
-            @show act_w_std
-            @show act_w
-            @show l.w_μ
-            @show x
-            Flux.stop()
-        end
 
-        # println(size(act_w), size(act_w_std), size(wϵ))
-        act_w_out = act_w .+ act_w_std .* wϵ
-        act_b_out = l.b_μ .+ bσ² .^ 2 .* bϵ
+        mean_out = act_w .+ l.b_μ 
+        noise_out = (bσ² .^ 2 .+ act_w_std) .* ϵ
 
-        # w = muladd.(l.w_μ, wϵ, wσ²)
-        # b = muladd.(l.b_μ, bϵ, bσ²)
-        return l.f.(act_w_out .+ act_b_out)
-
-        # y = l.f.(batched_mul(w, x) .+ b)
-        # return y
+        return l.f.(mean_out .+ noise_out)
     end
 end
 
@@ -255,24 +226,19 @@ end
 # ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2 .+ 1f-6); dims=3)  ## SLOW
-    rb = dropdims(rb; dims=3)
-    return exp.(rb)
+    @tullio S[i,j] := -(x1[i,m] - x2[j,m]) ^ 2 / (2 * lengthscale[m] ^ 2 + 1f-6)
+    return exp.(S)
 end
 
 function gram(x1, x2, lengthscale)
-    x1 = Flux.unsqueeze(x1, 2)
-    x2 = Flux.unsqueeze(x2, 1)
-    lengthscale = reshape(lengthscale, 1, 1, :)
     return Kxx = rbf_kernel(x1, x2, lengthscale)
 end
 
 function grad_gram(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    x1 = Flux.unsqueeze(x1, 2)
-    x2 = Flux.unsqueeze(x2, 1)
-    lengthscale = reshape(lengthscale, 1, 1, :)
-    Kxx = rbf_kernel(x1, x2, lengthscale)  ## SLOW
-    diff = (x1 .- x2) ./ (lengthscale .^ 2 .+ 1f-6)
+
+    Kxx = rbf_kernel(x1, x2, lengthscale)
+    @tullio diff[i,j] := -(x1[j,m] - x2[i,m]) / (lengthscale[m] ^ 2 + 1f-6)
+    diff = Flux.unsqueeze(diff,3)
     dKxx_dx1 = Flux.unsqueeze(Kxx, 3) .* (-diff)
     dKxx_dx2 = Flux.unsqueeze(Kxx, 3) .* diff
     return Kxx, dKxx_dx1, dKxx_dx2
@@ -322,15 +288,16 @@ function compute_gradients(
         end
         # eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
         eigen_vals, eigen_vecs = eigen(Symmetric(Kxx), sortby = x -> -x)
+        eigen_vals = max.(eigen_vals, 1f-6)
+
         # c = cumsum(eigen_vals) ./ sum(eigen_vals)
         # nev = findfirst(x -> x > 0.99, c)
-        # nev = sse.nev
+        nev = sse.nev
         c = cumsum(eigen_vals)
-        nev = findfirst(x -> x > 0.99, c ./ c[end])
+        nev = findfirst(x -> x > sse.n_eigen_threshold, c ./ c[end])
 
         eigen_vals = eigen_vals[1:nev]
         eigen_vecs = eigen_vecs[:, 1:nev]
-        eigen_vals = max.(eigen_vals, 1f-4)
 		# eigen_vecs = hcat(eigen_vecs...)
         eigen_vals, eigen_vecs = gpu(eigen_vals), gpu(eigen_vecs)
     else

@@ -26,14 +26,14 @@ struct MountainCarPrior <: AbstractPrior
 end
 
 function MountainCarPrior()
-    μ = s -> Zygote.@ignore -100 .- 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
+    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
     # μ = s -> Zygote.@ignore 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
     σ = 10f0
     return CartpolePrior(μ, σ)
 end
 
 function MountainCarPrior(σ)
-    μ = s -> Zygote.@ignore -100 .- 100f0 .* gpu([0 -10; 0 0; 0 10]) * s
+    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
@@ -99,19 +99,19 @@ struct LunarLanderPrior <: AbstractPrior
 end
 
 function LunarLanderPrior()
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1 0 -1 0 0 1 1;
-                                                 1 0 -1 0 0 0 0 -1;
-                                                 0 0 0 1 0 0 -1 -1;
-                                                 -1 0 1 0 0 0 -1 0]) * s
+    μ = s -> Zygote.@ignore -100f0 .* gpu([ 0 0 0 0  0  0 0 0;
+                                           0 0 0 0 -1 -2 0 0;
+                                           0 0 0 0  0  0 0 0;
+                                           0 0 0 0  1  2 0 0]) * s
     σ = 10f0
     return LunarLanderPrior(μ, σ)
 end
 
 function LunarLanderPrior(σ)
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1 0 -1 0 0 1 1;
-                                                 1 0 -1 0 0 0 0 -1;
-                                                 0 0 0 1 0 0 -1 -1;
-                                                -1 0 1 0 0 0 -1 0]) * s
+    μ = s -> Zygote.@ignore -100f0 .* gpu([ 0 0 0 0  0  0 0 0;
+                                           0 0 0 0 -1 -2 0 0;
+                                           0 0 0 0  0  0 0 0;
+                                           0 0 0 0  1  2 0 0]) * s
     return LunarLanderPrior(μ, Float32(σ))
 end
 
@@ -120,5 +120,6 @@ function LunarLanderPrior(μ, σ::Float64)
 end
 
 function (p::LunarLanderPrior)(s::AbstractArray, t::AbstractArray)
-    return sum((t .- p.μ(s)) .^ 2 ./ (2p.σ .^ 2))
+    σ = rbf_kernel(s, s', 10)
+    return sum((t .- 0) * inv(σ) * (t .- 0)')
 end

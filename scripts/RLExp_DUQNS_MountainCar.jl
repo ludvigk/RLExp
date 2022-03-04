@@ -36,12 +36,12 @@ function RL.Experiment(
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project = "RLExp",
+    lg = WandbLogger(project = "BE",
                      name="DUQNS_MountainCar",
                      config = Dict(
                         "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 5.0,
+                        "B_clip_norm" => 1000.0,
                         "B_update_freq" => 1,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
@@ -52,11 +52,12 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        # "prior" => "FlatPrior()",
-                        "prior" => "MountainCarPrior(10)",
+                        "prior" => "FlatPrior()",
+                        # "prior" => "MountainCarPrior(1)",
                         "n_samples" => 100,
-                        "η" => 0.95,
+                        "η" => 0.01,
                         "nev" => 6,
+                        "n_eigen_threshold" => 0.99,
                         "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
@@ -86,7 +87,7 @@ function RL.Experiment(
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
     # init_σ(dims...) = (2 .* rand(rng, Float32, dims) .- 1) ./ Float32(sqrt(dims[end]))
-    init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     # B_model = Chain(
@@ -99,19 +100,13 @@ function RL.Experiment(
     # ) |> gpu
 
     B_model = Chain(
-            Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
-            ),
-        ) |> gpu
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        Split(
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+        ),
+    ) |> gpu
 
 
     # B_model = Chain(
@@ -133,19 +128,13 @@ function RL.Experiment(
     # ) |> gpu
 
     Q_model = Chain(
-            Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
-            ),
-        ) |> gpu
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        Split(
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+        ),
+    ) |> gpu
 
     # Q_model = Chain(
     #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
@@ -217,28 +206,28 @@ function RL.Experiment(
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end]
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1]
-                    sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
-                    spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
-                    wul = maximum(abs.(last_layer.w_μ))
-                    wpl = maximum(abs.(penultimate_layer.w_μ))
-                    ssul = maximum(abs.(last_layer.w_ρ))
-                    sspl = maximum(abs.(penultimate_layer.w_ρ))
-                    @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
-                    @info "network" w_max_ultimate_layer = wul w_max_penultimate_layer = wpl log_step_increment = 0
-                    @info "network" sigma_max_ultimate_layer = ssul sigma_max_penultimate_layer = sspl log_step_increment = 0
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[2][end]
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[2][end-1]
-                    sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
-                    spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
-                    wul = maximum(abs.(last_layer.w_μ))
-                    wpl = maximum(abs.(penultimate_layer.w_μ))
-                    ssul = maximum(abs.(last_layer.w_ρ))
-                    sspl = maximum(abs.(penultimate_layer.w_ρ))
-                    @info "network" s_sigma_ultimate_layer = sul s_sigma_penultimate_layer = spl log_step_increment = 0
-                    @info "network" s_w_max_ultimate_layer = wul s_w_max_penultimate_layer = wpl log_step_increment = 0
-                    @info "network" s_sigma_max_ultimate_layer = ssul s_sigma_max_penultimate_layer = sspl log_step_increment = 0
+                    # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end]
+                    # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1]
+                    # sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
+                    # spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
+                    # wul = maximum(abs.(last_layer.w_μ))
+                    # wpl = maximum(abs.(penultimate_layer.w_μ))
+                    # ssul = maximum(abs.(last_layer.w_ρ))
+                    # sspl = maximum(abs.(penultimate_layer.w_ρ))
+                    # @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
+                    # @info "network" w_max_ultimate_layer = wul w_max_penultimate_layer = wpl log_step_increment = 0
+                    # @info "network" sigma_max_ultimate_layer = ssul sigma_max_penultimate_layer = sspl log_step_increment = 0
+                    # last_layer = agent.policy.learner.B_approximator.model[end].paths[2][end]
+                    # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[2][end-1]
+                    # sul = sum(abs.(last_layer.w_ρ)) / length(last_layer.w_ρ)
+                    # spl = sum(abs.(penultimate_layer.w_ρ)) / length(penultimate_layer.w_ρ)
+                    # wul = maximum(abs.(last_layer.w_μ))
+                    # wpl = maximum(abs.(penultimate_layer.w_μ))
+                    # ssul = maximum(abs.(last_layer.w_ρ))
+                    # sspl = maximum(abs.(penultimate_layer.w_ρ))
+                    # @info "network" s_sigma_ultimate_layer = sul s_sigma_penultimate_layer = spl log_step_increment = 0
+                    # @info "network" s_w_max_ultimate_layer = wul s_w_max_penultimate_layer = wpl log_step_increment = 0
+                    # @info "network" s_sigma_max_ultimate_layer = ssul s_sigma_max_penultimate_layer = sspl log_step_increment = 0
                 end
             catch
                 close(lg)

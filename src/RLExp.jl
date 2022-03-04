@@ -7,6 +7,7 @@ export ResizeImage
 export get_screen
 export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, CartpolePrior, AcrobotPrior
 export DUQNSLearner
+export FACLearner
 export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior
 export AcrobotEnv, GymEnv
@@ -34,9 +35,8 @@ include("utils/acrobot.jl")
 include("utils/priors.jl")
 include("utils/utils.jl")
 include("algorithms/common.jl")
-include("algorithms/BDQN.jl")
-include("algorithms/GDQN.jl")
 include("algorithms/DUQN.jl")
 include("algorithms/DUQNS.jl")
+include("algorithms/FAC.jl")
 
 end

@@ -39,7 +39,7 @@ function DUQNSLearner(;
     Q_approximator::Tt,
     Q_lr::Real = 0.01f0,
     prior::AbstractPrior = FlatPrior(),
-    λ::Union{Real, Nothing} = 1.0,
+    λ::Union{Real, Nothing} = 1,
     stack_size::Union{Int, Nothing} = nothing,
     γ::Real = 0.99f0,
     batch_size::Int = 32,
@@ -78,7 +78,7 @@ function DUQNSLearner(;
         update_step,
         sampler,
         rng,
-        SpectralSteinEstimator(Float32(η), nev, 0.99),
+        SpectralSteinEstimator(Float32(η), nev, 0.99f0),
         Float32(injected_noise),
         n_samples,
         is_enable_double_DQN,
@@ -144,16 +144,13 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
-    seed = hash(rand())
-    rng_B = Random.MersenneTwister(seed)
-    rng_Q = Random.MersenneTwister(seed + 1)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
         q_values = B(s′, n_samples)
         # rng_B = Random.MersenneTwister(seed)
     else
-        q_values = Q(s′, n_samples, rng = rng_Q)
+        q_values = Q(s′, n_samples)
     end
 
     if haskey(batch, :next_legal_actions_mask)
@@ -163,7 +160,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
-        q′ = Q(s′, n_samples; rng = rng_Q)[selected_actions, :]
+        q′ = Q(s′, n_samples)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
@@ -171,14 +168,12 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all = B(s, n_samples, rng = rng_B) ## SLOW
+        b_all, s_all = B(s, n_samples, rng = learner.rng) ## SLOW
         b = b_all[a, :]
-        ss = clamp.(s_all[a, :], -2, 4)
-        # ss = sum(ss, dims=2) / n_samples
+        ss = clamp.(s_all[a, :], -2, 8)
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
         𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
-        # 𝐿 = sum((b .- G) .^ 2)
         𝐿 /= n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
@@ -186,16 +181,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
         S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
         H = learner.prior(s, b_all) ./ (n_samples)
-
-        if any(isnan, [S, H, 𝐿]) || any(isinf, [S, H, 𝐿])
-            @show S
-            @show H
-            @show 𝐿
-            @show ss
-            @show b
-            Flux.stop()
-        end
-
 
         KL = H - S
 
@@ -212,11 +197,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         end
 
         return 𝐿 + λ * KL / batch_size
-    end
-    fff(x) = any(isnan, x)
-    if any(fff.(gs))
-        @show gs.grads
-        Flux.stop()
     end
     update!(B, gs)
 end

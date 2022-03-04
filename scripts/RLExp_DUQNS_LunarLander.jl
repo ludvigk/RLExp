@@ -36,27 +36,28 @@ function RL.Experiment(
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project = "RLExp",
+    lg = WandbLogger(project = "BE",
                      name="DUQNS_LunarLander",
                      config = Dict(
-                        "B_lr" => 1e-2,
+                        "B_lr" => 1e-3,
                         "Q_lr" => 1.0,
-                        "B_clip_norm" => 10.0,
-                        "B_update_freq" => 1,
+                        "B_clip_norm" => 100.0,
+                        "B_update_freq" => 4,
                         "Q_update_freq" => 1_000,
                         "B_opt" => "ADAM",
                         "gamma" => 0.99f0,
                         "update_horizon" => 1,
                         "batch_size" => 32,
-                        "min_replay_history" => 10_000,
+                        "min_replay_history" => 32,
                         "updates_per_step" => 1,
                         "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "LunarLanderPrior(50)",
-                        # "prior" => "FlatPrior()",
+                        # "prior" => "LunarLanderPrior(50)",
+                        "prior" => "FlatPrior()",
                         "n_samples" => 100,
-                        "η" => 0.95,
+                        "η" => 0.01,
                         "nev" => 6,
+                        "n_eigen_threshold" => 0.99,
                         "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
@@ -87,7 +88,7 @@ function RL.Experiment(
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
     # init_σ(dims...) = (2 .* rand(rng, Float32, dims) .- 1) ./ Float32(sqrt(dims[end]))
-    init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     # B_model = Chain(
@@ -100,19 +101,13 @@ function RL.Experiment(
     # ) |> gpu
 
     B_model = Chain(
-            Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
-            ),
-        ) |> gpu
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        Split(
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+        ),
+    ) |> gpu
 
 
     # B_model = Chain(
@@ -134,19 +129,13 @@ function RL.Experiment(
     # ) |> gpu
 
     Q_model = Chain(
-            Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
-            ),
-        ) |> gpu
+        NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        Split(
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+        ),
+    ) |> gpu
 
     # Q_model = Chain(
     #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
@@ -218,27 +207,29 @@ function RL.Experiment(
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
-                    sul = sum(abs.(last_layer)) / length(last_layer)
-                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
-                    @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
+                    # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
+                    # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
+                    # sul = sum(abs.(last_layer)) / length(last_layer)
+                    # spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    # @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
                 end
             catch
                 close(lg)
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n = 10) do t, agent, env
+        DoEveryNEpisode(n = 50) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
                 TotalRewardPerEpisode(),
                 StepsPerEpisode(),
             )
+            env = GymEnv("LunarLander-v2"; seed=1)
+            env = discrete2standard_discrete(env)
             s = @elapsed run(
                 p,
-                GymEnv("LunarLander-v2"; seed=1),
+                env,
                 StopAfterEpisode(100; is_show_progress = false),
                 h,
             )
@@ -268,7 +259,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(500_000, is_show_progress=true)
+    stop_condition = StopAfterStep(2_000_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

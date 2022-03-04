@@ -38,7 +38,7 @@ function RL.Experiment(
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project = "RLExp",
+    lg = WandbLogger(project = "BE",
                      name="DUQNS_CartPole",
                      config = Dict(
                         "B_lr" => 1e-4,
@@ -54,12 +54,12 @@ function RL.Experiment(
                         "updates_per_step" => 1,
                         "λ" => 1,
                         # "prior" => "GaussianPrior(200, 100)",
-                        "prior" => "CartpolePrior(20)",
-                        # "prior" => "FlatPrior()",
+                        # "prior" => "CartpolePrior(1)",
+                        "prior" => "FlatPrior()",
                         "n_samples" => 100,
-                        "η" => 0.95,
+                        "η" => 0.01,
                         "nev" => 6,
-                        "n_eigen_threshold" => 0.98,
+                        "n_eigen_threshold" => 0.99,
                         "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
@@ -89,7 +89,7 @@ function RL.Experiment(
         """
         # init = glorot_uniform(rng)
         init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
-        init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
+        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
         # B_model = Chain(
@@ -102,17 +102,11 @@ function RL.Experiment(
         # ) |> gpu
 
         B_model = Chain(
+            NoisyDense(ns, 128, leakyrelu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, 128, leakyrelu; init_μ = init, init_σ = init_σ, rng = device_rng),
             Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             ),
         ) |> gpu
 
@@ -126,17 +120,11 @@ function RL.Experiment(
         # ) |> gpu
 
         Q_model = Chain(
+            NoisyDense(ns, 128, leakyrelu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, 128, leakyrelu; init_μ = init, init_σ = init_σ, rng = device_rng),
             Split(
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    ),
-                Chain(
-                    NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                    NoisyDense(128, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                ),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
             ),
         ) |> gpu
 
@@ -203,11 +191,11 @@ function RL.Experiment(
                     B_var, QA, s = p["B_var"], p["QA"], p["s"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
 
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
-                    sul = sum(abs.(last_layer)) / length(last_layer)
-                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
-                    @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
+                    # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
+                    # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
+                    # sul = sum(abs.(last_layer)) / length(last_layer)
+                    # spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    # @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
                 end
             catch
                 close(lg)

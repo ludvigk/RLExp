@@ -16,58 +16,58 @@ using Statistics
 using Wandb
 
 function RL.Experiment(
-    ::Val{:RLExp},
-    ::Val{:Noisy},
-    ::Val{:MountainCar},
-    name,
-    restore=nothing,
-   )
-
-   """
-   SET UP LOGGING
-   """
-   lg = WandbLogger(project = "RLExp",
-                    name="Noisy_MountainCar",
+::Val{:RLExp},
+::Val{:Noisy},
+::Val{:LunarLander},
+name,
+restore=nothing,
+)
+    """
+    SET UP LOGGING
+    """
+    lg = WandbLogger(project = "RLExp",
+                    name="Noisy_LunarLander",
                     config = Dict(
-                       "B_lr" => 1e-3,
-                       "Q_lr" => 1.0,
-                       "B_clip_norm" => 1000.0,
-                       "B_update_freq" => 1,
-                       "Q_update_freq" => 1000,
-                       "B_opt" => "ADAM",
-                       "gamma" => 0.99f0,
-                       "update_horizon" => 1,
-                       "batch_size" => 32,
-                       "min_replay_history" => 10_000,
-                       "updates_per_step" => 1,
-                       "is_enable_double_DQN" => true,
-                       "traj_capacity" => 1_000_000,
-                       "seed" => 1,
+                        "B_lr" => 1e-3,
+                        "Q_lr" => 1.0,
+                        "B_clip_norm" => 100.0,
+                        "B_update_freq" => 4,
+                        "Q_update_freq" => 1_000,
+                        "B_opt" => "ADAM",
+                        "gamma" => 0.99f0,
+                        "update_horizon" => 1,
+                        "batch_size" => 32,
+                        "min_replay_history" => 32,
+                        "updates_per_step" => 1,
+                        "is_enable_double_DQN" => true,
+                        "traj_capacity" => 1_000_000,
+                        "seed" => 1,
                     ),
-   )
-   save_dir = datadir("sims", "Noisy", "MountainCar", "$(now())")
+    )
+    save_dir = datadir("sims", "Noisy", "LunarLander", "$(now())")
 
-   """
-   SEEDS
-   """
-   seed = get_config(lg, "seed")
-   rng = MersenneTwister()
-   Random.seed!(rng, seed)
-   device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
-   Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
+    """
+    SEEDS
+    """
+    seed = get_config(lg, "seed")
+    rng = MersenneTwister()
+    Random.seed!(rng, seed)
+    device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
+    Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))
 
-   """
-   SET UP ENVIRONMENT
-   """
-   env = MountainCarEnv(; T = Float32, rng = rng)
-   ns, na = length(state(env)), length(action_space(env))
+    """
+    SET UP ENVIRONMENT
+    """
+    env = GymEnv("LunarLander-v2"; seed=1)
+    env = discrete2standard_discrete(env)
+    ns, na = length(state(env)), length(action_space(env))
 
-   """
-   CREATE MODEL
-   """
-   # init = glorot_uniform(rng)
-   init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
-   init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+    """
+    CREATE MODEL
+    """
+    # init = glorot_uniform(rng)
+    init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     agent = Agent(
@@ -135,9 +135,11 @@ function RL.Experiment(
                 TotalRewardPerEpisode(),
                 StepsPerEpisode(),
             )
+            env = GymEnv("LunarLander-v2"; seed=1)
+            env = discrete2standard_discrete(env)
             s = @elapsed run(
                 p,
-                MountainCarEnv(; T = Float32),
+                env,
                 StopAfterEpisode(100; is_show_progress = false),
                 h,
             )
@@ -164,10 +166,10 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(500_000, is_show_progress=true)
+    stop_condition = StopAfterStep(2_000_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# Noisy <-> MountainCar")
+    Experiment(agent, env, stop_condition, hook, "# Noisy <-> LunarLander")
 end

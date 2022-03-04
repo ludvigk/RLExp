@@ -26,7 +26,7 @@ function RL.Experiment(
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project = "RLExp",
+    lg = WandbLogger(project = "BE",
                     name="Noisy_CartPole",
                     config = Dict(
                         "B_lr" => 1e-4,
@@ -39,13 +39,7 @@ function RL.Experiment(
                         "update_horizon" => 1,
                         "batch_size" => 32,
                         "min_replay_history" => 32,
-                        "updates_per_step" => 1,
-                        "λ" => 1.0,
                         # "prior" => "GaussianPrior(0, 10)",
-                        "prior" => "FlatPrior()",
-                        "n_samples" => 100,
-                        "η" => 0.01,
-                        "nev" => 10,
                         "is_enable_double_DQN" => true,
                         "traj_capacity" => 1_000_000,
                         "seed" => 1,
@@ -74,7 +68,7 @@ function RL.Experiment(
     """
     # init = glorot_uniform(rng)
     init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
-    init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
 
     agent = Agent(
