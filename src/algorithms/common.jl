@@ -7,6 +7,7 @@ using KrylovKit
 using LinearAlgebra
 using NNlib: softplus
 using Random
+using Tullio
 using Zygote
 
 abstract type AbstractNoisy end

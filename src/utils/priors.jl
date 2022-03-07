@@ -37,7 +37,7 @@ function MountainCarPrior(σ)
     return CartpolePrior(μ, Float32(σ))
 end
 
-function MountainCarPrior(μ, σ)
+function MountainCarPrior(μ, σ::Float64)
     return CartpolePrior(μ, Float32(σ))
 end
 
