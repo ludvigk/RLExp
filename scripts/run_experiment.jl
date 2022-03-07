@@ -27,7 +27,9 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 # games = ["breakout"]
 # experiments = [E`RLExp_BDQN_Atari($(game))` for game in games]
 # experiments = [E`RLExp_Noisy_Atari(pong)`]
-config = Dict(
+
+@everywhere begin
+    config = Dict(
     "B_lr" => 1e-4,
     "Q_lr" => 1,
     "B_clip_norm" => 1000.0,
@@ -48,8 +50,8 @@ config = Dict(
     "is_enable_double_DQN" => true,
     "traj_capacity" => 1_000_000,
     "seed" => 1,
-)
-@everywhere begin
+    )
+
     config1 = copy(config)
     config1["prior"] = "FlatPrior()"
     config2 = copy(config)
