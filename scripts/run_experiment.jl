@@ -11,7 +11,7 @@ using DrWatson
 @quickactivate :RLExp
 
 n_workers = parse(Int, ENV["SLURM_NTASKS"])
-addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
+addprocs_slurm(10; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
 
 @everywhere using Distributed
 @everywhere using DrWatson
@@ -68,7 +68,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     config7["prior"] = "CartpolePrior(50; ν=-1)"
     confs = [config1, config2, config3, config4, config5, config6, config7]
 
-    exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs for _ in 1:3]
+    exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs for _ in 1:10]
 end
 
 pmap(run, exs)
