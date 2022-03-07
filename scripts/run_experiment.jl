@@ -49,24 +49,25 @@ config = Dict(
     "traj_capacity" => 1_000_000,
     "seed" => 1,
 )
+@everywhere begin
+    config1 = copy(config)
+    config1["prior"] = "FlatPrior()"
+    config2 = copy(config)
+    config2["prior"] = "CartpolePrior(1)"
+    config3 = copy(config)
+    config3["prior"] = "CartpolePrior(10)"
+    config4 = copy(config)
+    config4["prior"] = "CartpolePrior(50)"
+    config5 = copy(config)
+    config5["prior"] = "CartpolePrior(10; ν=-1)"
+    config6 = copy(config)
+    config6["prior"] = "CartpolePrior(20; ν=-1)"
+    config7 = copy(config)
+    config7["prior"] = "CartpolePrior(50; ν=-1)"
+    confs = [config1, config2, config3, config4, config5, config6, config7]
 
-config1 = copy(config)
-config1["prior"] = "FlatPrior()"
-config2 = copy(config)
-config2["prior"] = "CartpolePrior(1)"
-config3 = copy(config)
-config3["prior"] = "CartpolePrior(10)"
-config4 = copy(config)
-config4["prior"] = "CartpolePrior(50)"
-config5 = copy(config)
-config5["prior"] = "CartpolePrior(10; ν=-1)"
-config6 = copy(config)
-config6["prior"] = "CartpolePrior(20; ν=-1)"
-config7 = copy(config)
-config7["prior"] = "CartpolePrior(50; ν=-1)"
-confs = [config1, config2, config3, config4, config5, config6, config7]
-
-@everywhere exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs for _ in 1:10]
+    exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs for _ in 1:10]
+end
 
 pmap(run, exs)
 # run(experiments[1])
