@@ -8,18 +8,23 @@ If you get an error make sure to Pkg.checkout("CluterManagers").
 using ClusterManagers
 using Distributed
 using DrWatson
-@quickactivate :RLExp
+
+# @quickactivate :RLExp
 
 n_workers = parse(Int, ENV["SLURM_NTASKS"])
 addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
 
-@everywhere using Distributed
-@everywhere using DrWatson
-@everywhere @quickactivate :RLExp
-@everywhere using RLExp
+@everywhere begin
+    using Pkg; Pkg.activate(".")
+    using Distributed
+    using DrWatson
+    using RLExp
+    include("RLExp_DUQNS_Cartpole.jl")
+ end
+
 # include("RLExp_DUQN_Atari.jl")
 # include("RLExp_DUQNS_Atari.jl")
-@everywhere include("RLExp_DUQNS_Cartpole.jl")
+
 # include("RLExp_Noisy_Atari.jl")
 # include("RLExp_GDQN_Atari.jl")
 # include("Dopamine_DQN_Atari.jl")
