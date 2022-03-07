@@ -18,7 +18,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 @everywhere @quickactivate :RLExp
 # include("RLExp_DUQN_Atari.jl")
 # include("RLExp_DUQNS_Atari.jl")
-include("RLExp_DUQNS_Cartpole.jl")
+@everywhere include("RLExp_DUQNS_Cartpole.jl")
 # include("RLExp_Noisy_Atari.jl")
 # include("RLExp_GDQN_Atari.jl")
 # include("Dopamine_DQN_Atari.jl")
