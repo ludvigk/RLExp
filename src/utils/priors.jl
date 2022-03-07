@@ -56,8 +56,8 @@ function CartpolePrior()
     return CartpolePrior(μ, σ)
 end
 
-function CartpolePrior(σ)
-    μ = s -> Zygote.@ignore 100f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
+function CartpolePrior(σ; ν=1)
+    μ = s -> Zygote.@ignore ν * 100f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
