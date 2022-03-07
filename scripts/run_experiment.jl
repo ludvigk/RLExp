@@ -11,7 +11,7 @@ using DrWatson
 @quickactivate :RLExp
 
 n_workers = parse(Int, ENV["SLURM_NTASKS"])
-addprocs_slurm(10; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
+addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
 
 @everywhere using Distributed
 @everywhere using DrWatson
