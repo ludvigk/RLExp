@@ -16,7 +16,8 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 @everywhere using DrWatson
 @everywhere @quickactivate :RLExp
 # include("RLExp_DUQN_Atari.jl")
-include("RLExp_DUQNS_Atari.jl")
+# include("RLExp_DUQNS_Atari.jl")
+include("RLExp_DUQNS_Cartpole.jl")
 # include("RLExp_Noisy_Atari.jl")
 # include("RLExp_GDQN_Atari.jl")
 # include("Dopamine_DQN_Atari.jl")
@@ -64,7 +65,7 @@ config7 = copy(config)
 config7["prior"] = "CartpolePrior(50; ν=-1)"
 confs = [config1, config2, config3, config4, config5, config6, config7]
 
-exs = [RL.Expermient(Val(:RLExp), Val(:DUQNS), Val(:Cartpole); congig = conf) for conf in confs for _ in 1:10]
+exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole); congig = conf) for conf in confs for _ in 1:10]
 
 pmap(run, exs)
 # run(experiments[1])
