@@ -13,6 +13,7 @@ using DrWatson
 n_workers = parse(Int, ENV["SLURM_NTASKS"])
 addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
 
+@everywhere using Distributed
 @everywhere using DrWatson
 @everywhere @quickactivate :RLExp
 # include("RLExp_DUQN_Atari.jl")
