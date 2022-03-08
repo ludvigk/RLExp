@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=DUQNS
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=128GB
+#SBATCH --mem=64GB
 #SBATCH --nodes=1
 #SBATCH --exclusive
 #SBATCH --output=job_output_DUQNS.out
