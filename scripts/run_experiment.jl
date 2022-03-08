@@ -75,8 +75,8 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     confs = [config1, config2, config3, config4]
     # confs = [config1, config2, config3, config4, config5, config6, config7]
 
-    exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs]
+    exs = [RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf) for conf in confs for _=1:10]
 end
 
-pmap(run, exs)
+map(run, exs)
 # run(experiments[1])
