@@ -80,6 +80,7 @@ end
 
 function run_experiment(conf)
     ex = RL.Experiment(Val(:RLExp), Val(:DUQNS), Val(:Cartpole), "name"; config = conf)
+    run(ex)
 end
 
 map(run_experiment, exp_confs)
