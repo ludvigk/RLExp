@@ -1,6 +1,8 @@
-export FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior, AcrobotPrior
-export LunarLanderPrior
+using Tullio, KernelAbstractions, CUDAKernels
 
+
+export FlatPrior, GeneralPrior, GaussianPrior, MountainCarPrior, CartpolePrior, AcrobotPrior
+export LunarLanderPrior, KernelPrior
 
 
 abstract type AbstractPrior end
@@ -32,8 +34,8 @@ function MountainCarPrior()
     return CartpolePrior(μ, σ)
 end
 
-function MountainCarPrior(σ)
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
+function MountainCarPrior(σ; ν=1)
+    μ = s -> Zygote.@ignore -100 .+ ν * 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
@@ -120,6 +122,15 @@ function LunarLanderPrior(μ, σ::Float64)
 end
 
 function (p::LunarLanderPrior)(s::AbstractArray, t::AbstractArray)
-    σ = rbf_kernel(s, s', 10)
-    return sum((t .- 0) * inv(σ) * (t .- 0)')
+    return sum((t .- p.μ(s)) .^ 2 ./ (2p.σ .^ 2))
+end
+
+struct KernelPrior <: AbstractPrior end
+
+function (p::KernelPrior)(s::AbstractArray, t::AbstractArray)
+    l = heuristic_lengthscale(s', s')
+    Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.01I
+    K = Zygote.@ignore inv(cholesky(Σ))
+    L = batched_mul(batched_mul(t, K), permutedims(t, (2,1,3)))
+    return mean([tr(L[:,:,i]) for i=1:size(t,3)])
 end

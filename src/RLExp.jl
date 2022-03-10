@@ -9,7 +9,7 @@ export DUQNLearner, FlatPrior, GeneralPrior, GaussianPrior, CartpolePrior, Acrob
 export DUQNSLearner
 export FACLearner
 export stop, CenteredRMSProp
-export MountainCarPrior, LunarLanderPrior
+export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
 
 using ArcadeLearningEnvironment
