@@ -31,11 +31,13 @@ function RL.Experiment(
     ::Val{:LunarLander},
     name,
     restore=nothing,
+    config=nothing,
    )
 
     """
     SET UP LOGGING
     """
+    if isnothing(config)
     lg = WandbLogger(project = "BE",
                      name="DUQNS_LunarLander",
                      config = Dict(
@@ -63,6 +65,7 @@ function RL.Experiment(
                         "seed" => 1,
                      ),
     )
+    end
     save_dir = datadir("sims", "DUQNS", "LunarLander", "$(now())")
     mkpath(save_dir)
 

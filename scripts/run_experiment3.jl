@@ -36,7 +36,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 
 @everywhere begin
     config = Dict(
-    "B_lr" => 1e-3,
+    "B_lr" => 1e-4,
     "Q_lr" => 1.0,
     "B_clip_norm" => 1000.0,
     "B_update_freq" => 1,
