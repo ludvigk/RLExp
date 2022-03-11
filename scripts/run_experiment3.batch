@@ -16,4 +16,4 @@
 
 module load Python/3.8.6-GCCcore-10.2.0
 
-julia --optimize=3 --project=. scripts/run_experiment2.jl
+julia --optimize=3 --project=. scripts/run_experiment3.jl
