@@ -38,35 +38,36 @@ function RL.Experiment(
     SET UP LOGGING
     """
     if isnothing(config)
-        lg = WandbLogger(project = "BE",
-                        name="DUQNS_MountainCar",
-                        config = Dict(
-                            "B_lr" => 1e-3,
-                            "Q_lr" => 1.0,
-                            "B_clip_norm" => 1000.0,
-                            "B_update_freq" => 1,
-                            "Q_update_freq" => 1_000,
-                            "B_opt" => "ADAM",
-                            "gamma" => 0.99f0,
-                            "update_horizon" => 1,
-                            "batch_size" => 32,
-                            "min_replay_history" => 32,
-                            "updates_per_step" => 1,
-                            "λ" => 1.0,
-                            # "prior" => "GaussianPrior(0, 10)",
-                            "prior" => "KernelPrior()",
-                            # "prior" => "FlatPrior()",
-                            # "prior" => "MountainCarPrior(1)",
-                            "n_samples" => 100,
-                            "η" => 0.01,
-                            "nev" => 6,
-                            "n_eigen_threshold" => 0.99,
-                            "is_enable_double_DQN" => true,
-                            "traj_capacity" => 1_000_000,
-                            "seed" => 1,
-                        ),
+        config = Dict(
+            "B_lr" => 1e-3,
+            "Q_lr" => 1.0,
+            "B_clip_norm" => 1000.0,
+            "B_update_freq" => 1,
+            "Q_update_freq" => 1_000,
+            "B_opt" => "ADAM",
+            "gamma" => 0.99f0,
+            "update_horizon" => 1,
+            "batch_size" => 32,
+            "min_replay_history" => 32,
+            "updates_per_step" => 1,
+            "λ" => 1.0,
+            # "prior" => "GaussianPrior(0, 10)",
+            "prior" => "KernelPrior()",
+            # "prior" => "FlatPrior()",
+            # "prior" => "MountainCarPrior(1)",
+            "n_samples" => 100,
+            "η" => 0.01,
+            "nev" => 6,
+            "n_eigen_threshold" => 0.99,
+            "is_enable_double_DQN" => true,
+            "traj_capacity" => 1_000_000,
+            "seed" => 1,
         )
     end
+    lg = WandbLogger(project = "BE",
+                    name = "DUQNS_MountainCar",
+                    config = config,    
+        )
     save_dir = datadir("sims", "DUQNS", "MountainCar", "$(now())")
     mkpath(save_dir)
 
