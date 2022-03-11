@@ -129,7 +129,7 @@ struct KernelPrior <: AbstractPrior end
 
 function (p::KernelPrior)(s::AbstractArray, t::AbstractArray)
     l = heuristic_lengthscale(s', s')
-    Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.01I
+    Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.1I
     K = Zygote.@ignore inv(cholesky(Σ))
     L = batched_mul(batched_mul(t, K), permutedims(t, (2,1,3)))
     return mean([tr(L[:,:,i]) for i=1:size(t,3)])

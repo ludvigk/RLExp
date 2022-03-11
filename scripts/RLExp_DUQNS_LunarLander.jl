@@ -29,7 +29,7 @@ function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQNS},
     ::Val{:LunarLander},
-    name,
+    name;
     restore=nothing,
     config=nothing,
    )

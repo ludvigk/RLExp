@@ -29,7 +29,7 @@ function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:DUQNS},
     ::Val{:MountainCar},
-    name,
+    name;
     restore=nothing,
     config = nothing,
    )
