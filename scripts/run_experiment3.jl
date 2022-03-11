@@ -19,7 +19,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     using Distributed
     using DrWatson
     using RLExp
-    include("RLExp_DUQNS_MountainCar.jl")
+    include("RLExp_DUQNS_LunarLander.jl")
  end
 
 # include("RLExp_DUQN_Atari.jl")
