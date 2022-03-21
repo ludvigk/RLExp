@@ -6,7 +6,7 @@ import ReinforcementLearning.RLEnvs.GymEnv
 function GymEnv(name::String; seed::Union{Int, Nothing}=nothing)
     if !PyCall.pyexists("gym")
         error(
-            "Cannot import module 'gym'.\n\nIf you did not yet install it, try running\n`ReinforcementLearningEnvironments.install_gym()`\n",
+            "Cannot import module 'gym'.\n\nIf you did not yet install it, try running\n`install_gym()`\n",
         )
     end
     gym = pyimport_conda("gym", "gym")
@@ -15,7 +15,7 @@ function GymEnv(name::String; seed::Union{Int, Nothing}=nothing)
         gym.make(name)
     catch e
         error(
-            "Gym environment $name not found.\n\nRun `ReinforcementLearningEnvironments.list_gym_env_names()` to find supported environments.\n",
+            "Gym environment $name not found.\n\nRun `list_gym_env_names()` to find supported environments.\n",
         )
     end
     if seed !== nothing pyenv.seed(seed) end
