@@ -18,6 +18,7 @@ function GymEnv(name::String; seed::Union{Int, Nothing}=nothing)
         error(
             "Gym environment $name not found.\n\nRun `list_gym_env_names()` to find supported environments.\n",
         )
+        showerror(stdout, e, catch_backtrace())
     end
     if seed !== nothing pyenv.seed(seed) end
     obs_space = space_transform(pyenv.observation_space)
