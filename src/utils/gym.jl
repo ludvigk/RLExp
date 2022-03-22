@@ -150,9 +150,9 @@ function list_gym_env_names(;
 end
 
 """
-    install_gym(; packages = ["gym", "pybullet", "box2d", "box2d-py"])
+    install_gym(; packages = ["gym", "pybullet"])
 """
-function install_gym(; packages = ["gym", "pybullet", "box2d-py"])
+function install_gym(; packages = ["gym", "pybullet"])
     # Use eventual proxy info
     proxy_arg = String[]
     if haskey(ENV, "http_proxy")
@@ -170,5 +170,4 @@ function install_gym(; packages = ["gym", "pybullet", "box2d-py"])
     println("Installing required python packages using pip")
     run(`$(PyCall.python) $(proxy_arg) -m pip install --user --upgrade pip setuptools`)
     run(`$(PyCall.python) $(proxy_arg) -m pip install --user $(packages)`)
-    Conda.add("pybox2d"; channel="conda-forge")
 end
