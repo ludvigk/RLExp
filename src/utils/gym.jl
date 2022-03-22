@@ -149,9 +149,9 @@ function list_gym_env_names(;
 end
 
 """
-    install_gym(; packages = ["gym", "pybullet"])
+    install_gym(; packages = ["gym", "pybullet", "box2d-py"])
 """
-function install_gym(; packages = ["gym", "pybullet"])
+function install_gym(; packages = ["gym", "pybullet", "box2d-py"])
     # Use eventual proxy info
     proxy_arg = String[]
     if haskey(ENV, "http_proxy")
