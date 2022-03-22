@@ -64,7 +64,7 @@ function RL.Experiment(
         )
     end
     lg = WandbLogger(project = "BE",
-                     name = "DUQNS_MountainCar",
+                     name = "DUQNS_LunarLander",
                      config = config,    
     )
     save_dir = datadir("sims", "DUQNS", "LunarLander", "$(now())")
