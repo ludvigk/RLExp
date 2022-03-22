@@ -22,6 +22,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     using Random
     include("../src/utils/gym.jl")
     install_gym()
+    println(list_gym_env_names())
     include("RLExp_DUQNS_LunarLander.jl")
  end
 
