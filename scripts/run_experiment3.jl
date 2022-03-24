@@ -74,9 +74,9 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     config7 = copy(config)
     config7["prior"] = "LunarLanderPrior(50; ν=-1)"
     # confs = [config1, config2, config3, config4]
-    confs = [config1, config2, config3, config4, config5, config6, config7]
+    confs = [config2, config3, config4, config5, config6, config7]
 
-    exp_confs = [conf for conf in confs for _=1:10]
+    exp_confs = [conf for conf in confs for _=1:3]
 end
 
 function run_experiment(conf)
