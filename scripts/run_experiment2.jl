@@ -58,8 +58,8 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     "seed" => 1,
     )
 
-    config1 = copy(config)
-    config1["prior"] = "FlatPrior()"
+    # config1 = copy(config)
+    # config1["prior"] = "FlatPrior()"
     config2 = copy(config)
     config2["prior"] = "MountainCarPrior(1)"
     config3 = copy(config)
@@ -73,7 +73,7 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
     config7 = copy(config)
     config7["prior"] = "MountainCarPrior(50; ν=-1)"
     # confs = [config1, config2, config3, config4]
-    confs = [config1, config2, config3, config4, config5, config6, config7]
+    confs = [config2, config3, config4, config5, config6, config7]
 
     exp_confs = [conf for conf in confs for _=1:3]
 end
