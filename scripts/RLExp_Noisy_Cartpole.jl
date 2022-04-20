@@ -85,8 +85,8 @@ function RL.Experiment(
                 target_approximator = NeuralNetworkApproximator(
                     model = Chain(
                             Dense(ns, 128, relu),
-                            Dense(128, na),
                             Dense(128, 128, relu),
+                            Dense(128, na),
                         ),
                     optimizer = ADAM(1e-4),
                 ) |> gpu,
