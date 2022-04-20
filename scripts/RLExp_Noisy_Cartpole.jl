@@ -137,11 +137,11 @@ function RL.Experiment(
                     @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
                     @info "training" episode = t log_step_increment = 0
                     
-                    last_layer = agent.policy.learner.approximator.model[end].w_ρ
-                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
-                    sul = sum(abs.(last_layer)) / length(last_layer)
-                    spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
-                    @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
+                    # last_layer = agent.policy.learner.approximator.model[end].w_ρ
+                    # penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
+                    # sul = sum(abs.(last_layer)) / length(last_layer)
+                    # spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                    # @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
                 end
             catch
                 close(lg)
