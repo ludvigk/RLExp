@@ -83,5 +83,6 @@ function run_experiment(conf)
     run(ex)
 end
 
-map(run_experiment, exp_confs)
+# map(run_experiment, exp_confs)
 # run(experiments[1])
+run(E`RLExp_Noisy_Cartpole()`)
