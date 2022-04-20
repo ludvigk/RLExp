@@ -76,17 +76,17 @@ function RL.Experiment(
             learner = DQNLearner(
                 approximator = NeuralNetworkApproximator(
                     model = Chain(
-                            NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                            NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                            Dense(ns, 128, relu),
+                            Dense(128, 128, relu),
+                            Dense(128, na),
                     ),
                     optimizer = ADAM(1e-4),
                 ) |> gpu,
                 target_approximator = NeuralNetworkApproximator(
                     model = Chain(
-                            NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                            NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                            NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                            Dense(ns, 128, relu),
+                            Dense(128, na),
+                            Dense(128, 128, relu),
                         ),
                     optimizer = ADAM(1e-4),
                 ) |> gpu,
