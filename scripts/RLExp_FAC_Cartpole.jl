@@ -51,8 +51,8 @@ function RL.Experiment(
                 approximator = ActorCritic(
                     actor = NeuralNetworkApproximator(
                         model = Chain(
-                            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-                            NoisyDense(256, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ),
+                            NoisyDense(256, na, relu; init_μ = init, init_σ = init_σ),
                         ),
                         optimizer = ADAM(1e-3),
                     ),
