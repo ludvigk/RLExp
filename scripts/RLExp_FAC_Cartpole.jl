@@ -41,14 +41,18 @@ function RL.Experiment(
     ])
     ns, na = length(state(env[1])), length(action_space(env[1]))
     RLBase.reset!(env, is_force = true)
+
+    init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
+    init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+
     agent = Agent(
         policy = QBasedPolicy(
             learner = FACLearner(
                 approximator = ActorCritic(
                     actor = NeuralNetworkApproximator(
                         model = Chain(
-                            Dense(ns, 256, relu; init = glorot_uniform(rng)),
-                            Dense(256, na; init = glorot_uniform(rng)),
+                            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+                            NoisyDense(256, na, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
                         ),
                         optimizer = ADAM(1e-3),
                     ),
