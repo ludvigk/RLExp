@@ -172,7 +172,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b = @view b_all[a, :]
         ss = @view s_all[a, :]
         # clamp!(ss, -2, 8)
-        B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
+        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
         𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
         𝐿 /= n_samples * batch_size
