@@ -4,7 +4,7 @@
 #SBATCH --mem=8GB
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --output=job_output_DUQNS.out
+#SBATCH --output=job_output_FAC.out
 #SBATCH --tasks-per-node=4
 #SBATCH --time=7-00:00:00
 #SBATCH --mail-user=ludvig.killingberg@ntnu.no
