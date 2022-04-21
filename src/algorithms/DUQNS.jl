@@ -171,7 +171,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b_all, s_all = B(s, n_samples, rng = learner.rng) ## SLOW
         b = @view b_all[a, :]
         ss = @view s_all[a, :]
-        clamp!(ss, -2, 8)
+        # clamp!(ss, -2, 8)
         B̂ = dropdims(mean(b, dims=ndims(b)), dims=ndims(b))
         λ = learner.λ
         𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
