@@ -7,7 +7,6 @@ using KrylovKit
 using LinearAlgebra
 using NNlib: softplus
 using Random
-using Tullio, KernelAbstractions, CUDAKernels
 using Zygote
 
 abstract type AbstractNoisy end
@@ -26,15 +25,15 @@ function NoisyDense(
     out,
     f=identity;
     init_μ=glorot_uniform,
-    init_σ=(dims...) -> fill(0.4f0 / Float32(sqrt(dims[end])), dims),
+    init_σ=(dims...) -> fill(0.5f0 / Float32(sqrt(dims[end])), dims),
     # init_σ=(dims...) -> fill(0.017f0, dims),
     rng=Random.GLOBAL_RNG,
 )
     return NoisyDense(
-        Float32.(init_μ(out, in)),
-        Float32.(init_σ(out, in)),
-        Float32.(zeros(out)),
-        Float32.(init_σ(out)),
+        init_μ(out, in),
+        log.(exp.(init_σ(out, in)) .- 1),
+        zeros(out),
+        log.(exp.(init_σ(out)) .- 1),
         f,
         rng,
     )
@@ -42,85 +41,56 @@ end
 
 Flux.@functor NoisyDense
 
-# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
-#     rng = rng === nothing ? l.rng : rng
-#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-#     tmp_x = reshape(x, size(x, 1), :)
-#     μ = l.w_μ * tmp_x .+ l.b_μ
-#     σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
-#     if num_samples === nothing
-#         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
-#     else
-#         # ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
-#         # ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
-#         # ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
-#         ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
-#     end
-#     μ = reshape(μ, size(μ, 1), size(x, 2), :)
-#     σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-#     return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
-# end
-
-# function make_noise_sqrt(dims...)
-#     noise = CUDA.randn(Float32, dims...)
-#     noise .= copysign.(sqrt.(abs.(noise)), noise)
-#     return noise
-# end
-
-# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
-#     rng = rng === nothing ? l.rng : rng
-#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-#     # tmp_x = reshape(x, size(x, 1), :)
-#     μ = batched_mul(l.w_μ, x) .+ l.b_μ
-
-#     if num_samples === nothing
-#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1)
-#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1)
-#     else
-#         ϵ_1 = Zygote.@ignore make_noise_sqrt(rng, μ, size(μ, 1), 1, num_samples)
-#         ϵ_2 = Zygote.@ignore make_noise_sqrt(rng, μ, size(l.w_μ, 2), 1, num_samples)
-#     end
-#     noisy_x = x .* ϵ_2
-#     # noisy_x = reshape(noisy_x, size(noisy_x, 1), :)
-#     σ² = (batched_mul(l.w_ρ, noisy_x) .+ l.b_ρ) .* ϵ_1
-
-#     # σ² = reshape(σ², size(σ²,1), size(x, 2), :) .* ϵ_1
-
-#     # μ = reshape(μ, size(μ, 1), size(x, 2), :)
-#     # σ² = reshape(σ², size(μ, 1), size(x, 2), :)
-#     return y = l.f.(μ .+ σ²)
-# end
-
-
 function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
     rng = rng === nothing ? l.rng : rng
-    wσ² = l.w_ρ
-    bσ² = l.b_ρ
-
+    x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+    tmp_x = reshape(x, size(x, 1), :)
+    μ = l.w_μ * tmp_x .+ l.b_μ
+    σ² = softplus.(l.w_ρ) * tmp_x .^ 2 .+ softplus.(l.b_ρ)  ## SLOW
     if num_samples === nothing
-        tmp_x = reshape(x, size(x, 1), :)
-        ϵ = Zygote.@ignore CUDA.randn(Float32,size(bσ², 1), 1)
-
-        act_w = l.w_μ * tmp_x
-        act_w_std = sqrt.(max.((wσ² .^ 2) * (tmp_x .^ 2), 1f-6))
-
-        mean_out = act_w .+ l.b_μ 
-        noise_out = (bσ² .^ 2 .+ act_w_std) .* ϵ
-
-        return l.f.(mean_out .+ noise_out)
+        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1))
     else
-        x = ndims(x) == 2 ? unsqueeze(x, 3) : x
-        ϵ = Zygote.@ignore CUDA.randn(Float32, size(bσ², 1), 1, num_samples)
-
-        act_w = batched_mul(l.w_μ, x)
-        act_w_std = sqrt.(max.(batched_mul(wσ² .^ 2, x .^ 2), 1f-6))
-
-        mean_out = act_w .+ l.b_μ 
-        noise_out = (bσ² .^ 2 .+ act_w_std) .* ϵ
-
-        return l.f.(mean_out .+ noise_out)
+        # ϵ_1 = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, 1))
+        # ϵ_2 = Zygote.@ignore randn!(rng, similar(μ, 1, 1, num_samples))
+        # ϵ = Zygote.@ignore ϵ_1 .* ϵ_2
+        ϵ = Zygote.@ignore randn!(rng, similar(μ, size(μ, 1), 1, num_samples))
     end
+    μ = reshape(μ, size(μ, 1), size(x, 2), :)
+    σ² = reshape(σ², size(μ, 1), size(x, 2), :)
+    return y = l.f.(μ .+ ϵ .* sqrt.(σ²))
 end
+
+# function (l::NoisyDense)(x, num_samples::Union{Int, Nothing}=nothing; rng::Union{AbstractRNG, Nothing}=nothing)
+#     rng = rng === nothing ? l.rng : rng
+#     x = ndims(x) == 2 ? unsqueeze(x, 3) : x
+#     # μ = l.w_μ * tmp_x .+ l.b_μ
+#     wσ² = softplus.(l.w_ρ)
+#     bσ² = softplus.(l.b_ρ)
+
+#     if num_samples === nothing
+#         tmp_x = reshape(x, size(x, 1), :)
+#         wϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), size(wσ², 2)))
+#         bϵ = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1))
+
+#         w = l.w_μ .+ wϵ .* wσ²
+#         b = l.b_μ .+ bϵ .* bσ²
+#         return y = l.f.(w * tmp_x .+ b)
+#     else
+#         tmp_x = x
+#         wϵ_1 = Zygote.@ignore CUDA.randn!(rng, similar(x, size(wσ², 1), 1, 1))
+#         wϵ_2 = Zygote.@ignore CUDA.randn!(rng, similar(x, 1, size(wσ², 2), num_samples))
+#         # wϵ_3 = Zygote.@ignore randn!(rng, similar(x, 1, 1, num_samples))
+#         wϵ = Zygote.@ignore wϵ_1 .* wϵ_2 #.* wϵ_2
+#         bϵ_1 = Zygote.@ignore CUDA.randn!(rng, similar(x, size(bσ², 1), 1, 1))
+#         bϵ_2 = Zygote.@ignore CUDA.randn!(rng, similar(x, 1, 1, num_samples))
+#         bϵ = Zygote.@ignore bϵ_1 .* bϵ_2
+
+#         w = l.w_μ .+ wϵ .* wσ²
+#         b = l.b_μ .+ bϵ .* bσ²
+#         y = l.f.(batched_mul(w, x) .+ b)
+#         return y
+#     end
+# end
 
 struct NoisyConv{N, M, F, A, V} <: AbstractNoisy
     f::F
@@ -163,7 +133,7 @@ function NoisyConv(k::NTuple{N,Integer},
                    groups = 1,
                    rng = Random.GLOBAL_RNG,
                    ) where N
-    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init = init_μ)
+    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init = init_μ) 
     b_μ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
     w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init = init_σ)
     b_ρ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
@@ -227,19 +197,24 @@ end
 # ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
-    @tullio S[i,j] := -(x1[i,m] - x2[j,m]) ^ 2 / (2 * lengthscale[m] ^ 2 + 1f-6)
-    return exp.(S)
+    rb = -sum((x1 .- x2) .^ 2 ./ (2 .* lengthscale .^ 2); dims=3)  ## SLOW
+    rb = dropdims(rb; dims=3)
+    return exp.(rb)
 end
 
 function gram(x1, x2, lengthscale)
+    x1 = Flux.unsqueeze(x1, 2)
+    x2 = Flux.unsqueeze(x2, 1)
+    lengthscale = reshape(lengthscale, 1, 1, :)
     return Kxx = rbf_kernel(x1, x2, lengthscale)
 end
 
 function grad_gram(x1::AbstractArray, x2::AbstractArray, lengthscale)
-
-    Kxx = rbf_kernel(x1, x2, lengthscale)
-    @tullio diff[i,j] := -(x1[j,m] - x2[i,m]) / (lengthscale[m] ^ 2 + 1f-6)
-    diff = Flux.unsqueeze(diff,3)
+    x1 = Flux.unsqueeze(x1, 2)
+    x2 = Flux.unsqueeze(x2, 1)
+    lengthscale = reshape(lengthscale, 1, 1, :)
+    Kxx = rbf_kernel(x1, x2, lengthscale)  ## SLOW
+    diff = (x1 .- x2) ./ lengthscale .^ 2
     dKxx_dx1 = Flux.unsqueeze(Kxx, 3) .* (-diff)
     dKxx_dx2 = Flux.unsqueeze(Kxx, 3) .* diff
     return Kxx, dKxx_dx1, dKxx_dx2
@@ -258,14 +233,14 @@ Zygote.@nograd function heuristic_lengthscale(x::AbstractArray, xm::AbstractArra
     ]
     kernel_width = flatten(kernel_width)
     kernel_width = kernel_width .* sqrt(Float32(x_dim))
-    return kernel_width = kernel_width .+ (kernel_width .< 1f-6)
+    return kernel_width = kernel_width .+ (kernel_width .< 1e-6)
 end
 
 function nystrom_ext(x, eval_points, eigen_vecs, eigen_vals, lengthscale)
     M = size(x, 1)
     Kxxm = gram(eval_points, x, lengthscale)
     phi_x = sqrt(M) .* (Kxxm * eigen_vecs)
-    return phi_x = phi_x ./ (Flux.unsqueeze(eigen_vals, 1) .+ 1f-6)
+    return phi_x = phi_x ./ Flux.unsqueeze(eigen_vals, 1)
 end
 
 abstract type BaseScoreEstimator end
@@ -287,43 +262,28 @@ function compute_gradients(
         if !isnothing(sse.η)
             Kxx = Kxx + sse.η * I
         end
-        # eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
-        eigen_vals, eigen_vecs = eigen(Symmetric(Kxx), sortby = x -> -x)
-        eigen_vals = max.(eigen_vals, 1f-6)
-
-        # c = cumsum(eigen_vals) ./ sum(eigen_vals)
-        # nev = findfirst(x -> x > 0.99, c)
-        nev = sse.nev
-        c = cumsum(eigen_vals)
-        nev = findfirst(x -> x > sse.n_eigen_threshold, c ./ c[end])
-
-        eigen_vals = eigen_vals[1:nev]
-        eigen_vecs = eigen_vecs[:, 1:nev]
-		# eigen_vecs = hcat(eigen_vecs...)
+        eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
+		eigen_vecs = hcat(eigen_vecs...)
         eigen_vals, eigen_vecs = gpu(eigen_vals), gpu(eigen_vecs)
     else
-        # if !isnothing(sse.η)
-        #     Kxx = Kxx + sse.η * I
-        # end
-        # eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
-        # c = cumsum(eigen_vals)
-        # nev = findfirst(x -> x > 0.99, c ./ c[end])
-        # eigen_vals = eigen_vals[1:nev]
-        # eigen_vecs = eigen_vecs[1:nev]
-		# eigen_vecs = hcat(eigen_vecs...)
+        if !isnothing(sse.η)
+            Kxx = Kxx + sse.η * I
+        end
+        eigen_vals, eigen_vecs = eigsolve(Kxx, sse.nev, :LR, issymmetric=true)
+		eigen_vecs = hcat(eigen_vecs...)
     end
 
     phi_x = nystrom_ext(xm, x, eigen_vecs, eigen_vals, lengthscale)
     dKxx_dx_avg = dropdims(mean(dKxx; dims=1); dims=1)
     beta = -sqrt(M) .* (eigen_vecs' * dKxx_dx_avg)
-    beta = beta ./ (Flux.unsqueeze(eigen_vals, 2) .+ 1f-6)
+    beta = beta ./ Flux.unsqueeze(eigen_vals, 2)
     return phi_x * beta
 end
 
 function compute_gradients(sse, x::AbstractArray, xm::AbstractArray)
     _xm = cat(x, xm; dims=1)
     lengthscale = heuristic_lengthscale(_xm, _xm)
-     return compute_gradients(sse, x, xm, lengthscale)
+    return compute_gradients(sse, x, xm, lengthscale)
 end
 
 function compute_gradients(sse, xm::AbstractArray)
