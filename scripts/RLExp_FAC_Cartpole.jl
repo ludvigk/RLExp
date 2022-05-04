@@ -61,7 +61,6 @@ function RL.Experiment(
                         ),
                         optimizer = ADAM(1e-3),
                     ) |> gpu,
-                ),
                 γ = 0.99f0,
                 λ = 0.97f0,
                 actor_loss_weight = 1.0f0,
