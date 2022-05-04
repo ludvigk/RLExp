@@ -21,11 +21,11 @@ function RL.Experiment(
     ::Val{:FAC},
     ::Val{:Cartpole},
     name;
-    save_dir = nothing,
-    seed = 123,
+    save_dir=nothing,
+    seed=123
 )
-    lg = WandbLogger(project = "FAC",
-    name="CartPole",
+    lg = WandbLogger(project="FAC",
+        name="CartPole",
     )
     save_dir = datadir("sims", "FAC", "CartPole", "$(now())")
     mkpath(save_dir)
@@ -37,45 +37,44 @@ function RL.Experiment(
     init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
     init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
     env = MultiThreadEnv([
-        CartPoleEnv(; T = Float32, rng = StableRNG(hash(seed + i))) for i in 1:N_ENV
+        CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
     ])
     ns, na = length(state(env[1])), length(action_space(env[1]))
-    RLBase.reset!(env, is_force = true)
+    RLBase.reset!(env, is_force=true)
 
     init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
     agent = Agent(
-        policy = FACPolicy(
-                approximator = NeuralNetworkApproximator(
-                        model = Chain(
-                            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ),
-                            NoisyDense(256, na, relu; init_μ = init, init_σ = init_σ),
-                        ),
-                        optimizer = ADAM(1e-3),
-                    ) |> gpu,
-                baseline = NeuralNetworkApproximator(
-                        model = Chain(
-                            Dense(ns, 256, relu; init = glorot_uniform(rng)),
-                            Dense(256, 1; init = glorot_uniform(rng)),
-                        ),
-                        optimizer = ADAM(1e-3),
-                    ) |> gpu,
-                γ = 0.99f0,
-                λ = 0.97f0,
-                actor_loss_weight = 1.0f0,
-                critic_loss_weight = 0.5f0,
-                entropy_loss_weight = 0.001f0,
-                update_freq = UPDATE_FREQ,
-            ),
-            explorer = BatchExplorer(GumbelSoftmaxExplorer()),
+        policy=FACPolicy(
+            approximator=NeuralNetworkApproximator(
+                model=Chain(
+                    NoisyDense(ns, 256, relu; init_μ=init, init_σ=init_σ),
+                    NoisyDense(256, na, relu; init_μ=init, init_σ=init_σ),
+                ),
+                optimizer=ADAM(1e-3),
+            ) |> gpu,
+            baseline=NeuralNetworkApproximator(
+                model=Chain(
+                    Dense(ns, 256, relu; init=glorot_uniform(rng)),
+                    Dense(256, 1; init=glorot_uniform(rng)),
+                ),
+                optimizer=ADAM(1e-3),
+            ) |> gpu,
+            γ=0.99f0,
+            λ=0.97f0,
+            actor_loss_weight=1.0f0,
+            critic_loss_weight=0.5f0,
+            entropy_loss_weight=0.001f0,
+            update_freq=UPDATE_FREQ,
         ),
-        trajectory = CircularArraySARTTrajectory(;
-            capacity = UPDATE_FREQ,
-            state = Matrix{Float32} => (ns, N_ENV),
-            action = Vector{Int} => (N_ENV,),
-            reward = Vector{Float32} => (N_ENV,),
-            terminal = Vector{Bool} => (N_ENV,),
+        explorer=BatchExplorer(GumbelSoftmaxExplorer()),
+        trajectory=CircularArraySARTTrajectory(;
+            capacity=UPDATE_FREQ,
+            state=Matrix{Float32} => (ns, N_ENV),
+            action=Vector{Int} => (N_ENV,),
+            reward=Vector{Float32} => (N_ENV,),
+            terminal=Vector{Bool} => (N_ENV,)
         ),
     )
 
@@ -86,7 +85,7 @@ function RL.Experiment(
     hook = ComposedHook(
         reward_per_episode,
         batch_steps_per_episode,
-        DoEveryNStep(;n = N_EVAL) do t, agent, env
+        DoEveryNStep(; n=N_EVAL) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -96,9 +95,9 @@ function RL.Experiment(
             s = @elapsed run(
                 p,
                 MultiThreadEnv([
-                    CartPoleEnv(; T = Float32, rng = StableRNG(hash(seed + i))) for i in 1:N_ENV
+                    CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
                 ]),
-                StopAfterStep(1_000; is_show_progress = false),
+                StopAfterStep(1_000; is_show_progress=false),
                 h,
             )
             avg_score = mean(Iterators.flatten(h[1].rewards))
