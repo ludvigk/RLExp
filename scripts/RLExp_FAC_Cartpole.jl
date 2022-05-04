@@ -46,24 +46,22 @@ function RL.Experiment(
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
     agent = Agent(
-        policy = QBasedPolicy(
-            learner = FACLearner(
-                approximator = ActorCritic(
-                    actor = NeuralNetworkApproximator(
+        policy = FACPolicy(
+                approximator = NeuralNetworkApproximator(
                         model = Chain(
                             NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ),
                             NoisyDense(256, na, relu; init_μ = init, init_σ = init_σ),
                         ),
                         optimizer = ADAM(1e-3),
-                    ),
-                    critic = NeuralNetworkApproximator(
+                    ) |> gpu,
+                baseline = NeuralNetworkApproximator(
                         model = Chain(
                             Dense(ns, 256, relu; init = glorot_uniform(rng)),
                             Dense(256, 1; init = glorot_uniform(rng)),
                         ),
                         optimizer = ADAM(1e-3),
-                    ),
-                ) |> gpu,
+                    ) |> gpu,
+                ),
                 γ = 0.99f0,
                 λ = 0.97f0,
                 actor_loss_weight = 1.0f0,
