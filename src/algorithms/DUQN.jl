@@ -166,8 +166,8 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     gs = gradient(params(B)) do
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @view b_all[a, :]
-        ss = std(b, dims=2)
-        m = mean(b, dims=2)
+        m = sum(b, dims=2) ./ size(b, 2)
+        ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
         λ = learner.λ
         𝐿 = sum(ss .+ (m .- G) .^ 2 .* exp.(-ss))
         𝐿 /= n_samples * batch_size
