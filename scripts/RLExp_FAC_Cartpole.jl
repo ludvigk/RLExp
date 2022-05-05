@@ -63,6 +63,7 @@ function RL.Experiment(
             ) |> gpu,
             γ=0.99f0,
             λ=0.97f0,
+            action_space=action_space(env)
             actor_loss_weight=1.0f0,
             critic_loss_weight=0.5f0,
             entropy_loss_weight=0.001f0,
