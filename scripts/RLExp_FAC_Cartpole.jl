@@ -41,7 +41,7 @@ function RL.Experiment(
     # ])
     env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
-    RLBase.reset!(env, is_force=true)
+    RLBase.reset!(env)
 
     init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
     init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
