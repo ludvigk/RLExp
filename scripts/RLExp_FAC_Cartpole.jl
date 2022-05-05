@@ -50,14 +50,14 @@ function RL.Experiment(
         policy=FACPolicy(
             approximator=NeuralNetworkApproximator(
                 model=Chain(
-                    NoisyDense(ns, 256, relu; init_μ=init, init_σ=init_σ),
-                    NoisyDense(256, na, relu; init_μ=init, init_σ=init_σ),
+                    NoisyDense(ns, 256, selu; init_μ=init, init_σ=init_σ),
+                    NoisyDense(256, na; init_μ=init, init_σ=init_σ),
                 ),
                 optimizer=ADAM(1e-3),
             ) |> gpu,
             baseline=NeuralNetworkApproximator(
                 model=Chain(
-                    Dense(ns, 256, relu; init=glorot_uniform(rng)),
+                    Dense(ns, 256, selu; init=glorot_uniform(rng)),
                     Dense(256, 1; init=glorot_uniform(rng)),
                 ),
                 optimizer=ADAM(1e-3),
