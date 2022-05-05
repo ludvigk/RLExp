@@ -137,9 +137,9 @@ function RLBase.update!(
 
             b_rand = reshape(log_prob, :, n_samples) ## SLOW
             b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
-            S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
+            # S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
             # H = learner.prior(s, b_all) ./ (n_samples)
-            loss -= S
+            # loss -= S
 
             ignore() do
                 π.loss = loss
