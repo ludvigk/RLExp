@@ -121,7 +121,7 @@ function RLBase.update!(
             # (http://rail.eecs.berkeley.edu/deeprlcourse-fa17/f17docs/hw2_final.pdf)
             # (https://web.stanford.edu/class/cs234/assignment3/solution.pdf)
             # normalise should not be used with baseline. or the loss of the policy will be too small.
-            δ = G |> x -> normalise(x; dims = 2)
+            δ = G |> x -> normalise(x; dims=2)
         end
 
         gs = gradient(Flux.params(model)) do
@@ -134,7 +134,7 @@ function RLBase.update!(
                 log_probₐ = logpdf.(dist, A)
             end
             loss = -mean(log_probₐ .* δ) * π.α_θ
-            
+
             b_rand = reshape(log_prob, :, n_samples) ## SLOW
             b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
             S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
