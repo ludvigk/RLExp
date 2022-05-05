@@ -82,8 +82,8 @@ function RL.Experiment(
     )
 
     stop_condition = StopAfterStep(50_000, is_show_progress=true)
-    reward_per_episode = TotalBatchRewardPerEpisode(N_ENV)
-    batch_steps_per_episode = BatchStepsPerEpisode(N_ENV)
+    reward_per_episode = TotalRewardPerEpisode()
+    batch_steps_per_episode = StepsPerEpisode()
 
     hook = ComposedHook(
         reward_per_episode,
@@ -92,8 +92,8 @@ function RL.Experiment(
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
-                TotalBatchRewardPerEpisode(N_ENV),
-                BatchStepsPerEpisode(N_ENV),
+                TotalRewardPerEpisode(),
+                StepsPerEpisode(),
             )
             s = @elapsed run(
                 p,
