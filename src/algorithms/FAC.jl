@@ -48,6 +48,7 @@ function (π::FACPolicy)(env::AbstractEnv)
 
     logits = env |> state |> to_dev |> π.approximator |> send_to_host
     if π.action_space isa AbstractVector
+        println(size(logits))
         dist = logits |> softmax |> π.dist
         action = π.action_space[rand(π.rng, dist)]
     elseif π.action_space isa Interval
