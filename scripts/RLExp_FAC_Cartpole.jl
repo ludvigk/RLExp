@@ -73,11 +73,8 @@ function RL.Experiment(
         ),
         # explorer=BatchExplorer(GumbelSoftmaxExplorer()),
         trajectory=CircularArraySARTTrajectory(;
-            capacity=UPDATE_FREQ,
-            state=Matrix{Float32} => (ns, N_ENV),
-            action=Vector{Int} => (N_ENV,),
-            reward=Vector{Float32} => (N_ENV,),
-            terminal=Vector{Bool} => (N_ENV,)
+            # capacity=UPDATE_FREQ,
+            state=Matrix{Float32} => (ns,)
         ),
     )
 
