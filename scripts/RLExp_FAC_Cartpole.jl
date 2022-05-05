@@ -39,7 +39,7 @@ function RL.Experiment(
     # env = MultiThreadEnv([
     #     CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
     # ])
-    env = CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i)))
+    env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env[1])), length(action_space(env[1]))
     RLBase.reset!(env, is_force=true)
 
