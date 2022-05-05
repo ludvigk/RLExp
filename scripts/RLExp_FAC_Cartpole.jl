@@ -97,7 +97,7 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))),
+                CartPoleEnv(; T=Float32, rng=rng),
                 StopAfterStep(1_000; is_show_progress=false),
                 h,
             )
