@@ -70,7 +70,7 @@ function RL.Experiment(
             # entropy_loss_weight=0.001f0,
             # update_freq=UPDATE_FREQ,
         ),
-        explorer=BatchExplorer(GumbelSoftmaxExplorer()),
+        # explorer=BatchExplorer(GumbelSoftmaxExplorer()),
         trajectory=CircularArraySARTTrajectory(;
             capacity=UPDATE_FREQ,
             state=Matrix{Float32} => (ns, N_ENV),
