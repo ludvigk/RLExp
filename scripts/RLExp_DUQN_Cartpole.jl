@@ -140,9 +140,9 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-                    KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
+                    KL, H, S, L, Q, s = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"], p["s"]
                     B_var, QA = p["B_var"], p["QA"]
-                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
                 end
             catch
                 close(lg)
