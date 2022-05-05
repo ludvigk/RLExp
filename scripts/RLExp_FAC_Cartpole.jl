@@ -36,9 +36,10 @@ function RL.Experiment(
     N_EVAL = 1_000
     init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
     init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
-    env = MultiThreadEnv([
-        CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
-    ])
+    # env = MultiThreadEnv([
+    #     CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
+    # ])
+    env = CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i)))
     ns, na = length(state(env[1])), length(action_space(env[1]))
     RLBase.reset!(env, is_force=true)
 
