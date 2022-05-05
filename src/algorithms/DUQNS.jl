@@ -10,14 +10,13 @@ mutable struct DUQNSLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
     P<:AbstractPrior,
-    M<:Union{AbstractMeasure, Nothing},
     R<:AbstractRNG,
 } <: AbstractLearner
     B_approximator::Tq
     Q_approximator::Tt
     Q_lr::Float32
     prior::P
-    λ::Union{Float32, Nothing}
+    λ::Union{Float32,Nothing}
     min_replay_history::Int
     B_update_freq::Int
     Q_update_freq::Int
@@ -29,7 +28,6 @@ mutable struct DUQNSLearner{
     injected_noise::Float32
     n_samples::Int
     is_enable_double_DQN::Bool
-    measure::M
     training::Bool
     logging_params
 end
@@ -37,33 +35,32 @@ end
 function DUQNSLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
-    Q_lr::Real = 0.01f0,
-    prior::AbstractPrior = FlatPrior(),
-    λ::Union{Real, Nothing} = 1,
-    stack_size::Union{Int, Nothing} = nothing,
-    γ::Real = 0.99f0,
-    batch_size::Int = 32,
-    update_horizon::Int = 1,
-    min_replay_history::Int = 100,
-    B_update_freq::Int = 1,
-    Q_update_freq::Int = 1,
-    updates_per_step::Int = 1,
-    traces = SARTS,
-    update_step::Int = 0,
-    injected_noise::Real = 0.01f0,
-    n_samples::Int = 100,
-    η::Real = 0.05f0,
-    nev::Int = 10,
-    is_enable_double_DQN::Bool = false,
-    measure::Union{M, Nothing} = nothing,
-    training::Bool = true,
-    rng = Random.GLOBAL_RNG,
+    Q_lr::Real=0.01f0,
+    prior::AbstractPrior=FlatPrior(),
+    λ::Union{Real,Nothing}=1,
+    stack_size::Union{Int,Nothing}=nothing,
+    γ::Real=0.99f0,
+    batch_size::Int=32,
+    update_horizon::Int=1,
+    min_replay_history::Int=100,
+    B_update_freq::Int=1,
+    Q_update_freq::Int=1,
+    updates_per_step::Int=1,
+    traces=SARTS,
+    update_step::Int=0,
+    injected_noise::Real=0.01f0,
+    n_samples::Int=100,
+    η::Real=0.05f0,
+    nev::Int=10,
+    is_enable_double_DQN::Bool=false,
+    training::Bool=true,
+    rng=Random.GLOBAL_RNG
 ) where {Tq,Tt,M}
     sampler = NStepBatchSampler{traces}(;
-        γ = Float32(γ),
-        n = update_horizon,
-        stack_size = stack_size,
-        batch_size = batch_size,
+        γ=Float32(γ),
+        n=update_horizon,
+        stack_size=stack_size,
+        batch_size=batch_size
     )
     return DUQNSLearner(
         B_approximator,
@@ -82,13 +79,12 @@ function DUQNSLearner(;
         Float32(injected_noise),
         n_samples,
         is_enable_double_DQN,
-        measure,
         training,
         DefaultDict(0.0),
     )
 end
 
-Flux.functor(x::DUQNSLearner) = (B = x.B_approximator, Q = x.Q_approximator),
+Flux.functor(x::DUQNSLearner) = (B=x.B_approximator, Q=x.Q_approximator),
 y -> begin
     x = @set x.B_approximator = y.B
     x = @set x.Q_approximator = y.Q
@@ -108,12 +104,12 @@ function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
     learner.update_step += 1
 
     learner.update_step % learner.B_update_freq == 0 || learner.update_step % learner.Q_update_freq == 0 || return nothing
-    
+
     if learner.update_step % learner.B_update_freq == 0
         _, batch = sample(learner.rng, t, learner.sampler)
         update!(learner, batch)
     end
-    if learner.update_step % learner.Q_update_freq == 0 
+    if learner.update_step % learner.Q_update_freq == 0
         η = learner.Q_lr
         B = learner.B_approximator
         Q = learner.Q_approximator
@@ -159,16 +155,16 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     end
 
     if is_enable_double_DQN
-        selected_actions = dropdims(argmax(q_values; dims = 1); dims = 1)
+        selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
         q′ = @view Q(s′, n_samples)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
     else
-        q′ = dropdims(maximum(q_values; dims = 1); dims = 1)
+        q′ = dropdims(maximum(q_values; dims=1); dims=1)
     end
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all = B(s, n_samples, rng = learner.rng) ## SLOW
+        b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @view b_all[a, :]
         ss = @view s_all[a, :]
         # clamp!(ss, -2, 8)
