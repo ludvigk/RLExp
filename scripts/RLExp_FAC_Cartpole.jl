@@ -72,7 +72,13 @@ function RL.Experiment(
             # update_freq=UPDATE_FREQ,
         ),
         # explorer=BatchExplorer(GumbelSoftmaxExplorer()),
-        trajectory=ElasticSARTTrajectory(state=Vector{Float32} => (ns,)),
+        trajectory=CircularArraySARTTrajectory(;
+            capacity=UPDATE_FREQ,
+            state=Matrix{Float32} => (ns,),
+            action=Vector{Int} => (N_ENV,),
+            reward=Vector{Float32} => (N_ENV,),
+            terminal=Vector{Bool} => (N_ENV,)
+        ),
     )
 
     stop_condition = StopAfterStep(50_000, is_show_progress=true)
