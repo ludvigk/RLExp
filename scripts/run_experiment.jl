@@ -12,15 +12,16 @@ using DrWatson
 # @quickactivate :RLExp
 
 n_workers = parse(Int, ENV["SLURM_NTASKS"])
-addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "--color=yes"])
+addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--color=yes"])
 
 @everywhere begin
-    using Pkg; Pkg.activate(".")
+    using Pkg
+    Pkg.activate(".")
     using Distributed
     using DrWatson
     using RLExp
-    include("RLExp_Noisy_Cartpole.jl")
- end
+    include("RLExp_DUQN_Cartpole.jl")
+end
 
 # include("RLExp_DUQN_Atari.jl")
 # include("RLExp_DUQNS_Atari.jl")
@@ -85,4 +86,4 @@ addprocs_slurm(n_workers; topology = :master_worker, exeflags=["--project=.", "-
 
 # map(run_experiment, exp_confs)
 # run(experiments[1])
-run(E`RLExp_Noisy_Cartpole()`)
+run(E`RLExp_DUQN_Cartpole()`)

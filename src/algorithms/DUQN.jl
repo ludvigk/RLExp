@@ -10,7 +10,6 @@ mutable struct DUQNLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
     P<:AbstractPrior,
-    M<:Union{AbstractMeasure,Nothing},
     R<:AbstractRNG,
 } <: AbstractLearner
     B_approximator::Tq
@@ -29,7 +28,6 @@ mutable struct DUQNLearner{
     injected_noise::Float32
     n_samples::Int
     is_enable_double_DQN::Bool
-    measure::M
     training::Bool
     logging_params
 end
@@ -55,7 +53,6 @@ function DUQNLearner(;
     η::Real=0.05f0,
     nev::Int=10,
     is_enable_double_DQN::Bool=false,
-    measure::Union{M,Nothing}=nothing,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
 ) where {Tq,Tt,M}
@@ -82,7 +79,6 @@ function DUQNLearner(;
         Float32(injected_noise),
         n_samples,
         is_enable_double_DQN,
-        measure,
         training,
         DefaultDict(0.0),
     )

@@ -22,34 +22,34 @@ function RL.Experiment(
     ::Val{:DUQN},
     ::Val{:Cartpole},
     name,
-   )
+)
 
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project = "RLExp",
-                     name="DUQN_CartPole",
-                     config = Dict(
-                        "B_lr" => 1e-3,
-                        "Q_lr" => 1.0,
-                        "B_clip_norm" => 1.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 100,
-                        "B_opt" => "ADAM",
-                        "gamma" => 1.0,
-                        "update_horizon" => 1,
-                        "batch_size" => 32,
-                        "min_replay_history" => 1,
-                        "updates_per_step" => 1,
-                        "λ" => 0.0,
-                        "prior" => "FlatPrior()",
-                        "n_samples" => 100,
-                        "η" => 0.01,
-                        "nev" => 20,
-                        "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000_000,
-                        "seed" => 1,
-                     ),
+    lg = WandbLogger(project="RLExp",
+        name="DUQN_CartPole",
+        config=Dict(
+            "B_lr" => 1e-3,
+            "Q_lr" => 1.0,
+            "B_clip_norm" => 1.0,
+            "B_update_freq" => 1,
+            "Q_update_freq" => 100,
+            "B_opt" => "ADAM",
+            "gamma" => 1.0,
+            "update_horizon" => 1,
+            "batch_size" => 32,
+            "min_replay_history" => 1,
+            "updates_per_step" => 1,
+            "λ" => 0.0,
+            "prior" => "FlatPrior()",
+            "n_samples" => 100,
+            "η" => 0.01,
+            "nev" => 20,
+            "is_enable_double_DQN" => true,
+            "traj_capacity" => 1_000_000,
+            "seed" => 1,
+        ),
     )
     save_dir = datadir("sims", "DUQN", "CartPole", "$(now())")
 
@@ -65,7 +65,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = CartPoleEnv(; T = Float32, rng = rng)
+    env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
 
     """
@@ -75,15 +75,15 @@ function RL.Experiment(
     init(a, b) = (2 .* rand(a, b) .- 1) .* √(3 / a)
 
     B_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, na; init_μ = init, rng = device_rng),
+        NoisyDense(ns, 128, relu; init_μ=init, rng=device_rng),
+        NoisyDense(128, 128, relu; init_μ=init, rng=device_rng),
+        NoisyDense(128, na; init_μ=init, rng=device_rng),
     ) |> gpu
 
     Q_model = Chain(
-        NoisyDense(ns, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, 128, relu; init_μ = init, rng = device_rng),
-        NoisyDense(128, na; init_μ = init, rng = device_rng),
+        NoisyDense(ns, 128, relu; init_μ=init, rng=device_rng),
+        NoisyDense(128, 128, relu; init_μ=init, rng=device_rng),
+        NoisyDense(128, na; init_μ=init, rng=device_rng),
     ) |> gpu
 
     Flux.loadparams!(Q_model, Flux.params(B_model))
@@ -96,35 +96,35 @@ function RL.Experiment(
     prior = eval(Meta.parse(get_config(lg, "prior")))
 
     agent = Agent(
-        policy = QBasedPolicy(
-            learner = DUQNLearner(
-                B_approximator = NeuralNetworkApproximator(
-                    model = B_model,
-                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
+        policy=QBasedPolicy(
+            learner=DUQNLearner(
+                B_approximator=NeuralNetworkApproximator(
+                    model=B_model,
+                    optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                 ),
-                Q_approximator = NeuralNetworkApproximator(
-                    model = Q_model,
+                Q_approximator=NeuralNetworkApproximator(
+                    model=Q_model,
                 ),
-                Q_lr = get_config(lg, "Q_lr"),
-                γ = get_config(lg, "gamma"),
-                update_horizon = get_config(lg, "update_horizon"),
-                batch_size = get_config(lg, "batch_size"),
-                min_replay_history = get_config(lg, "min_replay_history"),
-                B_update_freq = get_config(lg, "B_update_freq"),
-                Q_update_freq = get_config(lg, "Q_update_freq"),
-                updates_per_step = get_config(lg, "updates_per_step"),
-                λ = get_config(lg, "λ"),
-                n_samples = get_config(lg, "n_samples"),
-                η = get_config(lg, "η"),
-                nev = get_config(lg, "nev"),
-                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
-                prior = prior,
+                Q_lr=get_config(lg, "Q_lr"),
+                γ=get_config(lg, "gamma"),
+                update_horizon=get_config(lg, "update_horizon"),
+                batch_size=get_config(lg, "batch_size"),
+                min_replay_history=get_config(lg, "min_replay_history"),
+                B_update_freq=get_config(lg, "B_update_freq"),
+                Q_update_freq=get_config(lg, "Q_update_freq"),
+                updates_per_step=get_config(lg, "updates_per_step"),
+                λ=get_config(lg, "λ"),
+                n_samples=get_config(lg, "n_samples"),
+                η=get_config(lg, "η"),
+                nev=get_config(lg, "nev"),
+                is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
+                prior=prior,
             ),
-            explorer = GreedyExplorer(),
+            explorer=GreedyExplorer(),
         ),
-        trajectory = CircularArraySARTTrajectory(
-            capacity = get_config(lg, "traj_capacity"),
-            state = Vector{Float32} => ns,
+        trajectory=CircularArraySARTTrajectory(
+            capacity=get_config(lg, "traj_capacity"),
+            state=Vector{Float32} => ns,
         ),
     )
 
@@ -158,8 +158,8 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                CartPoleEnv(; T = Float32),
-                StopAfterEpisode(100; is_show_progress = false),
+                CartPoleEnv(; T=Float32),
+                StopAfterEpisode(100; is_show_progress=false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])
