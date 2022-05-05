@@ -47,7 +47,6 @@ function (π::FACPolicy)(env::AbstractEnv)
     to_dev(x) = send_to_device(device(π.approximator), x)
 
     logits = env |> state |> to_dev |> π.approximator |> send_to_host
-    println(π.action_space)
     if π.action_space isa AbstractVector
         dist = logits |> softmax |> π.dist
         action = π.action_space[rand(π.rng, dist)]

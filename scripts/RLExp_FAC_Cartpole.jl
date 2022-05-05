@@ -97,9 +97,7 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                MultiThreadEnv([
-                    CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))) for i in 1:N_ENV
-                ]),
+                CartPoleEnv(; T=Float32, rng=StableRNG(hash(seed + i))),
                 StopAfterStep(1_000; is_show_progress=false),
                 h,
             )
