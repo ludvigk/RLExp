@@ -169,7 +169,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b = @view b_all[a, :]
         m = sum(b, dims=2) ./ size(b, 2)
         ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
-        𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss)
+        𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / batch_size
         𝐿 /= batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
