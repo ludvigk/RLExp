@@ -3,6 +3,7 @@ import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
 using Distributions: Uniform, Product
+using KernelDensity
 using StatsBase: sample
 import Statistics.mean
 
@@ -168,9 +169,8 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b = @view b_all[a, :]
         m = sum(b, dims=2) ./ size(b, 2)
         ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
-        λ = learner.λ
         𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss)
-        𝐿 /= n_samples * batch_size
+        𝐿 /= batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
@@ -190,6 +190,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
             learner.logging_params["QA"] = mean(getindex.(a, 1))
         end
 
+        λ = learner.λ
         return 𝐿 + λ * KL / batch_size
     end
     update!(B, gs)
