@@ -348,7 +348,7 @@ end
 function silvermans_rule(X)
     X = cpu(X)
     iq = [iqr(X[i, :]) for i = 1:size(X, 1)]
-    l = 0.9f0 * min.(std(X, dims=1)[:], iq ./ 1.34f0) .* length(X)^(-0.2f0)
+    l = 0.9f0 * min.(std(X, dims=2)[:], iq ./ 1.34f0) .* length(X)^(-0.2f0)
     gpu(l)
 end
 struct KDE
