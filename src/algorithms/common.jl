@@ -1,6 +1,7 @@
 using Arpack
 using CUDA
 using CUDA: randn!
+using Distributions
 using Flux
 using Flux: glorot_uniform, unsqueeze, @nograd, convfilter, create_bias, expand, calc_padding
 using KrylovKit
