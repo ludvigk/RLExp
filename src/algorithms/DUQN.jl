@@ -3,7 +3,6 @@ import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
 using Distributions: Uniform, Product
-# using KernelDensity
 using StatsBase: sample
 import Statistics.mean
 
@@ -167,9 +166,13 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     gs = gradient(params(B)) do
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @view b_all[a, :]
-        m = sum(b, dims=2) ./ size(b, 2)
-        ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
-        𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / batch_size
+
+        k = KDE(b)
+        𝐿 = sum(score_samples(k, G)) / (num_samples .* n_samples)
+
+        # m = sum(b, dims=2) ./ size(b, 2)
+        # ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
+        # 𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
