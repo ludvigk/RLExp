@@ -346,19 +346,19 @@ function cross_entropy_surrogate(sse, q_data, p_data)
 end
 
 
-function silvermans_rule(X::Vector)
+function silvermans_rule(X)
     X = cpu(X)
     iq = iqr(X)
     l = 0.9f0 * min.(std(X), iq ./ 1.34f0) .* length(X)^(-0.2f0)
     gpu(l)
 end
 
-function silvermans_rule(X::Matrix)
-    d = size(X, 1)
-    n = size(X, 2)
-    l = 4 / (d + 2)^(1 / (d + 4)) * n^-(1 / (d + 4))
-    return Diagonal(vec(l .* std(X, dims=2)))
-end
+# function silvermans_rule(X::Matrix)
+#     d = size(X, 1)
+#     n = size(X, 2)
+#     l = 4 / (d + 2)^(1 / (d + 4)) * n^-(1 / (d + 4))
+#     return Diagonal(vec(l .* std(X, dims=2)))
+# end
 
 struct KDE
     X
