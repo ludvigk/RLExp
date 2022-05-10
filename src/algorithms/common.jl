@@ -365,6 +365,6 @@ function score_samples(k::KDE, Y, X=k.X)
     dims = size(X, 1)
     n = size(X, 2)
     std_normal = MvNormal(zeros(dims), ones(dims))
-    log_probs = sum(log.(k.l^-dims .* pdf.(std_normal, (unsqueeze(X, 1) .- Y) ./ k.l)), dims=1) ./ n
+    log_probs = sum(log.(k.l .^ -dims .* pdf.(std_normal, (unsqueeze(X, 1) .- Y) ./ k.l)), dims=1) ./ n
     return log_probs
 end
