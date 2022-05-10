@@ -7,6 +7,7 @@ using KrylovKit
 using LinearAlgebra
 using NNlib: softplus
 using Random
+using StatsBase: iqr
 using Tullio, KernelAbstractions, CUDAKernels
 using Zygote
 
@@ -347,7 +348,7 @@ end
 function silvermans_rule(X)
     X = cpu(X)
     iq = [iqr(X[i, :]) for i = 1:size(X, 1)]
-    l = 0.9 * min.(std(X, dims=1)[:], iq ./ 1.34) .* length(X)^(-1 / 5)
+    l = 0.9f0 * min.(std(X, dims=1)[:], iq ./ 1.34f0) .* length(X)^(-0.2f0)
     gpu(l)
 end
 struct KDE
@@ -355,7 +356,7 @@ struct KDE
     l
 end
 function KDE(X)
-    l = Zygote.@ignore convert(eltype(X), silvermans_rule(X))
+    l = Zygote.@ignore silvermans_rule(X)
     KDE(X, l)
 end
 
