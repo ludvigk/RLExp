@@ -346,12 +346,20 @@ function cross_entropy_surrogate(sse, q_data, p_data)
 end
 
 
-function silvermans_rule(X)
+function silvermans_rule(X::Vector)
     X = cpu(X)
-    iq = [iqr(X[i, :]) for i = 1:size(X, 1)]
-    l = 0.9f0 * min.(std(X, dims=2)[:], iq ./ 1.34f0) .* length(X)^(-0.2f0)
+    iq = iqr(X)
+    l = 0.9f0 * min.(std(X), iq ./ 1.34f0) .* length(X)^(-0.2f0)
     gpu(l)
 end
+
+function silvermans_rule(X::Matrix)
+    d = size(X, 1)
+    n = size(X, 2)
+    l = 4 / (d + 2)^(1 / (d + 4)) * n^-(1 / (d + 4))
+    return Diagonal(vec(l .* std(X, dims=2)))
+end
+
 struct KDE
     X
     l
@@ -362,9 +370,8 @@ function KDE(X)
 end
 
 function score_samples(k::KDE, Y, X=k.X)
-    dims = size(X, 1)
-    n = size(X, 2)
-    std_normal = MvNormal(zeros(dims), ones(dims))
-    log_probs = sum(log.(k.l .^ -dims .* pdf.(std_normal, (unsqueeze(X, 1) .- Y) ./ k.l)), dims=1) ./ n
-    return log_probs
+    n = length(X)
+    diff = X' .- Y
+    log_probs = log.(sum(k.l^-1 .* pdf.(Normal(0, 1), diff ./ k.l), dims=2) ./ n)
+    return vec(log_probs)
 end
