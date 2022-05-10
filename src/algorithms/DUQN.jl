@@ -3,6 +3,7 @@ import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
 using Distributions: Uniform, Product
+using Flux: params
 using StatsBase: sample
 import Statistics.mean
 
