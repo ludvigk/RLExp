@@ -349,8 +349,8 @@ end
 
 function silvermans_rule(X)
     X = cpu(X)
-    iq = iqr(X)
-    l = 0.9f0 * min.(std(X), iq ./ 1.34f0) .* length(X)^(-0.2f0)
+    iq = [iqr(X[i, :]) for i = 1:size(X, 1)]
+    l = 0.9f0 * min.(std(X, dims=2), iq ./ 1.34f0) .* size(X, 2)^(-0.2f0)
     gpu(l)
 end
 
@@ -373,11 +373,11 @@ end
 # Flux.trainable(k::KDE) = (k.X,)
 
 function score_samples(Y, X)
-    X = reshape(cpu(X), 1, :)
-    Y = reshape(cpu(Y), :)
-    l = Zygote.@ignore silvermans_rule(reshape(X, :))
+    X = cpu(X)
+    Y = cpu(Y)
+    l = Zygote.@ignore silvermans_rule(X)[:]
     n = length(X)
-    diff = X .- Y
-    log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n .+ 1e-8)
-    return reshape(log_probs, :) |> gpu
+    diff = unsqueeze(X, 2) .- Y
+    log_probs = log.(sum(l .^ -1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n .+ 1e-8)
+    return dropdims(log_probs, dims=2) |> gpu
 end

@@ -144,10 +144,10 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = mean(B(s′, n_samples), dims=ndims(s) + 1)
+        q_values = B(s′, n_samples)
         # rng_B = Random.MersenneTwister(seed)
     else
-        q_values = mean(Q(s′, n_samples), dims=ndims(s) + 1)
+        q_values = Q(s′, n_samples)
     end
 
     if haskey(batch, :next_legal_actions_mask)
@@ -157,7 +157,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = @view mean(Q(s′, n_samples), dims=ndims(s) + 1)[selected_actions]
+        q′ = @view Q(s′, n_samples)[selected_actions]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
@@ -169,11 +169,11 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b = b_all[a, :]
 
         # k = KDE((cpu(reshape(b, :))))
-        # 𝐿 = -sum(score_samples(G, b)) #/ (batch_size * n_samples)
+        𝐿 = -sum(score_samples(G, b)) / (batch_size * n_samples)
 
-        m = sum(b, dims=2) ./ size(b, 2)
-        ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
-        𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
+        # m = sum(b, dims=2) ./ size(b, 2)
+        # ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
+        # 𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
@@ -187,7 +187,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
             learner.logging_params["KL"] = KL
             learner.logging_params["H"] = H
             learner.logging_params["S"] = S
-            # learner.logging_params["s"] = mean(ss)
+            learner.logging_params["s"] = mean(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Qₜ"] = mean(G)
             learner.logging_params["QA"] = mean(getindex.(a, 1))
