@@ -169,7 +169,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b = @view b_all[a, :]
 
         # k = KDE((cpu(reshape(b, :))))
-        𝐿 = sum(score_samples(cpu(G), cpu(reshape(b, :)))) / batch_size |> gpu
+        𝐿 = sum(score_samples(G, b)) / batch_size
 
         # m = sum(b, dims=2) ./ size(b, 2)
         # ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
