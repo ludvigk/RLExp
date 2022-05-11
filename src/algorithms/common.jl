@@ -369,6 +369,8 @@ function KDE(X)
     l = Zygote.@ignore silvermans_rule(X)
     KDE(X, l)
 end
+Flux.@functor KDE
+Flux.trainable(k::KDE) = (k.X,)
 
 function score_samples(k::KDE, Y, X=k.X)
     n = length(X)
