@@ -361,20 +361,21 @@ end
 #     return Diagonal(vec(l .* std(X, dims=2)))
 # end
 
-struct KDE
-    X
-    l
-end
-function KDE(X)
-    l = Zygote.@ignore silvermans_rule(X)
-    KDE(X, l)
-end
-Flux.@functor KDE
-Flux.trainable(k::KDE) = (k.X,)
+# struct KDE
+#     X
+#     l
+# end
+# function KDE(X)
+#     l = Zygote.@ignore silvermans_rule(X)
+#     KDE(X, l)
+# end
+# Flux.@functor KDE
+# Flux.trainable(k::KDE) = (k.X,)
 
-function score_samples(k::KDE, Y, X=k.X)
+function score_samples(Y, X)
+    l = Zygote.@ignore silvermans_rule(X)
     n = length(X)
     diff = X' .- Y
-    log_probs = log.(sum(k.l^-1 .* pdf.(Normal(0, 1), diff ./ k.l), dims=2) ./ n)
+    log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n)
     return reshape(log_probs, :)
 end
