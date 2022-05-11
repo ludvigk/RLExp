@@ -373,11 +373,11 @@ end
 # Flux.trainable(k::KDE) = (k.X,)
 
 function score_samples(Y, X)
-    X = cpu(reshape(X, :))
-    Y = cpu(reshape(Y, :))
+    X = reshape(cpu(X), 1, :)
+    Y = reshape(cpu(Y), :)
     l = Zygote.@ignore silvermans_rule(X)
     n = length(X)
-    diff = X' .- Y
+    diff = XX .- Y
     log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n)
     return reshape(log_probs, :) |> gpu
 end
