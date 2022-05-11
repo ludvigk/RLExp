@@ -378,6 +378,6 @@ function score_samples(Y, X)
     l = Zygote.@ignore silvermans_rule(reshape(X, :))
     n = length(X)
     diff = X .- Y
-    log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n)
+    log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n .+ 1e-8)
     return reshape(log_probs, :) |> gpu
 end
