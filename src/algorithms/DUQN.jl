@@ -157,7 +157,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = @view Q(s′, n_samples)[selected_actions]
+        q′ = @view Q(s′, n_samples)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
