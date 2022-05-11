@@ -187,7 +187,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
             learner.logging_params["KL"] = KL
             learner.logging_params["H"] = H
             learner.logging_params["S"] = S
-            learner.logging_params["s"] = mean(ss)
+            # learner.logging_params["s"] = mean(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Qₜ"] = mean(G)
             learner.logging_params["QA"] = mean(getindex.(a, 1))
