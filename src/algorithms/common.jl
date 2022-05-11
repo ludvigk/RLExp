@@ -373,7 +373,7 @@ end
 # Flux.trainable(k::KDE) = (k.X,)
 
 function score_samples(Y, X)
-    X = gpu(reshape(X, :))
+    X = cpu(reshape(X, :))
     Y = cpu(reshape(Y, :))
     l = Zygote.@ignore silvermans_rule(X)
     n = length(X)
