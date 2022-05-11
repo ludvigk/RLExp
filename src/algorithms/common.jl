@@ -375,7 +375,7 @@ end
 function score_samples(Y, X)
     X = reshape(cpu(X), 1, :)
     Y = reshape(cpu(Y), :)
-    l = Zygote.@ignore silvermans_rule(X)
+    l = Zygote.@ignore silvermans_rule(reshape(X, :))
     n = length(X)
     diff = XX .- Y
     log_probs = log.(sum(l^-1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n)
