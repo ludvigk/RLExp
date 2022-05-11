@@ -166,7 +166,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
-        b = @view b_all[a, :]
+        b = b_all[a, :]
 
         # k = KDE((cpu(reshape(b, :))))
         𝐿 = sum(score_samples(G, b)) / batch_size
