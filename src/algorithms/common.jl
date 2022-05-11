@@ -374,5 +374,5 @@ function score_samples(k::KDE, Y, X=k.X)
     n = length(X)
     diff = X' .- Y
     log_probs = log.(sum(k.l^-1 .* pdf.(Normal(0, 1), diff ./ k.l), dims=2) ./ n)
-    return vec(log_probs)
+    return reshape(log_probs, :)
 end
