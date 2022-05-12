@@ -373,9 +373,9 @@ end
 function score_samples(Y, X)
     X = cpu(X)
     Y = cpu(Y)
-    l = Zygote.@ignore silvermans_rule(X)[:]
-    n = length(X)
+    l = Zygote.@ignore silvermans_rule(Y)[:]
+    n = size(Y, 2)
     diff = unsqueeze(X, 2) .- Y
-    log_probs = log.(sum(l .^ -1 .* pdf.(Normal(0, 1), diff ./ l), dims=(1, 2)) ./ n .+ 1e-8)
-    return dropdims(log_probs, dims=(1, 2)) |> gpu
+    log_probs = log.(sum(l .^ -1 .* pdf.(Normal(0, 1), diff ./ l), dims=2) ./ n .+ 1e-8)
+    return dropdims(sum(log_probs, dims=1), dims=(1, 2)) |> gpu
 end
