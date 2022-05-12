@@ -43,7 +43,7 @@ function RL.Experiment(
             "updates_per_step" => 1,
             "λ" => 1.0,
             "prior" => "FlatPrior()",
-            "n_samples" => 30,
+            "n_samples" => 100,
             "η" => 0.01,
             "nev" => 10,
             "is_enable_double_DQN" => true,
