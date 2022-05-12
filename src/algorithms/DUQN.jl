@@ -172,8 +172,8 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         # 𝐿 = -sum(score_samples(b, G)) / (batch_size * n_samples)
 
         m = sum(G, dims=2) ./ size(b, 2)
-        ss = sum(G .^ 2, dims=2) ./ size(G, 2) .- m .^ 2
-        𝐿 = sum(log.(ss) .+ (b .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
+        ss = sum(G .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
+        𝐿 = sum(log.(ss) .+ (b .- m) .^ 2 ./ 2ss) / (batch_size .* n_samples)
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
