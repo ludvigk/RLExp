@@ -168,7 +168,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = b_all[a, :]
 
-        𝐿 = -sum(score_samples(b, G)) / (batch_size * n_samples)
+        𝐿 = -sum(score_samples(b, mean(G, dims=2))) / (batch_size * n_samples)
 
         # m = sum(b, dims=2) ./ size(b, 2)
         # ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
