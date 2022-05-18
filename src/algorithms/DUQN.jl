@@ -149,6 +149,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     else
         q_values = Q(s′, n_samples)
     end
+    [Random.shuffle!(@view q_values[i, j, :]) for i in 1:size(q_values, 1) for j in 1:size(q_values, 2)]
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
@@ -171,7 +172,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         # 𝐿 = -sum(score_samples(b, mean(G, dims=2))) / (batch_size * n_samples)
 
         m = sum(b, dims=2) ./ size(b, 2)
-        ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
+        ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
         𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
 
