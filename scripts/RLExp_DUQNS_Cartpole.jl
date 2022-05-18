@@ -32,44 +32,44 @@ function RL.Experiment(
     ::Val{:DUQNS},
     ::Val{:Cartpole},
     name;
-    restore = nothing,
-    config = nothing,
-   )
+    restore=nothing,
+    config=nothing
+)
 
     """
     SET UP LOGGING
     """
     if isnothing(config)
         config = Dict(
-                        "B_lr" => 1e-4,
-                        "Q_lr" => 1,
-                        "B_clip_norm" => 1000.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 1000,
-                        "B_opt" => "ADAM",
-                        "gamma" => 1,
-                        "update_horizon" => 1,
-                        "batch_size" => 32,
-                        "min_replay_history" => 32,
-                        "updates_per_step" => 1,
-                        "λ" => 0.99,
-                        # "prior" => "GaussianPrior(200, 100)",
-                        # "prior" => "CartpolePrior(1)",
-                        # "prior" => "FlatPrior()",
-                        "prior" => "KernelPrior()",
-                        "n_samples" => 100,
-                        "η" => 0.01,
-                        "nev" => 6,
-                        "n_eigen_threshold" => 0.99,
-                        "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000_000,
-                        "seed" => 1,
-                     )
+            "B_lr" => 1e-3,
+            "Q_lr" => 1,
+            "B_clip_norm" => 1000.0,
+            "B_update_freq" => 1,
+            "Q_update_freq" => 100,
+            "B_opt" => "ADAM",
+            "gamma" => 1,
+            "update_horizon" => 1,
+            "batch_size" => 32,
+            "min_replay_history" => 32,
+            "updates_per_step" => 1,
+            "λ" => 0.99,
+            # "prior" => "GaussianPrior(200, 100)",
+            # "prior" => "CartpolePrior(1)",
+            "prior" => "FlatPrior()",
+            # "prior" => "KernelPrior()",
+            "n_samples" => 100,
+            "η" => 0.01,
+            "nev" => 6,
+            "n_eigen_threshold" => 0.99,
+            "is_enable_double_DQN" => true,
+            "traj_capacity" => 1_000_000,
+            "seed" => 1,
+        )
     end
 
-    lg = WandbLogger(project = "BE",
-                     name="DUQNS_CartPole",
-                     config = config,
+    lg = WandbLogger(project="BE",
+        name="DUQNS_CartPole",
+        config=config,
     )
     save_dir = datadir("sims", "DUQNS", "CartPole", "$(now())")
     mkpath(save_dir)
@@ -86,7 +86,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = CartPoleEnv(; T = Float32, rng = rng)
+    env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
 
     if restore === nothing
@@ -108,11 +108,11 @@ function RL.Experiment(
         # ) |> gpu
 
         B_model = Chain(
-            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(256, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(ns, 256, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
+            NoisyDense(256, 256, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
             Split(
-                NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(256, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(256, na; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
 
@@ -126,11 +126,11 @@ function RL.Experiment(
         # ) |> gpu
 
         Q_model = Chain(
-            NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(256, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(ns, 256, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
+            NoisyDense(256, 256, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
             Split(
-                NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+                NoisyDense(256, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(256, na; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
 
@@ -144,35 +144,35 @@ function RL.Experiment(
         prior = eval(Meta.parse(get_config(lg, "prior")))
 
         agent = Agent(
-            policy = QBasedPolicy(
-                learner = DUQNSLearner(
-                    B_approximator = NeuralNetworkApproximator(
-                        model = B_model,
-                        optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
+            policy=QBasedPolicy(
+                learner=DUQNSLearner(
+                    B_approximator=NeuralNetworkApproximator(
+                        model=B_model,
+                        optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                     ),
-                    Q_approximator = NeuralNetworkApproximator(
-                        model = Q_model,
+                    Q_approximator=NeuralNetworkApproximator(
+                        model=Q_model,
                     ),
-                    Q_lr = get_config(lg, "Q_lr"),
-                    γ = get_config(lg, "gamma"),
-                    update_horizon = get_config(lg, "update_horizon"),
-                    batch_size = get_config(lg, "batch_size"),
-                    min_replay_history = get_config(lg, "min_replay_history"),
-                    B_update_freq = get_config(lg, "B_update_freq"),
-                    Q_update_freq = get_config(lg, "Q_update_freq"),
-                    updates_per_step = get_config(lg, "updates_per_step"),
-                    λ = get_config(lg, "λ"),
-                    n_samples = get_config(lg, "n_samples"),
-                    η = get_config(lg, "η"),
-                    nev = get_config(lg, "nev"),
-                    is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
-                    prior = prior,
+                    Q_lr=get_config(lg, "Q_lr"),
+                    γ=get_config(lg, "gamma"),
+                    update_horizon=get_config(lg, "update_horizon"),
+                    batch_size=get_config(lg, "batch_size"),
+                    min_replay_history=get_config(lg, "min_replay_history"),
+                    B_update_freq=get_config(lg, "B_update_freq"),
+                    Q_update_freq=get_config(lg, "Q_update_freq"),
+                    updates_per_step=get_config(lg, "updates_per_step"),
+                    λ=get_config(lg, "λ"),
+                    n_samples=get_config(lg, "n_samples"),
+                    η=get_config(lg, "η"),
+                    nev=get_config(lg, "nev"),
+                    is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
+                    prior=prior,
                 ),
-                explorer = GreedyExplorer(),
+                explorer=GreedyExplorer(),
             ),
-            trajectory = CircularArraySARTTrajectory(
-                capacity = get_config(lg, "traj_capacity"),
-                state = Vector{Float32} => ns,
+            trajectory=CircularArraySARTTrajectory(
+                capacity=get_config(lg, "traj_capacity"),
+                state=Vector{Float32} => ns,
             ),
         )
     else
@@ -217,8 +217,8 @@ function RL.Experiment(
             )
             s = @elapsed run(
                 p,
-                CartPoleEnv(; T = Float32),
-                StopAfterEpisode(100; is_show_progress = false),
+                CartPoleEnv(; T=Float32),
+                StopAfterEpisode(100; is_show_progress=false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])
@@ -236,7 +236,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n = 100) do t, agent, env
+        DoEveryNEpisode(n=100) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
             jldsave(save_dir * "/model_$t.jld2"; agent)
         end,

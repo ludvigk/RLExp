@@ -170,8 +170,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss))
-        𝐿 /= n_samples * batch_size
+        𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss)) / n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
