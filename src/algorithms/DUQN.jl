@@ -173,8 +173,8 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
         m = sum(b, dims=2) ./ size(b, 2)
         println(size(G))
-        ss = std(G, dims=2) ./ size(G, 2) .+ 1e-8
-        # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
+        ss = std(G, dims=2) .+ 1e-8
+        ss = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
         # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
         # println(size(G), ize(m), size(ss))
         # m2 = sum(G, dims=2) ./ size(G, 2)
@@ -192,7 +192,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
             learner.logging_params["KL"] = KL
             learner.logging_params["H"] = H
             learner.logging_params["S"] = S
-            # learner.logging_params["s"] = mean(ss)
+            learner.logging_params["s"] = mean(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Qₜ"] = mean(G)
             learner.logging_params["QA"] = mean(getindex.(a, 1))
