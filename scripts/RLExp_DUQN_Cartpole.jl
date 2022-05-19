@@ -42,7 +42,7 @@ function RL.Experiment(
             "min_replay_history" => 1,
             "updates_per_step" => 1,
             "λ" => 1.0,
-            "prior" => "FlatPrior()",
+            "prior" => "KernelPrior()",
             "n_samples" => 100,
             "η" => 0.01,
             "nev" => 10,
