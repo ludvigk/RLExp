@@ -40,7 +40,7 @@ function RL.Experiment(
             "update_horizon" => 1,
             "batch_size" => 32,
             "min_replay_history" => 1,
-            "updates_per_step" => 1,
+            "updates_per_step" => 10,
             "λ" => 1.0,
             "prior" => "KernelPrior()",
             "n_samples" => 100,

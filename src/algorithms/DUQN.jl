@@ -121,9 +121,9 @@ function RLBase.update!(learner::DUQNLearner, t::AbstractTrajectory)
             Flux.loadparams!(Q, Bp)
         else
             p = Qp .- η .* (Qp .- Bp)
-            # for _=1:(learner.updates_per_step-1)
-            #     p = p .- η .* (p .- Bp)
-            # end
+            for _ = 1:(learner.updates_per_step-1)
+                p = p .- η .* (p .- Bp)
+            end
             Flux.loadparams!(Q, p)
         end
     end
