@@ -150,7 +150,9 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     else
         q_values = Q(s′, n_samples)
     end
-    Zygote.@ignore [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
+    q_values = cpu(q_values)
+    [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
+    q_values = gpu(q_values)
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
@@ -174,7 +176,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
         m1 = sum(b, dims=2) ./ size(b, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
-        ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
+        Zygote.@ignore ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
         # ss = var(G, dims=2) .+ 1e-8
         # ss2 = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
         # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
