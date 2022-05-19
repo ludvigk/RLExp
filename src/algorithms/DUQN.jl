@@ -145,21 +145,21 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = B(s′, n_samples)
+        q_values = B(s′, 1)
         # rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples)
     end
-    q_values = cpu(q_values)
-    [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
-    q_values = gpu(q_values)
+    # q_values = cpu(q_values)
+    # [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
+    # q_values = gpu(q_values)
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
         q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
 
-    if true #is_enable_double_DQN
+    if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
         q′ = @view Q(s′, n_samples)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
