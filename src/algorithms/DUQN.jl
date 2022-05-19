@@ -170,11 +170,11 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = b_all[a, :]
 
-        𝐿 = -sum(score_samples(b, G)) #/ (batch_size * n_samples)
+        # 𝐿 = -sum(score_samples(b, G)) #/ (batch_size * n_samples)
 
         # m1 = sum(b, dims=2) ./ size(b, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
-        # ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
+        ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
         # ss = var(G, dims=2) .+ 1e-8
         # ss2 = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
         # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
@@ -182,6 +182,8 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         # m2 = sum(G, dims=2) ./ size(G, 2)
         # 𝐿 = sum((b .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
         # 𝐿 = 𝐿 + sum((G .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
+
+        𝐿 = sum((b .- G) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
