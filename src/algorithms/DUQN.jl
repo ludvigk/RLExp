@@ -145,10 +145,10 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = B(s′, 1)
+        q_values = B(s′, n_samples)
         # rng_B = Random.MersenneTwister(seed)
     else
-        q_values = Q(s′, 1)
+        q_values = Q(s′, n_samples)
     end
     # [Random.shuffle!(@view q_values[i, j, :]) for i=1:size(q_values, 1), j=1:size(q_values, 2)]
 
@@ -157,9 +157,9 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
 
-    if is_enable_double_DQN
+    if true #is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = @view Q(s′, 1)[selected_actions, :]
+        q′ = @view Q(s′, n_samples)[selected_actions, :]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
@@ -170,11 +170,11 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = b_all[a, :]
 
-        # 𝐿 = -sum(score_samples(b, G)) #/ (batch_size * n_samples)
+        𝐿 = -sum(score_samples(b, G)) / (batch_size * n_samples)
 
         # m1 = sum(b, dims=2) ./ size(b, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
-        ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
+        # ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
         # ss = var(G, dims=2) .+ 1e-8
         # ss2 = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
         # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
