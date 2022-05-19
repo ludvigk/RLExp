@@ -183,7 +183,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         # println(size(G), ize(m), size(ss))
         # m2 = sum(G, dims=2) ./ size(G, 2)
         # 𝐿 = sum((b .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
-        𝐿 = 𝐿 + sum((G .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
+        𝐿 = sum((G .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
 
         # 𝐿 = sum(log.(ss) .+ (b .- G) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
 
