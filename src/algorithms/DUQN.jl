@@ -176,7 +176,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
         m1 = sum(b, dims=2) ./ size(b, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
-        Zygote.@ignore ss1 = (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
+        ss1 = Zygote.@ignore (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
         # ss = var(G, dims=2) .+ 1e-8
         # ss2 = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
         # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
