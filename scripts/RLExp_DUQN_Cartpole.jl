@@ -32,7 +32,7 @@ function RL.Experiment(
         config=Dict(
             "B_lr" => 1e-3,
             "Q_lr" => 1e-1,
-            "B_clip_norm" => 1.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 1,
             "B_opt" => "ADAM",

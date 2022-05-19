@@ -128,7 +128,7 @@ end
 struct KernelPrior <: AbstractPrior end
 
 function (p::KernelPrior)(s::AbstractArray, t::AbstractArray)
-    l = heuristic_lengthscale(s', s')
+    l = Zygote.@ignore heuristic_lengthscale(s', s')
     Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.1I
     K = Zygote.@ignore inv(cholesky(Σ))
     L = batched_mul(batched_mul(t, K), permutedims(t, (2,1,3)))
