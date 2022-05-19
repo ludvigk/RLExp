@@ -95,7 +95,8 @@ end
 function (learner::DUQNLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    q = learner.B_approximator(s)
+    q = learner.B_approximator(s, 100)
+    q = dropdims(mean(q, dims=ndims(q)), dims=ndims(q))
     vec(q) |> send_to_host
 end
 
