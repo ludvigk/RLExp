@@ -125,83 +125,83 @@ function (l::NoisyDense)(x, num_samples::Union{Int,Nothing}=nothing; rng::Union{
     end
 end
 
-struct NoisyConv{N,M,F,A,V} <: AbstractNoisy
-    f::F
-    w_μ::A
-    w_ρ::A
-    b_μ::V
-    b_ρ::V
-    stride::NTuple{N,Int}
-    pad::NTuple{M,Int}
-    dilation::NTuple{N,Int}
-    groups::Int
-    rng::AbstractRNG
-end
+# struct NoisyConv{N,M,F,A,V} <: AbstractNoisy
+#     f::F
+#     w_μ::A
+#     w_ρ::A
+#     b_μ::V
+#     b_ρ::V
+#     stride::NTuple{N,Int}
+#     pad::NTuple{M,Int}
+#     dilation::NTuple{N,Int}
+#     groups::Int
+#     rng::AbstractRNG
+# end
 
-function NoisyConv(w_μ::AbstractArray{T,N},
-    w_ρ::AbstractArray{T,N},
-    b_μ::AbstractVector,
-    b_ρ::AbstractVector,
-    f=identity;
-    stride=1,
-    pad=0,
-    dilation=1,
-    groups=1,
-    rng=Random.GLOBAL_RNG
-) where {T,N}
-    stride = expand(Val(N - 2), stride)
-    dilation = expand(Val(N - 2), dilation)
-    pad = calc_padding(Conv, pad, size(w_μ)[1:N-2], dilation, stride)
-    return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups, rng)
-end
+# function NoisyConv(w_μ::AbstractArray{T,N},
+#     w_ρ::AbstractArray{T,N},
+#     b_μ::AbstractVector,
+#     b_ρ::AbstractVector,
+#     f=identity;
+#     stride=1,
+#     pad=0,
+#     dilation=1,
+#     groups=1,
+#     rng=Random.GLOBAL_RNG
+# ) where {T,N}
+#     stride = expand(Val(N - 2), stride)
+#     dilation = expand(Val(N - 2), dilation)
+#     pad = calc_padding(Conv, pad, size(w_μ)[1:N-2], dilation, stride)
+#     return NoisyConv(f, w_μ, w_ρ, b_μ, b_ρ, stride, pad, dilation, groups, rng)
+# end
 
-function NoisyConv(k::NTuple{N,Integer},
-    ch::Pair{<:Integer,<:Integer},
-    f=identity;
-    init_μ=glorot_uniform,
-    init_σ=(dims...) -> fill(0.0017f0, dims),
-    stride=1,
-    pad=0,
-    dilation=1,
-    groups=1,
-    rng=Random.GLOBAL_RNG
-) where {N}
-    w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init=init_μ)
-    b_μ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
-    w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init=init_σ)
-    b_ρ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
+# function NoisyConv(k::NTuple{N,Integer},
+#     ch::Pair{<:Integer,<:Integer},
+#     f=identity;
+#     init_μ=glorot_uniform,
+#     init_σ=(dims...) -> fill(0.0017f0, dims),
+#     stride=1,
+#     pad=0,
+#     dilation=1,
+#     groups=1,
+#     rng=Random.GLOBAL_RNG
+# ) where {N}
+#     w_μ = convfilter(k, (ch[1] ÷ groups => ch[2]); init=init_μ)
+#     b_μ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
+#     w_ρ = convfilter(k, (ch[1] ÷ groups => ch[2]); init=init_σ)
+#     b_ρ = create_bias(w_μ, true, size(w_μ, ndims(w_μ)))
 
-    NoisyConv(w_μ::AbstractArray,
-        w_ρ::AbstractArray,
-        b_μ::AbstractVector,
-        b_ρ::AbstractVector,
-        f;
-        stride=stride,
-        pad=pad,
-        dilation=dilation,
-        groups=groups,
-        rng=rng
-    )
-end
+#     NoisyConv(w_μ::AbstractArray,
+#         w_ρ::AbstractArray,
+#         b_μ::AbstractVector,
+#         b_ρ::AbstractVector,
+#         f;
+#         stride=stride,
+#         pad=pad,
+#         dilation=dilation,
+#         groups=groups,
+#         rng=rng
+#     )
+# end
 
-Flux.@functor NoisyConv
+# Flux.@functor NoisyConv
 
-function (c::NoisyConv)(x::AbstractArray, num_samples::Union{Int,Nothing}=nothing)
-    # TODO: breaks gpu broadcast :(
-    # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
-    b_μ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
-    cdims = DenseConvDims(x, c.w_μ; stride=c.stride, padding=c.pad, dilation=c.dilation, groups=c.groups)
-    μ = conv(x, c.w_μ, cdims) .+ b_μ
-    if num_samples === nothing
-        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1))
-    else
-        ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1, 1))
-    end
-    b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
-    σ² = conv(x .^ 2, softplus.(c.w_ρ), cdims) .+ softplus.(b_ρ)
-    r = c.f.(μ .+ ϵ .* sqrt.(σ²))
-    reshape(r, size(r)[1:3]..., :)
-end
+# function (c::NoisyConv)(x::AbstractArray, num_samples::Union{Int,Nothing}=nothing)
+#     # TODO: breaks gpu broadcast :(
+#     # ndims(x) == ndims(c.weight)-1 && return squeezebatch(c(reshape(x, size(x)..., 1)))
+#     b_μ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
+#     cdims = DenseConvDims(x, c.w_μ; stride=c.stride, padding=c.pad, dilation=c.dilation, groups=c.groups)
+#     μ = conv(x, c.w_μ, cdims) .+ b_μ
+#     if num_samples === nothing
+#         ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1))
+#     else
+#         ϵ = Zygote.@ignore randn!(c.rng, similar(μ, size(μ)[1:3]..., 1, 1))
+#     end
+#     b_ρ = reshape(c.b_μ, ntuple(_ -> 1, length(c.stride))..., :, 1)
+#     σ² = conv(x .^ 2, softplus.(c.w_ρ), cdims) .+ softplus.(b_ρ)
+#     r = c.f.(μ .+ ϵ .* sqrt.(σ²))
+#     reshape(r, size(r)[1:3]..., :)
+# end
 
 # custom split layer
 struct Split{T}

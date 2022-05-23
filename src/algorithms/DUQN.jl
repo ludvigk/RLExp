@@ -6,6 +6,7 @@ using Distributions: Uniform, Product
 using Flux: params
 using StatsBase: sample
 import Statistics.mean
+using Random
 
 mutable struct DUQNLearner{
     Tq<:AbstractApproximator,
@@ -53,6 +54,7 @@ function DUQNLearner(;
     n_samples::Int=100,
     η::Real=0.05f0,
     nev::Int=10,
+    n_eigen_threshold::Real=0.99f0,
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
@@ -76,7 +78,7 @@ function DUQNLearner(;
         update_step,
         sampler,
         rng,
-        SpectralSteinEstimator(Float32(η), nev, 0.99f0),
+        SpectralSteinEstimator(Float32(η), nev, Float32(n_eigen_threshold)),
         Float32(injected_noise),
         n_samples,
         is_enable_double_DQN,
@@ -149,6 +151,7 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     else
         q_values = Q(s′, n_samples)
     end
+    [Random.shuffle!(@view q_values[i,j,:]) for i=1:size(q_values, 1) for j=1:size(q_values,2)]
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
