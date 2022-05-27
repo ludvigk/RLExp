@@ -189,8 +189,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Q"] = sum(B̂) / length(B̂)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
-            learner.logging_params["B_var"] = sum(var(b, dims=ndims(b)))
-            learner.logging_params["QA"] = (getindex.(a, 1))
+            # learner.logging_params["B_var"] = sum(var(b, dims=ndims(b)))
+            # learner.logging_params["QA"] = sum(getindex.(a, 1))
         end
 
         return 𝐿 + λ * KL / batch_size
