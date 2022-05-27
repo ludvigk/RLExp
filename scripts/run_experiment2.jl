@@ -86,4 +86,4 @@ end
 
 # map(run_experiment, exp_confs)
 # run(experiments[1])
-run(E`RLExp_DUQNS_Cartpole()`)
+run(E`RLExp_DUQNS_LunarLander()`)
