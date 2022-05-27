@@ -148,7 +148,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     else
         q_values = Q(s′, 1)
     end
-    Zygote.@ignore [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
+    # Zygote.@ignore [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
