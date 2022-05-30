@@ -40,10 +40,10 @@ function RL.Experiment(
     if isnothing(config)
         config = Dict(
             "B_lr" => 1e-4,
-            "Q_lr" => 0.01,
+            "Q_lr" => 1,
             "B_clip_norm" => 100.0,
             "B_update_freq" => 4,
-            "Q_update_freq" => 40,
+            "Q_update_freq" => 10_000,
             "B_opt" => "ADAM",
             "gamma" => 0.99f0,
             "update_horizon" => 1,
