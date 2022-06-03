@@ -37,10 +37,10 @@ function RL.Experiment(
             "gamma" => 0.99f0,
             "update_horizon" => 1,
             "batch_size" => 64,
-            "min_replay_history" => 1_000,
+            "min_replay_history" => 10_000,
             "updates_per_step" => 1,
             "is_enable_double_DQN" => true,
-            "traj_capacity" => 1_000_000,
+            "traj_capacity" => 50_000,
             "seed" => 1,
         ),
     )
@@ -75,16 +75,16 @@ function RL.Experiment(
             learner=DQNLearner(
                 approximator=NeuralNetworkApproximator(
                     model=Chain(
-                        NoisyDense(ns, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
-                        NoisyDense(128, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
+                        NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+                        NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
                         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                     ),
                     optimizer=ADAM(get_config(lg, "B_lr")),
                 ) |> gpu,
                 target_approximator=NeuralNetworkApproximator(
                     model=Chain(
-                        NoisyDense(ns, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
-                        NoisyDense(128, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
+                        NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+                        NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
                         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                     )
                 ) |> gpu,
