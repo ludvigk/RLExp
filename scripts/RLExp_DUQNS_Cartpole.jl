@@ -61,7 +61,7 @@ function RL.Experiment(
             "η" => 0.01,
             "nev" => 6,
             "n_eigen_threshold" => 0.99,
-            "is_enable_double_DQN" => false,
+            "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
         )
