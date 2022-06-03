@@ -176,7 +176,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(ss .+ (b .- preds) .^ 2 .* exp.(-ss)) .- sum(logpdf.(flow, G))
+        𝐿 = sum(ss .+ (b .- preds) .^ 2 .* exp.(-ss)) .- sum(logpdf(flow, G))
         𝐿 = 𝐿 / n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
