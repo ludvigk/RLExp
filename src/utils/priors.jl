@@ -28,14 +28,14 @@ struct MountainCarPrior <: AbstractPrior
 end
 
 function MountainCarPrior()
-    μ = s -> Zygote.@ignore -100 .+ 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
+    μ = s -> Zygote.@ignore -100 .+ 100.0f0 .* gpu([0 -1; 0 0; 0 1]) * s
     # μ = s -> Zygote.@ignore 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
-    σ = 10f0
+    σ = 10.0f0
     return CartpolePrior(μ, σ)
 end
 
 function MountainCarPrior(σ; ν=1)
-    μ = s -> Zygote.@ignore -100 .+ ν * 100f0 .* gpu([0 -1; 0 0; 0 1]) * s
+    μ = s -> Zygote.@ignore -100 .+ ν * 100.0f0 .* gpu([0 -1; 0 0; 0 1]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
@@ -53,13 +53,13 @@ struct CartpolePrior <: AbstractPrior
 end
 
 function CartpolePrior()
-    μ = s -> Zygote.@ignore 100f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
-    σ = 10f0
+    μ = s -> Zygote.@ignore 100.0f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
+    σ = 10.0f0
     return CartpolePrior(μ, σ)
 end
 
 function CartpolePrior(σ; ν=1)
-    μ = s -> Zygote.@ignore ν * 100f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
+    μ = s -> Zygote.@ignore ν * 100.0f0 .* gpu([0 0 -1 -1; 0 0 1 1]) * s
     return CartpolePrior(μ, Float32(σ))
 end
 
@@ -77,13 +77,13 @@ struct AcrobotPrior <: AbstractPrior
 end
 
 function AcrobotPrior()
-    μ = s -> Zygote.@ignore 100 .+ 1000f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
-    σ = 10f0
+    μ = s -> Zygote.@ignore 100 .+ 1000.0f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
+    σ = 10.0f0
     return AcrobotPrior(μ, σ)
 end
 
 function AcrobotPrior(σ)
-    μ = s -> Zygote.@ignore 100 .+ 1000f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
+    μ = s -> Zygote.@ignore 100 .+ 1000.0f0 .* gpu([0 -1 0 -1 -0.1f0 -0.05f0; 0 0 0 0 0 0; 0 1 0 1 0.1f0 0.05f0]) * s
     return AcrobotPrior(μ, Float32(σ))
 end
 
@@ -101,19 +101,19 @@ struct LunarLanderPrior <: AbstractPrior
 end
 
 function LunarLanderPrior()
-    μ = s -> Zygote.@ignore -100f0 .* gpu([ 0 0 0 0  0  0 0 0;
-                                           0 0 0 0 -1 -2 0 0;
-                                           0 0 0 0  0  0 0 0;
-                                           0 0 0 0  1  2 0 0]) * s
-    σ = 10f0
+    μ = s -> Zygote.@ignore -100.0f0 .* gpu([0 0 0 0 0 0 0 0
+        0 0 0 0 -1 -2 0 0
+        0 0 0 0 0 0 0 0
+        0 0 0 0 1 2 0 0]) * s
+    σ = 10.0f0
     return LunarLanderPrior(μ, σ)
 end
 
 function LunarLanderPrior(σ)
-    μ = s -> Zygote.@ignore -100f0 .* gpu([ 0 0 0 0  0  0 0 0;
-                                           0 0 0 0 -1 -2 0 0;
-                                           0 0 0 0  0  0 0 0;
-                                           0 0 0 0  1  2 0 0]) * s
+    μ = s -> Zygote.@ignore -100.0f0 .* gpu([0 0 0 0 0 0 0 0
+        0 0 0 0 -1 -2 0 0
+        0 0 0 0 0 0 0 0
+        0 0 0 0 1 2 0 0]) * s
     return LunarLanderPrior(μ, Float32(σ))
 end
 
@@ -125,12 +125,17 @@ function (p::LunarLanderPrior)(s::AbstractArray, t::AbstractArray)
     return sum((t .- p.μ(s)) .^ 2 ./ (2p.σ .^ 2))
 end
 
-struct KernelPrior <: AbstractPrior end
+struct KernelPrior <: AbstractPrior
+    l::Float32
+end
+
+KernelPrior(l::Real) = KernelPrior(Float32(l))
 
 function (p::KernelPrior)(s::AbstractArray, t::AbstractArray)
-    l = Zygote.@ignore heuristic_lengthscale(s', s')
+    # l = Zygote.@ignore heuristic_lengthscale(s', s')
+    l = p.l
     Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.1I
     K = Zygote.@ignore inv(cholesky(Σ))
-    L = batched_mul(batched_mul(t, K), permutedims(t, (2,1,3)))
-    return mean([tr(L[:,:,i]) for i=1:size(t,3)])
+    L = batched_mul(batched_mul(t, K), permutedims(t, (2, 1, 3)))
+    return mean([tr(L[:, :, i]) for i = 1:size(t, 3)])
 end
