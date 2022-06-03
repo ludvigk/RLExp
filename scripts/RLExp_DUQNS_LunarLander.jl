@@ -40,15 +40,15 @@ function RL.Experiment(
     if isnothing(config)
         config = Dict(
             "B_lr" => 1e-4,
-            "Q_lr" => 1,
+            "Q_lr" => 0.005,
             "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
-            "Q_update_freq" => 500,
+            "Q_update_freq" => 1,
             "B_opt" => "ADAM",
             "gamma" => 0.99f0,
             "update_horizon" => 1,
             "batch_size" => 64,
-            "min_replay_history" => 1000,
+            "min_replay_history" => 10000,
             "updates_per_step" => 1,
             "λ" => 1.0,
             # "prior" => "GaussianPrior(0, 10)",
