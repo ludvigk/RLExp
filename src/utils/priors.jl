@@ -133,7 +133,7 @@ KernelPrior(l::Real) = KernelPrior(Float32(l))
 
 function (p::KernelPrior)(s::AbstractArray, t::AbstractArray)
     # l = Zygote.@ignore heuristic_lengthscale(s', s')
-    l = repeat(p.l, size(s, 1))
+    l = repeat([p.l], size(s, 1))
     Σ = Zygote.@ignore rbf_kernel(s', s', l) + 0.1I
     K = Zygote.@ignore inv(cholesky(Σ))
     L = batched_mul(batched_mul(t, K), permutedims(t, (2, 1, 3)))
