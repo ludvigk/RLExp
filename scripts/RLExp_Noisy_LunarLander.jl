@@ -86,8 +86,7 @@ function RL.Experiment(
                         NoisyDense(ns, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
                         NoisyDense(128, 128, relu; init_μ=init, init_σ=init_σ, rng=device_rng),
                         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                    ),
-                    optimizer=ADAM(1e-3),
+                    )
                 ) |> gpu,
                 loss_func=mse,
                 stack_size=nothing,

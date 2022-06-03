@@ -41,13 +41,13 @@ function RL.Experiment(
         config = Dict(
             "B_lr" => 1e-4,
             "Q_lr" => 1,
-            "B_clip_norm" => 40.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 500,
             "B_opt" => "ADAM",
             "gamma" => 0.99f0,
             "update_horizon" => 1,
-            "batch_size" => 32,
+            "batch_size" => 64,
             "min_replay_history" => 1000,
             "updates_per_step" => 1,
             "λ" => 1.0,
@@ -60,7 +60,7 @@ function RL.Experiment(
             "nev" => 6,
             "n_eigen_threshold" => 0.99,
             "is_enable_double_DQN" => true,
-            "traj_capacity" => 50_000,
+            "traj_capacity" => 500_000,
             "seed" => 1,
         )
     end

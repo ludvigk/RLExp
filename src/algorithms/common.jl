@@ -234,6 +234,11 @@ function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
     return exp.(S)
 end
 
+function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale::Float32)
+    @tullio S[i, j] := -(x1[i, m] - x2[j, m])^2 / (2 * lengthscale^2 + 1.0f-6)
+    return exp.(S)
+end
+
 function gram(x1, x2, lengthscale)
     return Kxx = rbf_kernel(x1, x2, lengthscale)
 end
