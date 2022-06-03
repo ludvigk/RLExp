@@ -158,7 +158,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
         q′ = @inbounds Q(s′)[selected_actions]
-        q′ = dropdims(q′, dims=ndims(q′))
+        # q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
     end
@@ -166,8 +166,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
-        b = @inbounds b_all[a]
-        ss = @inbounds s_all[a]
+        b = @inbounds b_all[a, :]
+        ss = @inbounds s_all[a, :]
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
