@@ -25,7 +25,7 @@ function RL.Experiment(
     """
     SET UP LOGGING
     """
-    lg = WandbLogger(project="RLExp",
+    lg = WandbLogger(project="BE",
         name="Noisy_LunarLander",
         config=Dict(
             "B_lr" => 1e-4,

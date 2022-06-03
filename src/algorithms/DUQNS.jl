@@ -4,6 +4,7 @@ import ReinforcementLearning.RLBase.update!
 using DataStructures: DefaultDict
 using Distributions: Uniform, Product
 using StatsBase: sample
+using Flux.Losses
 import Statistics.mean
 
 mutable struct DUQNSLearner{
@@ -176,7 +177,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(ss .+ (b .- preds) .^ 2 .* exp.(-ss)) .- sum(logpdf(flow, G))
+        ll = huber_loss(b, preds)
+        𝐿 = sum(ss .+ ll .* exp.(-ss)) .- sum(logpdf(flow, G))
         𝐿 = 𝐿 / n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
