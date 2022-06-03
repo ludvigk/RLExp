@@ -143,10 +143,10 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = Q(s′, 1)
+        q_values = Q(s′)
         # rng_B = Random.MersenneTwister(seed)
     else
-        q_values = Q(s′, 1)
+        q_values = Q(s′)
     end
     # Zygote.@ignore [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
 
@@ -157,7 +157,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = @view Q(s′, 1)[selected_actions, :]
+        q′ = @inbounds Q(s′)[selected_actions]
         q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
@@ -166,8 +166,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
-        b = @view b_all[a, :]
-        ss = @view s_all[a, :]
+        b = @inbounds b_all[a]
+        ss = @inbounds s_all[a]
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
