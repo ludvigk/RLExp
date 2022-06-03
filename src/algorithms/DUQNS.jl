@@ -133,6 +133,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     sse = learner.sse
     γ = learner.sampler.γ
     n = learner.sampler.n
+    flow = learner.flow
     n_samples = learner.n_samples
     batch_size = learner.sampler.batch_size
     is_enable_double_DQN = learner.is_enable_double_DQN
@@ -168,10 +169,12 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
+        preds = flow(G)
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
-        𝐿 = sum(ss .+ (b .- G) .^ 2 .* exp.(-ss)) / n_samples * batch_size
+        𝐿 = sum(ss .+ (b .- preds) .^ 2 .* exp.(-ss)) .- sum(logpdf.(flow, G))
+        𝐿 = 𝐿 / n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)

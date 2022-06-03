@@ -53,8 +53,8 @@ function RL.Experiment(
             "λ" => 1.0,
             # "prior" => "GaussianPrior(0, 10)",
             # "prior" => "LunarLanderPrior(50)",
-            # "prior" => "FlatPrior()",
-            "prior" => "KernelPrior(1)",
+            "prior" => "FlatPrior()",
+            # "prior" => "KernelPrior(1)",
             "n_samples" => 100,
             "η" => 0.01,
             "nev" => 6,
@@ -170,6 +170,7 @@ function RL.Experiment(
                 Q_approximator=NeuralNetworkApproximator(
                     model=Q_model,
                 ),
+                flow=UvPlanar(randn(Float32, 1), randn(Float32, 1)),
                 Q_lr=get_config(lg, "Q_lr"),
                 γ=get_config(lg, "gamma"),
                 update_horizon=get_config(lg, "update_horizon"),

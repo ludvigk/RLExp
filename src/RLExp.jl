@@ -11,6 +11,7 @@ export FACLearner
 export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
+export UvPlanar
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -35,6 +36,7 @@ include("utils/acrobot.jl")
 include("utils/priors.jl")
 include("utils/utils.jl")
 include("algorithms/common.jl")
+include("algorithms/normflows.jl")
 include("algorithms/DUQN.jl")
 include("algorithms/DUQNS.jl")
 include("algorithms/FAC.jl")
