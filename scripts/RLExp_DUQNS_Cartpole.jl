@@ -153,6 +153,7 @@ function RL.Experiment(
                     Q_approximator=NeuralNetworkApproximator(
                         model=Q_model,
                     ),
+                    flow=UvPlanar(randn(Float32, 1), randn(Float32, 1)) |> gpu,
                     Q_lr=get_config(lg, "Q_lr"),
                     γ=get_config(lg, "gamma"),
                     update_horizon=get_config(lg, "update_horizon"),
