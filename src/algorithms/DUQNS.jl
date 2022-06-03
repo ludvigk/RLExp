@@ -14,6 +14,7 @@ mutable struct DUQNSLearner{
 } <: AbstractLearner
     B_approximator::Tq
     Q_approximator::Tt
+    flow
     Q_lr::Float32
     prior::P
     λ::Union{Float32,Nothing}
@@ -35,6 +36,7 @@ end
 function DUQNSLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
+    flow,
     Q_lr::Real=0.01f0,
     prior::AbstractPrior=FlatPrior(),
     λ::Union{Real,Nothing}=1,
@@ -65,6 +67,7 @@ function DUQNSLearner(;
     return DUQNSLearner(
         B_approximator,
         Q_approximator,
+        flow,
         Float32(Q_lr),
         prior,
         Float32(λ),
