@@ -20,7 +20,7 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     using Distributed
     using DrWatson
     using RLExp
-    include("RLExp_DUQN_Cartpole.jl")
+    include("RLExp_DUQNS_Cartpole.jl")
 end
 
 # include("RLExp_DUQN_Atari.jl")
