@@ -171,13 +171,14 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
-        # preds = flow(G)
-        preds = G
+        preds = flow(G)
+        # preds = G
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
-        ll = huber_loss(b, preds)
-        𝐿 = sum(ss .+ ll .* exp.(-ss)) #.- sum(logpdf(flow, G))
+        ll = (b .- preds) .^ 2
+        # ll = huber_loss(b, preds)
+        𝐿 = sum(ss .+ ll .* exp.(-ss)) .- sum(logpdf(flow, G))
         𝐿 = 𝐿 / n_samples * batch_size
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW

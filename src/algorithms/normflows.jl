@@ -18,8 +18,6 @@ function (f::UvPlanar)(x)
 end
 
 function logpdf(f, x)
-    # println(f.(x))
-    # return logpdf.(f.base_dist, f(x)) .- log.(x)
     return log.(abs.(1 .+ f.u .* tanh_prime.(f.w .* x) .* f.w) .+ 1.0f-6)
 end
 
