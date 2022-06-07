@@ -147,13 +147,10 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     a = CartesianIndex.(a, 1:batch_size)
 
     if is_enable_double_DQN
-        # q_values = B(s′, n_samples, rng = rng_B)
         q_values = B(s′)
-        # rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′)
     end
-    # Zygote.@ignore [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
@@ -162,7 +159,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = @inbounds Q(s′)[selected_actions]
+        q′ = Q(s′, 100)
+        q′ = @inbounds dropdims(mean(q′, dims=ndims(q′)), dims=ndims(q′))[selected_actions]
         # q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
