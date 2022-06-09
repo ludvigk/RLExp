@@ -94,7 +94,7 @@ function RL.Experiment(
             QSplit(
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, 16, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(128, 16; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
 
@@ -104,7 +104,7 @@ function RL.Experiment(
             QSplit(
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, 16, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(128, 16; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
 
@@ -112,10 +112,10 @@ function RL.Experiment(
 
         flow = ConditionalRealNVP(
             [
-            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
-            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
-            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
-            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
+            ConditionalCouplingLayer(1, 16, 32, ones(1)),
+            ConditionalCouplingLayer(1, 16, 32, ones(1)),
+            ConditionalCouplingLayer(1, 16, 32, ones(1)),
+            ConditionalCouplingLayer(1, 16, 32, ones(1)),
         ]
         ) |> gpu
 
