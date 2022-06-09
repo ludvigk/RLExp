@@ -21,7 +21,7 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     using DrWatson
     using RLExp
     using Random
-    include("RLExp_Noisy_LunarLander.jl")
+    include("RLExp_DUQNF_Cartpole.jl")
 end
 
-run(E`RLExp_Noisy_LunarLander()`)
+run(E`RLExp_DUQNF_Cartpole()`)

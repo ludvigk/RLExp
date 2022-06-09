@@ -1,6 +1,6 @@
 module RLExp
 
-export BDQNLearner, atari_env_factory, NoisyDense, NoisyConv, Split, BayesianGreedyExplorer
+export BDQNLearner, atari_env_factory, NoisyDense, NoisyConv, Split, QSplit, BayesianGreedyExplorer
 export SpectralSteinEstimator, entropy_surrogate
 export TotalOriginalRewardPerEpisode, TotalBatchOriginalRewardPerEpisode, CloseLogger
 export ResizeImage
@@ -11,7 +11,7 @@ export FACLearner
 export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
-export UvPlanar
+export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, RealNVP
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight

@@ -1,11 +1,19 @@
 using Flux
+using DataFrames
+using SyntheticDatasets
+using Plots
+using StatsPlots
+using ProgressMeter
 import Distributions: logpdf
 
-export UbPlanar
+export UvPlanar
+export CouplingLayer, RealNVP
+export ConditionalRealNVP, RealNVP
 
 struct UvPlanar
     u
     w
+    b
 end
 
 Flux.@functor UvPlanar
@@ -14,26 +22,255 @@ Flux.trainable(f::UvPlanar) = (f.u, f.w)
 tanh_prime(x) = 1 - tanh(x)^2
 
 function (f::UvPlanar)(x)
-    return x .+ f.u .* tanh.(f.w .* x)
+    return x .+ f.u .* tanh.(f.w .* x .+ b)
 end
 
 function logpdf(f, x)
-    return log.(abs.(1 .+ f.u .* tanh_prime.(f.w .* x) .* f.w) .+ 1.0f-6)
+    return log.(abs.(1 .+ f.u .* tanh_prime.(f.w .* x .+ b) .* f.w) .+ 1.0f-6)
 end
 
-# struct Flow
-#     u
-#     v
-# end
-# function (f::Flow)(x)
-#     layers
-# end
-# function (f::Flow)(x)
-#     for layer in f.layers
-#         x = layer(x)
-#         logp = logpdf()
-#     return x, logp
-# end
+struct RescaleLayer
+    v
+    g
+end
+
+Flux.@functor RescaleLayer
+Flux.trainable(r::RescaleLayer) = (r.v, r.g)
+
+function RescaleLayer(in)
+    v = glorot_uniform(in)
+    g = ones(1)
+    return RescaleLayer(v, g)
+end
+
+(r::RescaleLayer)(x) = (r.v ./ sum(r.v) .* r.g) .* x
 
 
-# Flux.@functor Flow
+## Coupling Layers
+struct CouplingLayer
+    mask
+    net
+    rescale
+end
+
+Flux.@functor CouplingLayer
+Flux.trainable(c::CouplingLayer) = (c.net, c.rescale)
+
+function CouplingLayer(in::Int, hidden::Int, mask)
+    net = Chain(
+        Dense(in, hidden, leakyrelu),
+        Dense(hidden, hidden, leakyrelu),
+        Split(
+            Dense(hidden, in, tanh),
+            Dense(hidden, in),
+        ),
+    )
+    return CouplingLayer(mask, net, RescaleLayer(in))
+end
+
+function (c::CouplingLayer)(x, sldj=nothing; reverse=true)
+    x_ = x .* c.mask
+    s, t = c.net(x_)
+
+    s = c.rescale(s)
+    s = s .* (1 .- c.mask)
+    t = t .* (1 .- c.mask)
+
+    if reverse
+        inv_exp_s = exp.(-s)
+        x = x .* inv_exp_s - t
+        return x
+    else
+        x = (x .+ t) .* exp.(s)
+        sldj += dropdims(sum(s, dims=1), dims=1)
+        return x, sldj
+    end
+end
+
+struct ConditionalCouplingLayer
+    mask
+    net
+    rescale
+end
+
+Flux.@functor ConditionalCouplingLayer
+Flux.trainable(c::ConditionalCouplingLayer) = (c.net, c.rescale)
+
+function ConditionalCouplingLayer(in::Int, cond::Int, hidden::Int, mask)
+    net = Chain(
+        Dense(in + cond, hidden, leakyrelu),
+        Dense(hidden, hidden, leakyrelu),
+        Split(
+            Dense(hidden, in, tanh),
+            Dense(hidden, in),
+        ),
+    )
+    return ConditionalCouplingLayer(mask, net, RescaleLayer(in))
+end
+
+function (c::ConditionalCouplingLayer)(x, h::Matrix{T}, sldj=nothing; reverse=true) where {T}
+    x_ = x .* c.mask
+    x_h_ = vcat(x_, h)
+    s, t = c.net(x_h_)
+
+    s = c.rescale(s)
+    s = s .* (1 .- c.mask)
+    t = t .* (1 .- c.mask)
+
+    if reverse
+        inv_exp_s = exp.(-s)
+        x = x .* inv_exp_s - t
+        return x
+    else
+        x = (x .+ t) .* exp.(s)
+        sldj += dropdims(sum(s, dims=1), dims=1)
+        return x, sldj
+    end
+end
+
+function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
+    x_ = x .* c.mask
+    x_h_ = cat(repeat(x_, 1, 1, size(h, 3)), h, dims=1)
+    x_h_ = reshape(x_h_, size(x_h_, 1), :)
+    s, t = c.net(x_h_)
+
+    s = c.rescale(s)
+    s = s .* (1 .- c.mask)
+    t = t .* (1 .- c.mask)
+
+    if reverse
+        inv_exp_s = exp.(-s)
+        x = x .* inv_exp_s - t
+        return reshape(x, size(x, 1), :, size(h, 3))
+    else
+        x = (x .+ t) .* exp.(s)
+        sldj += sum(s, dims=1)
+        return reshape(x, size(x, 1), :, size(h, 3)), reshape(sldj, :, size(h, 3))
+    end
+end
+
+function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
+    x_ = x .* c.mask
+    x_h_ = cat(x_, h, dims=1)
+    x_h_ = reshape(x_h_, size(x_h_, 1), :)
+    s, t = c.net(x_h_)
+
+    s = c.rescale(s)
+    s = s .* (1 .- c.mask)
+    t = t .* (1 .- c.mask)
+
+    if reverse
+        inv_exp_s = exp.(-s)
+        x = x .* inv_exp_s - t
+        return reshape(x, size(x, 1), :, size(h, 3))
+    else
+        x = (x .+ t) .* exp.(s)
+        sldj += reshape(sum(s, dims=1), :, size(h, 3))
+        return reshape(x, size(x, 1), :, size(h, 3)), sldj
+    end
+end
+
+## Real-NVP
+
+struct RealNVP
+    coupling_layers
+end
+
+Flux.@functor RealNVP
+
+function (r::RealNVP)(x; reverse=false)
+    if reverse
+        for layer in r.coupling_layers
+            x = layer(x; reverse)
+        end
+        return x
+    else
+        sldj = zeros(size(x, 2))
+        for layer in Base.reverse(r.coupling_layers)
+            x, sldj = layer(x, sldj; reverse)
+        end
+        return x, sldj
+    end
+end
+
+struct ConditionalRealNVP
+    coupling_layers
+end
+
+Flux.@functor ConditionalRealNVP
+
+function (r::ConditionalRealNVP)(x, h::Matrix; reverse=false)
+    if reverse
+        for layer in r.coupling_layers
+            x = layer(x, h; reverse)
+        end
+        return x
+    else
+        sldj = zeros(size(x, 2))
+        for layer in Base.reverse(r.coupling_layers)
+            x, sldj = layer(x, h, sldj; reverse)
+        end
+        return x, sldj
+    end
+end
+
+function (r::ConditionalRealNVP)(x, h::Array{T,3}; reverse=false) where {T}
+    if reverse
+        for layer in r.coupling_layers
+            x = layer(x, h; reverse)
+        end
+        return x
+    else
+        sldj = zeros(size(x, 2), size(h, 3))
+        for layer in Base.reverse(r.coupling_layers)
+            x, sldj = layer(x, h, sldj; reverse)
+        end
+        return x, sldj
+    end
+end
+
+function main()
+    moons = SyntheticDatasets.make_moons(n_samples=100; noise=0.05)
+    data = Matrix(moons[:, 1:2])'
+
+    DTYPE = Float32
+    # dist = MvNormal(zeros(DTYPE, 2), ones(DTYPE, 2))
+
+    loss(td, data) = -mean(logpdf_forward(td, data))
+
+    coupling_layers = [
+        ConditionalCouplingLayer(2, 32, 100, [0, 1]),
+        ConditionalCouplingLayer(2, 32, 100, [1, 0]),
+        ConditionalCouplingLayer(2, 32, 100, [0, 1]),
+        ConditionalCouplingLayer(2, 32, 100, [1, 0]),
+    ]
+    rnvp = ConditionalRealNVP(coupling_layers)
+
+    function loss(model, data)
+        x, sldj = model(data, rand(32, size(data, 2)))
+        nll = sum(x .^ 2) / 2 - sum(sldj)
+        return nll / size(data, 2)
+    end
+
+    opt = ADAM(0.0001)
+    function nf_train(td, data, opt, ps, epochs; batchsize=100)
+        p = Progress(epochs, 1)
+        for i ∈ 1:epochs
+            d = Flux.Data.DataLoader(data, batchsize=batchsize)
+            for minibatch = d
+                gs = gradient(() -> loss(td, minibatch), ps)
+
+                # println(gs.grads[b.ts[1].s[1].weight])
+                # println(gs.grads[b.ts[1].t[1].weight])
+                Flux.update!(opt, ps, gs)
+            end
+            ProgressMeter.next!(p; showvalues=[(:nll, loss(td, data))])
+        end
+    end
+    nf_train(rnvp, data, opt, Flux.params(rnvp), 5000)
+    # contour(-2:0.1:3, -2:0.1:2, (x, y) -> pdf(td, [x, y]), fill=true)
+    # samples = rand(td, 100)
+    samples = rnvp(randn(2, 100), rand(32, 100), reverse=true)
+    @df moons scatter(:feature_1, :feature_2)
+    scatter!(samples[1, :], samples[2, :])
+end
