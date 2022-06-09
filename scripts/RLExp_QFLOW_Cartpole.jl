@@ -112,10 +112,10 @@ function RL.Experiment(
 
         flow = ConditionalRealNVP(
             [
-            ConditionalCouplingLayer(1, 16, 32, ones(1)),
-            ConditionalCouplingLayer(1, 16, 32, ones(1)),
-            ConditionalCouplingLayer(1, 16, 32, ones(1)),
-            ConditionalCouplingLayer(1, 16, 32, ones(1)),
+            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
+            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
+            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
+            ConditionalCouplingLayer(1, 16, 32, zeros(1)),
         ]
         ) |> gpu
 
