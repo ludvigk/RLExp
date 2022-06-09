@@ -130,7 +130,6 @@ function RL.Experiment(
         CREATE AGENT
         """
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-        prior = eval(Meta.parse(get_config(lg, "prior")))
 
         agent = Agent(
             policy=QBasedPolicy(
