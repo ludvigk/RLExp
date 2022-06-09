@@ -29,6 +29,19 @@ function logpdf(f, x)
     return log.(abs.(1 .+ f.u .* tanh_prime.(f.w .* x .+ b) .* f.w) .+ 1.0f-6)
 end
 
+struct PlanarLayer
+    u
+    w
+    b
+end
+
+Flux.@functor UvPlanar
+Flux.trainable(f::PlanarLayer) = (f.u, f.w, fb)
+
+function (l::PlanarLayer)(x, h; reverse=true)
+
+end
+
 struct RescaleLayer
     v
     g
@@ -110,6 +123,7 @@ end
 
 function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; reverse=true) where {T}
     x_ = x .* c.mask
+    println(typeof(x_), typeof(h))
     x_h_ = vcat(x_, h)
     s, t = c.net(x_h_)
 
