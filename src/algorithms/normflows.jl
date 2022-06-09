@@ -7,7 +7,7 @@ using DataFrames
 import Distributions: logpdf
 
 export UvPlanar
-export CouplingLayer, RealNVP
+export CouplingLayer, ConditionalCouplingLayer
 export ConditionalRealNVP, RealNVP
 
 struct UvPlanar

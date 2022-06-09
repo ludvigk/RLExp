@@ -151,7 +151,6 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         ll = (b .- preds) .^ 2
-        # ll = huber_loss(b, preds)
         𝐿 = sum(ss .+ ll .* exp.(-ss)) - sum(sldj)
         𝐿 = 𝐿 / batch_size
 
