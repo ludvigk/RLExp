@@ -142,7 +142,7 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all, h = B(s, rng=learner.rng) ## SLOW
+        b_all, s_all, h = B(s) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
         preds, sldj = flow(G, h)
