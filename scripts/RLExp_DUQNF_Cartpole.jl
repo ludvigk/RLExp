@@ -101,10 +101,8 @@ function RL.Experiment(
             NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             QSplit(
-                QSplit(
-                    NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                    NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                ),
+                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, 32, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
@@ -113,10 +111,8 @@ function RL.Experiment(
             NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             QSplit(
-                QSplit(
-                    NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                    NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                ),
+                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, 32, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
