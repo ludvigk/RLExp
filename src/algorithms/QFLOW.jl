@@ -147,25 +147,16 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
         preds, sldj = flow(G, h)
-        # preds = G
-        # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         ll = (b .- preds) .^ 2
         𝐿 = sum(ss .+ ll .* exp.(-ss)) - sum(sldj)
         𝐿 = 𝐿 / batch_size
 
-        b_rand = reshape(b_all, :, n_samples) ## SLOW
-        b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
-
         Zygote.ignore() do
-            learner.logging_params["H"] = H
-            learner.logging_params["S"] = S
             learner.logging_params["s"] = sum(ss) / length(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Q"] = sum(B̂) / length(B̂)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
-            # learner.logging_params["B_var"] = sum(var(b, dims=ndims(b)))
-            # learner.logging_params["QA"] = sum(getindex.(a, 1))
         end
 
         return 𝐿

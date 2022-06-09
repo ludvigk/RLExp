@@ -12,6 +12,7 @@ export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
 export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, ConditionalCouplingLayer
+export DUQNF, QFLOW
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -39,6 +40,8 @@ include("algorithms/common.jl")
 include("algorithms/normflows.jl")
 include("algorithms/DUQN.jl")
 include("algorithms/DUQNS.jl")
+include("algorithms/DUQNF.jl")
+include("algorithms/QFLOW.jl")
 include("algorithms/FAC.jl")
 
 end
