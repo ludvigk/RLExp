@@ -94,7 +94,7 @@ function RL.Experiment(
             QSplit(
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, 16, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+                NoisyDense(128, 8, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
             ),
         ) |> gpu
 
