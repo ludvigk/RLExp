@@ -199,7 +199,8 @@ function (r::RealNVP)(x; reverse=false)
         end
         return x
     else
-        sldj = zeros(size(x, 2))
+        sldj = Zygote.@ignore similar(x, size(x, 2))
+        Zygote.@ignore fill!(sldj, zero(eltype(x)))
         for layer in Base.reverse(r.coupling_layers)
             x, sldj = layer(x, sldj; reverse)
         end
@@ -220,7 +221,8 @@ function (r::ConditionalRealNVP)(x, h::AbstractMatrix; reverse=false)
         end
         return x
     else
-        sldj = zeros(size(x, 2))
+        sldj = Zygote.@ignore similar(x, size(x, 2))
+        Zygote.@ignore fill!(sldj, zero(eltype(x)))
         for layer in Base.reverse(r.coupling_layers)
             x, sldj = layer(x, h, sldj; reverse)
         end
@@ -235,7 +237,8 @@ function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; reverse=false) where 
         end
         return x
     else
-        sldj = zeros(size(x, 2), size(h, 3))
+        sldj = Zygote.@ignore similar(x, size(x, 2), size(h, 3))
+        Zygote.@ignore fill!(sldj, zero(eltype(x)))
         for layer in Base.reverse(r.coupling_layers)
             x, sldj = layer(x, h, sldj; reverse)
         end
