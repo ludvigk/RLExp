@@ -1,9 +1,9 @@
 using Flux
 using DataFrames
-using SyntheticDatasets
-using Plots
-using StatsPlots
-using ProgressMeter
+# using SyntheticDatasets
+# using Plots
+# using StatsPlots
+# using ProgressMeter
 import Distributions: logpdf
 
 export UvPlanar
@@ -149,26 +149,26 @@ function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=t
     end
 end
 
-function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
-    x_ = x .* c.mask
-    x_h_ = cat(x_, h, dims=1)
-    x_h_ = reshape(x_h_, size(x_h_, 1), :)
-    s, t = c.net(x_h_)
+# function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
+#     x_ = x .* c.mask
+#     x_h_ = cat(x_, h, dims=1)
+#     x_h_ = reshape(x_h_, size(x_h_, 1), :)
+#     s, t = c.net(x_h_)
 
-    s = c.rescale(s)
-    s = s .* (1 .- c.mask)
-    t = t .* (1 .- c.mask)
+#     s = c.rescale(s)
+#     s = s .* (1 .- c.mask)
+#     t = t .* (1 .- c.mask)
 
-    if reverse
-        inv_exp_s = exp.(-s)
-        x = x .* inv_exp_s - t
-        return reshape(x, size(x, 1), :, size(h, 3))
-    else
-        x = (x .+ t) .* exp.(s)
-        sldj += reshape(sum(s, dims=1), :, size(h, 3))
-        return reshape(x, size(x, 1), :, size(h, 3)), sldj
-    end
-end
+#     if reverse
+#         inv_exp_s = exp.(-s)
+#         x = x .* inv_exp_s - t
+#         return reshape(x, size(x, 1), :, size(h, 3))
+#     else
+#         x = (x .+ t) .* exp.(s)
+#         sldj += reshape(sum(s, dims=1), :, size(h, 3))
+#         return reshape(x, size(x, 1), :, size(h, 3)), sldj
+#     end
+# end
 
 ## Real-NVP
 
