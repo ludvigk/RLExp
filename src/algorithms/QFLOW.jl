@@ -145,7 +145,7 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         b_all, s_all, h = B(s) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
-        preds, sldj = flow(G, h)
+        preds, sldj = flow(Flux.unsqueeze(G, 1), h)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         ll = (b .- preds) .^ 2
         𝐿 = sum(ss .+ ll .* exp.(-ss)) - sum(sldj)
