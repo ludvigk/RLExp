@@ -108,7 +108,7 @@ function ConditionalCouplingLayer(in::Int, cond::Int, hidden::Int, mask)
     return ConditionalCouplingLayer(mask, net, RescaleLayer(in))
 end
 
-function (c::ConditionalCouplingLayer)(x, h::Matrix{T}, sldj=nothing; reverse=true) where {T}
+function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; reverse=true) where {T}
     x_ = x .* c.mask
     x_h_ = vcat(x_, h)
     s, t = c.net(x_h_)
@@ -128,7 +128,7 @@ function (c::ConditionalCouplingLayer)(x, h::Matrix{T}, sldj=nothing; reverse=tr
     end
 end
 
-function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
+function (c::ConditionalCouplingLayer)(x, h::AbstractArray{T,3}, sldj=nothing; reverse=true) where {T}
     x_ = x .* c.mask
     x_h_ = cat(repeat(x_, 1, 1, size(h, 3)), h, dims=1)
     x_h_ = reshape(x_h_, size(x_h_, 1), :)
@@ -199,7 +199,7 @@ end
 
 Flux.@functor ConditionalRealNVP
 
-function (r::ConditionalRealNVP)(x, h::Matrix; reverse=false)
+function (r::ConditionalRealNVP)(x, h::AbstractMatrix; reverse=false)
     if reverse
         for layer in r.coupling_layers
             x = layer(x, h; reverse)
@@ -214,7 +214,7 @@ function (r::ConditionalRealNVP)(x, h::Matrix; reverse=false)
     end
 end
 
-function (r::ConditionalRealNVP)(x, h::Array{T,3}; reverse=false) where {T}
+function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; reverse=false) where {T}
     if reverse
         for layer in r.coupling_layers
             x = layer(x, h; reverse)

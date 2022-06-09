@@ -10,7 +10,6 @@ import Statistics.mean
 mutable struct QFLOWLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
-    P<:AbstractPrior,
     R<:AbstractRNG,
 } <: AbstractLearner
     B_approximator::Tq
@@ -45,7 +44,7 @@ function QFLOWLearner(;
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
-) where {Tq,Tt,M}
+) where {Tq,Tt}
     sampler = NStepBatchSampler{traces}(;
         γ=Float32(γ),
         n=update_horizon,

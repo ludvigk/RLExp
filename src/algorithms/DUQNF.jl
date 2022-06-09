@@ -171,7 +171,7 @@ function RLBase.update!(learner::DUQNFLearner, batch::NamedTuple)
         b_all, s_all, h = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
-        preds, sldj = flow(G, h)
+        preds, sldj = flow(Flux.unsqueeze(G, 1), h)
         # preds = G
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
