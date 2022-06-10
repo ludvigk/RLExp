@@ -142,19 +142,17 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all, h = B(s) ## SLOW
-        b = @inbounds b_all[a, :]
-        ss = @inbounds s_all[a, :]
+        b_all, h = B(s) ## SLOW
+        b = @inbounds b_all[a]
+        # ss = @inbounds s_all[a]
         preds, sldj = flow(Flux.unsqueeze(G, 1), h)
-        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
-        ll = (b .- preds) .^ 2
-        𝐿 = sum(ss .+ ll .* exp.(-ss)) - sum(sldj)
+        ll = (b .- preds) .^ 2 ./ 2
+        𝐿 = sum(ll) - sum(sldj)
         𝐿 = 𝐿 / batch_size
 
         Zygote.ignore() do
             learner.logging_params["s"] = sum(ss) / length(ss)
             learner.logging_params["𝐿"] = 𝐿
-            learner.logging_params["Q"] = sum(B̂) / length(B̂)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
             learner.logging_params["J"] = sum(sldj) / batch_size
         end
