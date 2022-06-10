@@ -59,15 +59,15 @@ function (l::PlanarLayer)(x, h)
 end
 
 struct PlanarFlow
-    layer
+    layers
 end
 
 Flux.@functor PlanarFlow
 
-function (l::PlanarFlow)(x, h)
+function (r::PlanarFlow)(x, h)
     sldj = Zygote.@ignore similar(x, size(x, 2))
     Zygote.@ignore fill!(sldj, zero(eltype(x)))
-    for layer in r.coupling_layers
+    for layer in r.layers
         x, sldj_ = layer(x, h; reverse)
         sldj += sldj_
     end
