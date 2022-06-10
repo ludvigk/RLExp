@@ -110,12 +110,14 @@ function RL.Experiment(
 
         Flux.loadparams!(Q_model, Flux.params(B_model))
 
-        flow = ConditionalRealNVP(
+        flow = PlanarFlow(
             [
-            ConditionalCouplingLayer(1, 8, 32, ones(1)),
-            ConditionalCouplingLayer(1, 8, 32, ones(1)),
-            ConditionalCouplingLayer(1, 8, 32, ones(1)),
-            ConditionalCouplingLayer(1, 8, 32, ones(1)),
+            PlanarLayer(8),
+            PlanarLayer(8),
+            PlanarLayer(8),
+            PlanarLayer(8),
+            PlanarLayer(8),
+            PlanarLayer(8),
         ]
         ) |> gpu
 

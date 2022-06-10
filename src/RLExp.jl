@@ -11,7 +11,7 @@ export FACLearner
 export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
-export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, ConditionalCouplingLayer
+export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, ConditionalCouplingLayer, PlanarLayer, PlanarFlow
 export DUQNF, QFLOW
 
 using ArcadeLearningEnvironment

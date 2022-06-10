@@ -9,6 +9,7 @@ import Distributions: logpdf
 export UvPlanar
 export CouplingLayer, ConditionalCouplingLayer
 export ConditionalRealNVP, RealNVP
+export PlanarLayer, PlanarFlow
 
 struct UvPlanar
     u
@@ -33,13 +34,44 @@ struct PlanarLayer
     u
     w
     b
+    f
+    f_prime
 end
 
-Flux.@functor UvPlanar
+Flux.@functor PlanarLayer
 Flux.trainable(f::PlanarLayer) = (f.u, f.w, fb)
 
-function (l::PlanarLayer)(x, h; reverse=true)
+function PlanarLayer(h_size)
+    u = glorot_uniform(1, 1)
+    w = glorot_uniform(1, h_size)
+    b = glorot_uniform(1, 1)
+    f = tanh
+    f_prime = tanh_prime
+    return PlanarLayer(u, w, b, f, f_prime)
+end
 
+function (l::PlanarLayer)(x, h)
+    wh = l.w * h
+    fwb = wh .* x .+ l.b
+    x = x .+ l.u .* l.f(fwb)
+    sldj = abs.(1 .+ l.f_prime(fwb) .* wh .* u)
+    return x, sldj
+end
+
+struct PlanarFlow
+    layer
+end
+
+Flux.@functor PlanarFlow
+
+function (l::PlanarFlow)(x, h)
+    sldj = Zygote.@ignore similar(x, size(x, 2))
+    Zygote.@ignore fill!(sldj, zero(eltype(x)))
+    for layer in r.coupling_layers
+        x, sldj_ = layer(x, h; reverse)
+        sldj += sldj_
+    end
+    return x, sldj
 end
 
 struct RescaleLayer
@@ -161,27 +193,6 @@ function (c::ConditionalCouplingLayer)(x, h::AbstractArray{T,3}, sldj=nothing; r
         return reshape(x, size(x, 1), :, size(h, 3)), reshape(sldj, :, size(h, 3))
     end
 end
-
-# function (c::ConditionalCouplingLayer)(x, h::Array{T,3}, sldj=nothing; reverse=true) where {T}
-#     x_ = x .* c.mask
-#     x_h_ = cat(x_, h, dims=1)
-#     x_h_ = reshape(x_h_, size(x_h_, 1), :)
-#     s, t = c.net(x_h_)
-
-#     s = c.rescale(s)
-#     s = s .* (1 .- c.mask)
-#     t = t .* (1 .- c.mask)
-
-#     if reverse
-#         inv_exp_s = exp.(-s)
-#         x = x .* inv_exp_s - t
-#         return reshape(x, size(x, 1), :, size(h, 3))
-#     else
-#         x = (x .+ t) .* exp.(s)
-#         sldj += reshape(sum(s, dims=1), :, size(h, 3))
-#         return reshape(x, size(x, 1), :, size(h, 3)), sldj
-#     end
-# end
 
 ## Real-NVP
 
