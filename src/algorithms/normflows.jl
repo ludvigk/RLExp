@@ -54,7 +54,7 @@ function (l::PlanarLayer)(x, h; reverse=true)
     wh = l.w * h
     fwb = wh .* x .+ l.b
     x = x .+ l.u .* l.f.(fwb)
-    sldj = abs.(1 .+ l.f_prime.(fwb) .* wh .* u)
+    sldj = abs.(1 .+ l.f_prime.(fwb) .* wh .* l.u)
     return x, sldj
 end
 
