@@ -151,7 +151,7 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         # ss = @inbounds s_all[a]
         preds, sldj = flow(Flux.unsqueeze(G, 1), h)
         ll = (b .- preds) .^ 2 ./ 2
-        𝐿 = sum(ll) - sum(sldj)
+        𝐿 = sum(ll) - sum(sldj) + sum((preds - G) .^ 2 ./ 2)
         𝐿 = 𝐿 / batch_size
 
         Zygote.ignore() do
