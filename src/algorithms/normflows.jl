@@ -50,7 +50,7 @@ function PlanarLayer(h_size)
     return PlanarLayer(u, w, b, f, f_prime)
 end
 
-function (l::PlanarLayer)(x, h)
+function (l::PlanarLayer)(x, h; reverse)
     wh = l.w * h
     fwb = wh .* x .+ l.b
     x = x .+ l.u .* l.f(fwb)
