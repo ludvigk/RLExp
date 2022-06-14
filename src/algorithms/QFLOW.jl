@@ -151,7 +151,7 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         𝐿 = 𝐿 / batch_size
 
         Zygote.ignore() do
-            learner.logging_params["s"] = sum(ss) / length(ss)
+            # learner.logging_params["s"] = sum(ss) / length(ss)
             learner.logging_params["𝐿"] = 𝐿
             learner.logging_params["Qₜ"] = sum(G) / length(G)
             learner.logging_params["J"] = sum(sldj) / batch_size
