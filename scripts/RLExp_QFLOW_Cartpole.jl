@@ -167,7 +167,12 @@ function RL.Experiment(
                     Q_update_freq=get_config(lg, "Q_update_freq"),
                     is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
                 ),
-                explorer=EpsilonGreedyExplorer(),
+                explorer=EpsilonGreedyExplorer(
+                    kind=:exp,
+                    ϵ_stable=0.01,
+                    decay_steps=500,
+                    rng=rng,
+                ),
             ),
             trajectory=CircularArraySARTTrajectory(
                 capacity=get_config(lg, "traj_capacity"),
