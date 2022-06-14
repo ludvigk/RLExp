@@ -88,23 +88,43 @@ function RL.Experiment(
         init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
+        # B_model = Chain(
+        #     NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     QSplit(
+        #         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     ),
+        # ) |> gpu
+
+        # Q_model = Chain(
+        #     NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     QSplit(
+        #         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     ),
+        # ) |> gpu
+
         B_model = Chain(
-            NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+            Dense(ns, 128, selu),
+            Dense(128, 128, selu),
             QSplit(
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(128, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(128, 8 * na, tanh),
             ),
         ) |> gpu
 
         Q_model = Chain(
-            NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+            Dense(ns, 128, selu),
+            Dense(128, 128, selu),
             QSplit(
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(128, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(128, 8 * na, tanh),
             ),
         ) |> gpu
 
@@ -147,7 +167,7 @@ function RL.Experiment(
                     Q_update_freq=get_config(lg, "Q_update_freq"),
                     is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
                 ),
-                explorer=GreedyExplorer(),
+                explorer=EpsilonGreedyExplorer(),
             ),
             trajectory=CircularArraySARTTrajectory(
                 capacity=get_config(lg, "traj_capacity"),
