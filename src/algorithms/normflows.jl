@@ -50,7 +50,7 @@ function PlanarLayer(h_size)
     return PlanarLayer(u, w, b, f, f_prime)
 end
 
-function (l::PlanarLayer)(x, h; reverse)
+function (l::PlanarLayer)(x, h; reverse=true)
     wh = l.w * h
     fwb = wh .* x .+ l.b
     x = x .+ l.u .* l.f.(fwb)
@@ -64,7 +64,7 @@ end
 
 Flux.@functor PlanarFlow
 
-function (r::PlanarFlow)(x, h; reverse)
+function (r::PlanarFlow)(x, h; reverse=false)
     sldj = Zygote.@ignore similar(x, size(x, 2))
     Zygote.@ignore fill!(sldj, zero(eltype(x)))
     for layer in r.layers
