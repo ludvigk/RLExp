@@ -134,8 +134,8 @@ function RL.Experiment(
             [
             PlanarLayer(4),
             PlanarLayer(4),
-            # PlanarLayer(8),
-            # PlanarLayer(8),
+            PlanarLayer(4),
+            PlanarLayer(4),
             # PlanarLayer(8),
             # PlanarLayer(8),
         ]
