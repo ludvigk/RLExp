@@ -143,9 +143,10 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         b_all, h_all = B(s) ## SLOW
+        h_all = reshape(h_all, size(b_all, 1), :, size(b_all, 2))
+        h_all = permutedims(h_all, (1, 3, 2))
         h = @inbounds reshape(h_all, size(b_all, 1), size(b_all, 2), :)[a, :]
-        println(size(h))
-        h = reshape(h, :, size(b_all, 2))
+        h = permutedims(h, (2, 1))
         b = @inbounds b_all[a]
         # ss = @inbounds s_all[a]
         preds, sldj = flow(Flux.unsqueeze(G, 1), h)
