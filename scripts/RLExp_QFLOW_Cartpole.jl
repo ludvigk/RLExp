@@ -136,8 +136,8 @@ function RL.Experiment(
             PlanarLayer(8),
             PlanarLayer(8),
             PlanarLayer(8),
-            PlanarLayer(8),
-            PlanarLayer(8),
+            # PlanarLayer(8),
+            # PlanarLayer(8),
         ]
         ) |> gpu
 
