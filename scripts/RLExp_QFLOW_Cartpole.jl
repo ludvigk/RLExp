@@ -114,7 +114,7 @@ function RL.Experiment(
             QSplit(
                 Dense(128, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                Dense(128, 4 * na, tanh),
+                Dense(128, 4 * na),
             ),
         ) |> gpu
 
@@ -124,7 +124,7 @@ function RL.Experiment(
             QSplit(
                 Dense(128, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                Dense(128, 4 * na, tanh),
+                Dense(128, 4 * na),
             ),
         ) |> gpu
 
