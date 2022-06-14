@@ -69,7 +69,7 @@ function (r::PlanarFlow)(x, h; reverse=false)
     Zygote.@ignore fill!(sldj, zero(eltype(x)))
     for layer in r.layers
         x, sldj_ = layer(x, h; reverse)
-        sldj += sldj_
+        sldj += dropdims(sum(sldj_, dims=1), dims=1)
     end
     return x, sldj
 end
