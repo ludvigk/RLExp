@@ -50,7 +50,7 @@ function RL.Experiment(
             "gamma" => 0.99,
             "update_horizon" => 1,
             "batch_size" => 32,
-            "min_replay_history" => 32,
+            "min_replay_history" => 100,
             "updates_per_step" => 1,
             "is_enable_double_DQN" => true,
             "traj_capacity" => 100_000,
@@ -109,22 +109,22 @@ function RL.Experiment(
         # ) |> gpu
 
         B_model = Chain(
-            Dense(ns, 128, selu),
-            Dense(128, 128, selu),
+            Dense(ns, 64, selu),
+            Dense(64, 64, selu),
             QSplit(
-                Dense(128, na),
+                Dense(64, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                Dense(128, 4 * na),
+                Dense(64, 4 * na),
             ),
         ) |> gpu
 
         Q_model = Chain(
-            Dense(ns, 128, selu),
-            Dense(128, 128, selu),
+            Dense(ns, 64, selu),
+            Dense(64, 64, selu),
             QSplit(
-                Dense(128, na),
+                Dense(64, na),
                 # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                Dense(128, 4 * na),
+                Dense(64, 4 * na),
             ),
         ) |> gpu
 
