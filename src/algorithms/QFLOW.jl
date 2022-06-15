@@ -150,7 +150,8 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         b = @inbounds b_all[a]
         # ss = @inbounds s_all[a]
         # preds, sldj = flow(Flux.unsqueeze(G, 1), h)
-        ll = (b .- G) .^ 2 ./ 2
+        ll = huber_loss(b, G)
+        # ll = (b .- G) .^ 2 ./ 2
         # ll = (b .- preds) .^ 2 ./ 2
         # 𝐿 = sum(ll) - sum(sldj) + sum((preds .- G) .^ 2) / 2
         𝐿 = sum(ll) #- sum(sldj) + sum((preds .- G) .^ 2) / 2
