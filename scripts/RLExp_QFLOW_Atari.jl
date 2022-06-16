@@ -135,7 +135,6 @@ function RL.Experiment(
         """
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
         # B_opt = ADAM(6.25e-5, (0.4, 0.5))
-        prior = eval(Meta.parse(get_config(lg, "prior")))
 
         agent = Agent(
             policy=QBasedPolicy(
