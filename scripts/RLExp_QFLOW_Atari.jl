@@ -56,6 +56,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
+            "N_H" => 16,
         ),
     )
     save_dir = datadir("sims", "Noisy", "Atari($name)", "$(now())")
@@ -83,6 +84,7 @@ function RL.Experiment(
     )
     N_ACTIONS = length(action_space(env))
 
+    N_H = get_config(lg, "N_H")
     if restore === nothing
         """
         CREATE MODEL
@@ -117,6 +119,17 @@ function RL.Experiment(
             ),
         ) |> gpu
 
+        flow = PlanarFlow(
+            [
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            # PlanarLayer(8),
+            # PlanarLayer(8),
+        ]
+        ) |> gpu
+
         """
         CREATE AGENT
         """
@@ -141,6 +154,7 @@ function RL.Experiment(
                     update_freq=4,
                     target_update_freq=8_000,
                     stack_size=N_FRAMES,
+                    flow=flow,
                 ),
                 explorer=GreedyExplorer(),
             ),
