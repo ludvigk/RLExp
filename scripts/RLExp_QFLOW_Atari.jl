@@ -43,7 +43,7 @@ function RL.Experiment(
         config=Dict(
             "B_lr" => 1e-4,
             "Q_lr" => 1,
-            "B_clip_norm" => 1000,
+            "B_clip_norm" => 10,
             "B_update_freq" => 1,
             "Q_update_freq" => 8_000,
             "B_opt" => "ADAM",
@@ -139,21 +139,24 @@ function RL.Experiment(
         agent = Agent(
             policy=QBasedPolicy(
                 learner=QFLOWLearner(
-                    approximator=NeuralNetworkApproximator(
+                    B_approximator=NeuralNetworkApproximator(
                         model=B_model,
                         optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                     ),
-                    target_approximator=NeuralNetworkApproximator(
+                    Q_approximator=NeuralNetworkApproximator(
                         model=Q_model
                     ),
                     γ=0.99f0,
-                    batch_size=32,
-                    update_horizon=1,
-                    min_replay_history=32,
-                    update_freq=4,
-                    target_update_freq=8_000,
                     stack_size=N_FRAMES,
                     flow=flow,
+                    Q_lr=get_config(lg, "Q_lr"),
+                    γ=get_config(lg, "gamma"),
+                    update_horizon=get_config(lg, "update_horizon"),
+                    batch_size=get_config(lg, "batch_size"),
+                    min_replay_history=get_config(lg, "min_replay_history"),
+                    B_update_freq=get_config(lg, "B_update_freq"),
+                    Q_update_freq=get_config(lg, "Q_update_freq"),
+                    is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
                 ),
                 explorer=GreedyExplorer(),
             ),
