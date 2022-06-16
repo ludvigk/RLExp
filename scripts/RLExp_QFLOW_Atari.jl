@@ -29,7 +29,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:Noisy},
+    ::Val{:QFLOW},
     ::Val{:Atari},
     name;
     restore=nothing
