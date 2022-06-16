@@ -149,12 +149,12 @@ function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
         h = permutedims(h, (2, 1))
         b = @inbounds b_all[a]
         # ss = @inbounds s_all[a]
-        # preds, sldj = flow(Flux.unsqueeze(G, 1), h)
-        ll = huber_loss(b, G)
+        preds, sldj = flow(Flux.unsqueeze(G, 1), h)
+        # ll = huber_loss(b, G)
         # ll = (b .- G) .^ 2 ./ 2
-        # ll = (b .- preds) .^ 2 ./ 2
-        # 𝐿 = sum(ll) - sum(sldj) + sum((preds .- G) .^ 2) / 2
-        𝐿 = sum(ll) #- sum(sldj) + sum((preds .- G) .^ 2) / 2
+        ll = (b .- preds) .^ 2 ./ 2
+        𝐿 = sum(ll) - sum(sldj) + sum((preds .- G) .^ 2) / 2
+        # 𝐿 = sum(ll) #- sum(sldj) + sum((preds .- G) .^ 2) / 2
         𝐿 = 𝐿 / batch_size
 
         Zygote.ignore() do
