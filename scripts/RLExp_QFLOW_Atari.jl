@@ -146,7 +146,6 @@ function RL.Experiment(
                     Q_approximator=NeuralNetworkApproximator(
                         model=Q_model
                     ),
-                    γ=0.99f0,
                     stack_size=N_FRAMES,
                     flow=flow,
                     Q_lr=get_config(lg, "Q_lr"),
