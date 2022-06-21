@@ -125,7 +125,7 @@ function RL.Experiment(
                 base=Chain(
                     Dense(ns, 64, selu),
                     Dense(64, 64, selu),
-                    Dense(64, hidden_dim)),
+                    Dense(64, hidden_dim, tanh)),
                 flow=flow_B,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -136,7 +136,7 @@ function RL.Experiment(
                 base=Chain(
                     Dense(ns, 64, selu),
                     Dense(64, 64, selu),
-                    Dense(64, hidden_dim)),
+                    Dense(64, hidden_dim, tanh)),
                 flow=flow_Q,
             ),
         ) |> gpu
