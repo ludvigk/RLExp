@@ -157,6 +157,7 @@ end
 
 function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; action=nothing, reverse=true) where {T}
     x_ = x .* c.mask
+    println(size(x_), size(h))
     x_h_ = vcat(x_, h)
     s, t = c.net(x_h_)
 
