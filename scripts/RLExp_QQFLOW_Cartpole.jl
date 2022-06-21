@@ -48,7 +48,7 @@ function RL.Experiment(
             "Q_update_freq" => 1,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 32,
+            "hidden_dim" => 4,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -97,11 +97,11 @@ function RL.Experiment(
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
         ]
         )
 
@@ -110,11 +110,11 @@ function RL.Experiment(
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
         ]
         )
 
@@ -123,8 +123,9 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, selu),
-                    Dense(128, hidden_dim)),
+                    Dense(ns, 64, selu),
+                    Dense(64, 64, selu),
+                    Dense(64, hidden_dim)),
                 flow=flow_B,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -133,8 +134,9 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, selu),
-                    Dense(128, hidden_dim)),
+                    Dense(ns, 64, selu),
+                    Dense(64, 64, selu),
+                    Dense(64, hidden_dim)),
                 flow=flow_Q,
             ),
         ) |> gpu
