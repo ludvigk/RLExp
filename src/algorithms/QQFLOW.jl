@@ -170,7 +170,7 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), 1) .* q′
 
     gs = gradient(params(B)) do
-        preds, sldj = B(G, s; action=selected_actions, reverse=false)
+        preds, sldj = B(G, s; reverse=false)
         ll = preds[selected_actions] .^ 2 ./ 2
         𝐿 = sum(ll) - sum(sldj)
         𝐿 = 𝐿 / batch_size
