@@ -161,15 +161,17 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
         q′ = dropdims(mean(Q(norm_samples, s′; reverse=true), dims=3), dims=3)
-        q′ = @inbounds q′[selected_actions]
+        # q′ = @inbounds q′[]
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
+        q′ = q_values
     end
+    println(size(q′), size(r))
     G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), 1) .* q′
 
     gs = gradient(params(B)) do
         preds, sldj = B(G, s; reverse=false)
-        ll = preds[a] .^ 2 ./ 2
+        ll = preds[selected_actions] .^ 2 ./ 2
         𝐿 = sum(ll) - sum(sldj)
         𝐿 = 𝐿 / batch_size
 
