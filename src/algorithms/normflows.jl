@@ -179,6 +179,13 @@ function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; ac
     end
 end
 
+function (c::ConditionalCouplingLayer)(x::AbstractArray{T,3}, h::AbstractMatrix{T}, sldj=nothing; action=nothing, reverse=true) where {T}
+    h_broadcast = Zygote.@ignore similar(h, size(h)..., size(x, 3))
+    Zygote.@ignore fill!(h_broadcast, 1)
+    h_b = h .* h_broadcast
+    return c(x, h_b, sldj; action, reverse)
+end
+
 function (c::ConditionalCouplingLayer)(x::AbstractMatrix, h::AbstractArray{T,3}, sldj=nothing; action=nothing, reverse=true) where {T}
     x_broadcast = Zygote.@ignore similar(x, size(x)..., size(h, 3))
     Zygote.@ignore fill!(x_broadcast, 1)
