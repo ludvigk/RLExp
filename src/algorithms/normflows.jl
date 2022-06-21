@@ -179,10 +179,16 @@ function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; ac
     end
 end
 
-function (c::ConditionalCouplingLayer)(x, h::AbstractArray{T,3}, sldj=nothing; action=nothing, reverse=true) where {T}
+function (c::ConditionalCouplingLayer)(x::AbstractMatrix, h::AbstractArray{T,3}, sldj=nothing; action=nothing, reverse=true) where {T}
+    x_broadcast = Zygote.@ignore similar(x, size(x)..., size(h, 3))
+    Zygote.@ignore fill!(x_broadcast, 1)
+    x_b = x .* x_broadcast
+    return c(x_b, h, sldj; action, reverse)
+end
+
+function (c::ConditionalCouplingLayer)(x::AbstractArray{T,3}, h::AbstractArray{T,3}, sldj=nothing; action=nothing, reverse=true) where {T}
     x_ = x .* c.mask
-    x_h_ = cat(repeat(x_, 1, 1, size(h, 3)), h, dims=1)
-    x_h_ = reshape(x_h_, size(x_h_, 1), :)
+    x_h_ = cat(x_, h, dims=1)
     s, t = c.net(x_h_)
 
     s = c.rescale(s)
@@ -192,7 +198,7 @@ function (c::ConditionalCouplingLayer)(x, h::AbstractArray{T,3}, sldj=nothing; a
     if reverse
         inv_exp_s = exp.(-s)
         x = x .* inv_exp_s - t
-        return reshape(x, size(x, 1), :, size(h, 3))
+        return x
     else
         x = (x .+ t) .* exp.(s)
         if isnothing(action)
@@ -200,7 +206,7 @@ function (c::ConditionalCouplingLayer)(x, h::AbstractArray{T,3}, sldj=nothing; a
         else
             sldj += s[action, :]
         end
-        return reshape(x, size(x, 1), :, size(h, 3)), reshape(sldj, :, size(h, 3))
+        return x, sldj
     end
 end
 

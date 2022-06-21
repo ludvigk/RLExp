@@ -21,7 +21,6 @@ end
 
 function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; reverse::Bool=true) where {T}
     h = m.base(state)
-    h = repeat(h, 1, 1, size(samples, 3))
     return m.flow(samples, h; reverse)
 end
 
