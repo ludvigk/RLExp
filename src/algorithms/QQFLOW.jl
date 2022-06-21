@@ -14,14 +14,14 @@ end
 
 Flux.@functor FlowNetwork
 
-function (m::FlowNetwork)(samples::AbstractMatrix, state::AbstractMatrix; reverse::Bool=true)
+function (m::FlowNetwork)(samples::AbstractMatrix, state::AbstractMatrix; action=nothing, reverse::Bool=true)
     h = m.base(state)
-    return m.flow(samples, h; reverse)
+    return m.flow(samples, h; action, reverse)
 end
 
-function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; reverse::Bool=true) where {T}
+function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; action=nothing, reverse::Bool=true) where {T}
     h = m.base(state)
-    return m.flow(samples, h; reverse)
+    return m.flow(samples, h; action, reverse)
 end
 
 mutable struct QQFLOWLearner{
