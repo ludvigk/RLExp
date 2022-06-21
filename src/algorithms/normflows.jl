@@ -279,14 +279,14 @@ function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; action=nothing, rever
     end
 end
 
-struct ConditionalBatchNorm
-    eps
-    decay
-    beta
-    gamma
-    mean
-    var
-end
+# struct ConditionalBatchNorm
+#     eps
+#     decay
+#     beta
+#     gamma
+#     mean
+#     var
+# end
 
 # ConditionalBatchNorm(eps=1f-5, decay=0.95f0) = ConditionalBatchNorm(eps, decay, )
 
