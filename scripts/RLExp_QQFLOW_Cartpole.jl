@@ -42,10 +42,10 @@ function RL.Experiment(
     if isnothing(config)
         config = Dict(
             "B_lr" => 1e-4,
-            "Q_lr" => 0.1,
+            "Q_lr" => 1,
             "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
-            "Q_update_freq" => 1,
+            "Q_update_freq" => 100,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
             "hidden_dim" => 4,
