@@ -46,7 +46,7 @@ function RL.Experiment(
             "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
-            "hidden_dim" => 16,
+            "hidden_dim" => 32,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
