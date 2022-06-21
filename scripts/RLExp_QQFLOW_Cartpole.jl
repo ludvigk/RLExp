@@ -41,7 +41,7 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-            "B_lr" => 1e-3,
+            "B_lr" => 1e-4,
             "Q_lr" => 1,
             "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
