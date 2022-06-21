@@ -29,7 +29,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:QFLOW},
+    ::Val{:QQFLOW},
     ::Val{:Cartpole},
     name;
     restore=nothing,
@@ -60,10 +60,10 @@ function RL.Experiment(
     end
 
     lg = WandbLogger(project="BE",
-        name="QFLOW_CartPole",
+        name="QQFLOW_CartPole",
         config=config,
     )
-    save_dir = datadir("sims", "QFLOW", "CartPole", "$(now())")
+    save_dir = datadir("sims", "QQFLOW", "CartPole", "$(now())")
     mkpath(save_dir)
 
     """
@@ -132,7 +132,7 @@ function RL.Experiment(
 
         agent = Agent(
             policy=QBasedPolicy(
-                learner=QFLOWLearner(
+                learner=QQFLOWLearner(
                     B_approximator=B_approximator,
                     Q_approximator=Q_approximator,
                     num_actions=na,
@@ -229,5 +229,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# QFLOW <-> CartPole")
+    Experiment(agent, env, stop_condition, hook, "# QQFLOW <-> CartPole")
 end

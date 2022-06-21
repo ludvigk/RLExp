@@ -1,10 +1,10 @@
 using Flux
 using Zygote
-using DataFrames
-using SyntheticDatasets
-using Plots
-using StatsPlots
-using ProgressMeter
+# using DataFrames
+# using SyntheticDatasets
+# using Plots
+# using StatsPlots
+# using ProgressMeter
 
 import Distributions: logpdf
 
@@ -266,52 +266,52 @@ function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; action=nothing, rever
     end
 end
 
-function main()
+# function main()
 
-    moons = SyntheticDatasets.make_moons(n_samples=100; noise=0.05)
-    data = Matrix(moons[:, 1:2])'
+#     moons = SyntheticDatasets.make_moons(n_samples=100; noise=0.05)
+#     data = Matrix(moons[:, 1:2])'
 
-    DTYPE = Float32
-    # dist = MvNormal(zeros(DTYPE, 2), ones(DTYPE, 2))
+#     DTYPE = Float32
+#     # dist = MvNormal(zeros(DTYPE, 2), ones(DTYPE, 2))
 
-    loss(td, data) = -mean(logpdf_forward(td, data))
+#     loss(td, data) = -mean(logpdf_forward(td, data))
 
-    coupling_layers = [
-        ConditionalCouplingLayer(2, 1, 100, [0, 1]),
-        ConditionalCouplingLayer(2, 1, 100, [1, 0]),
-        ConditionalCouplingLayer(2, 1, 100, [0, 1]),
-        ConditionalCouplingLayer(2, 1, 100, [1, 0]),
-    ]
-    rnvp = ConditionalRealNVP(coupling_layers)
+#     coupling_layers = [
+#         ConditionalCouplingLayer(2, 1, 100, [0, 1]),
+#         ConditionalCouplingLayer(2, 1, 100, [1, 0]),
+#         ConditionalCouplingLayer(2, 1, 100, [0, 1]),
+#         ConditionalCouplingLayer(2, 1, 100, [1, 0]),
+#     ]
+#     rnvp = ConditionalRealNVP(coupling_layers)
 
-    function loss(model, data)
-        action = [
-            CartesianIndex(rand(1:2), i) for i = 1:size(data, 2)
-        ]
-        x, sldj = model(data, rand(1, size(data, 2)); action)
-        nll = sum(x[action] .^ 2) / 2 - sum(sldj)
-        return nll / size(data, 2)
-    end
+#     function loss(model, data)
+#         action = [
+#             CartesianIndex(rand(1:2), i) for i = 1:size(data, 2)
+#         ]
+#         x, sldj = model(data, rand(1, size(data, 2)); action)
+#         nll = sum(x[action] .^ 2) / 2 - sum(sldj)
+#         return nll / size(data, 2)
+#     end
 
-    opt = ADAM(0.0003)
-    function nf_train(td, data, opt, ps, epochs; batchsize=100)
-        p = Progress(epochs, 1)
-        for i ∈ 1:epochs
-            d = Flux.Data.DataLoader(data, batchsize=batchsize)
-            for minibatch = d
-                gs = gradient(() -> loss(td, minibatch), ps)
+#     opt = ADAM(0.0003)
+#     function nf_train(td, data, opt, ps, epochs; batchsize=100)
+#         p = Progress(epochs, 1)
+#         for i ∈ 1:epochs
+#             d = Flux.Data.DataLoader(data, batchsize=batchsize)
+#             for minibatch = d
+#                 gs = gradient(() -> loss(td, minibatch), ps)
 
-                # println(gs.grads[b.ts[1].s[1].weight])
-                # println(gs.grads[b.ts[1].t[1].weight])
-                Flux.update!(opt, ps, gs)
-            end
-            ProgressMeter.next!(p; showvalues=[(:nll, loss(td, data))])
-        end
-    end
-    nf_train(rnvp, data, opt, Flux.params(rnvp), 5000)
-    # contour(-2:0.1:3, -2:0.1:2, (x, y) -> pdf(td, [x, y]), fill=true)
-    # samples = rand(td, 100)
-    samples = rnvp(randn(2, 100), rand(1, 100), reverse=true)
-    @df moons scatter(:feature_1, :feature_2)
-    scatter!(samples[1, :], samples[2, :])
-end
+#                 # println(gs.grads[b.ts[1].s[1].weight])
+#                 # println(gs.grads[b.ts[1].t[1].weight])
+#                 Flux.update!(opt, ps, gs)
+#             end
+#             ProgressMeter.next!(p; showvalues=[(:nll, loss(td, data))])
+#         end
+#     end
+#     nf_train(rnvp, data, opt, Flux.params(rnvp), 5000)
+#     # contour(-2:0.1:3, -2:0.1:2, (x, y) -> pdf(td, [x, y]), fill=true)
+#     # samples = rand(td, 100)
+#     samples = rnvp(randn(2, 100), rand(1, 100), reverse=true)
+#     @df moons scatter(:feature_1, :feature_2)
+#     scatter!(samples[1, :], samples[2, :])
+# end
