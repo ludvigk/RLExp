@@ -42,6 +42,7 @@ include("algorithms/DUQN.jl")
 include("algorithms/DUQNS.jl")
 include("algorithms/DUQNF.jl")
 include("algorithms/QFLOW.jl")
+include("algorithms/QQFLOW.jl")
 include("algorithms/FAC.jl")
 
 end
