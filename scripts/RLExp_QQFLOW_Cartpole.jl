@@ -108,6 +108,8 @@ function RL.Experiment(
         ]
         )
 
+        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(Dense(ns, 128, selu),
@@ -128,7 +130,6 @@ function RL.Experiment(
         """
         CREATE AGENT
         """
-        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
 
         agent = Agent(
             policy=QBasedPolicy(
