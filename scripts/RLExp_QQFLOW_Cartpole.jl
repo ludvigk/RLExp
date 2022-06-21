@@ -96,11 +96,19 @@ function RL.Experiment(
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
         ]
         )
 
         flow_Q = ConditionalRealNVP(
             [
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
+            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
             ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
@@ -112,7 +120,8 @@ function RL.Experiment(
 
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
-                base=Chain(Dense(ns, 128, selu),
+                base=Chain(
+                    Dense(ns, 128, selu),
                     Dense(128, hidden_dim)),
                 flow=flow_B,
             ),
@@ -121,7 +130,8 @@ function RL.Experiment(
 
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
-                base=Chain(Dense(ns, 128, selu),
+                base=Chain(
+                    Dense(ns, 128, selu),
                     Dense(128, hidden_dim)),
                 flow=flow_Q,
             ),
