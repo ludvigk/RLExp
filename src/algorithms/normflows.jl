@@ -279,6 +279,17 @@ function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; action=nothing, rever
     end
 end
 
+struct ConditionalBatchNorm
+    eps
+    decay
+    beta
+    gamma
+    mean
+    var
+end
+
+# ConditionalBatchNorm(eps=1f-5, decay=0.95f0) = ConditionalBatchNorm(eps, decay, )
+
 # function main()
 
 #     moons = SyntheticDatasets.make_moons(n_samples=100; noise=0.05)
