@@ -1,4 +1,4 @@
-export QFLOWLearner
+export QQFLOWLearner, FlowNetwork
 import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
@@ -25,7 +25,7 @@ function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; re
     return m.flow(samples, h; reverse)
 end
 
-mutable struct QFLOWLearner{
+mutable struct QQFLOWLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
     R<:AbstractRNG,
@@ -47,7 +47,7 @@ mutable struct QFLOWLearner{
     logging_params
 end
 
-function QFLOWLearner(;
+function QQFLOWLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
     num_actions::Int,
@@ -73,7 +73,7 @@ function QFLOWLearner(;
         stack_size=stack_size,
         batch_size=batch_size
     )
-    return QFLOWLearner(
+    return QQFLOWLearner(
         B_approximator,
         Q_approximator,
         num_actions,
@@ -92,14 +92,14 @@ function QFLOWLearner(;
     )
 end
 
-Flux.functor(x::QFLOWLearner) = (B=x.B_approximator, Q=x.Q_approximator),
+Flux.functor(x::QQFLOWLearner) = (B=x.B_approximator, Q=x.Q_approximator),
 y -> begin
     x = @set x.B_approximator = y.B
     x = @set x.Q_approximator = y.Q
     x
 end
 
-function (learner::QFLOWLearner)(env)
+function (learner::QQFLOWLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
     norm_samples = send_to_device(device(learner.B_approximator), randn(num_actions, size(s, 2), learner.n_samples_act))
@@ -107,7 +107,7 @@ function (learner::QFLOWLearner)(env)
     vec(q) |> send_to_host
 end
 
-function RLBase.update!(learner::QFLOWLearner, t::AbstractTrajectory)
+function RLBase.update!(learner::QQFLOWLearner, t::AbstractTrajectory)
     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
 
     learner.update_step += 1
@@ -133,7 +133,7 @@ function RLBase.update!(learner::QFLOWLearner, t::AbstractTrajectory)
     end
 end
 
-function RLBase.update!(learner::QFLOWLearner, batch::NamedTuple)
+function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     B = learner.B_approximator
     Q = learner.Q_approximator
     n_samples_target = learner.n_samples_target
