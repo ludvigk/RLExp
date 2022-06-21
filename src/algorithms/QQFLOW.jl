@@ -102,7 +102,7 @@ end
 function (learner::QQFLOWLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    norm_samples = send_to_device(device(learner.B_approximator), randn(num_actions, size(s, 2), learner.n_samples_act))
+    norm_samples = send_to_device(device(learner.B_approximator), randn(learner.num_actions, size(s, 2), learner.n_samples_act))
     q = dropdims(mean(learner.B_approximator(norm_samples, s; reverse=true), dims=3), dims=3)
     vec(q) |> send_to_host
 end
