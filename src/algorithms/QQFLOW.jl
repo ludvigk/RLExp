@@ -146,7 +146,7 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
 
-    norm_samples = randn(num_actions, batch_size, n_samples_target)
+    norm_samples = send_to_device(device(B), randn(num_actions, batch_size, n_samples_target))
     if is_enable_double_DQN
         q_values = dropdims(mean(B(norm_samples, s′; reverse=true), dims=3), dims=3)
     else
