@@ -123,9 +123,7 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 64, selu),
-                    Dense(64, 64, selu),
-                    Dense(64, hidden_dim, tanh)),
+                    Dense(ns, hidden_dim, tanh)),
                 flow=flow_B,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -134,9 +132,7 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 64, selu),
-                    Dense(64, 64, selu),
-                    Dense(64, hidden_dim, tanh)),
+                    Dense(ns, hidden_dim, tanh)),
                 flow=flow_Q,
             ),
         ) |> gpu
