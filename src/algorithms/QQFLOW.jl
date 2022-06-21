@@ -165,7 +165,7 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
     end
-    G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), dims=1) .* q′
+    G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), 1) .* q′
 
     gs = gradient(params(B)) do
         preds, sldj = B(G, s; reverse=false)
