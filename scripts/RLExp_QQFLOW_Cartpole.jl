@@ -189,10 +189,8 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-
-                    KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    B_var, QA, J = p["B_var"], p["QA"], p["J"]
-                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA J = J
+                    L, nll, sldj = p["𝐿"], p["nll"], p["sldj"]
+                    @info "training" L = L nll = nll sldj = sldj
 
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ

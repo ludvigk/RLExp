@@ -177,6 +177,8 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
 
         Zygote.ignore() do
             learner.logging_params["𝐿"] = 𝐿
+            learner.logging_params["nll"] = sum(ll)
+            learner.logging_params["sldj"] = sum(sldj)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
         end
 
