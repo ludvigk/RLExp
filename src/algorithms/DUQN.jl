@@ -98,6 +98,7 @@ function (learner::DUQNLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
     q = learner.B_approximator(s)
+    # q = dropdims(mean(q, dims=ndims(q)), dims=ndims(q))
     vec(q) |> send_to_host
 end
 
@@ -122,9 +123,9 @@ function RLBase.update!(learner::DUQNLearner, t::AbstractTrajectory)
             Flux.loadparams!(Q, Bp)
         else
             p = Qp .- η .* (Qp .- Bp)
-            # for _=1:(learner.updates_per_step-1)
-            #     p = p .- η .* (p .- Bp)
-            # end
+            for _ = 1:(learner.updates_per_step-1)
+                p = p .- η .* (p .- Bp)
+            end
             Flux.loadparams!(Q, p)
         end
     end
@@ -146,12 +147,18 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = B(s′, n_samples)
+        q_values = B(s′, 1)
         # rng_B = Random.MersenneTwister(seed)
     else
         q_values = Q(s′, n_samples)
     end
+<<<<<<< HEAD
     [Random.shuffle!(@view q_values[i,j,:]) for i=1:size(q_values, 1) for j=1:size(q_values,2)]
+=======
+    # q_values = cpu(q_values)
+    # [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
+    # q_values = gpu(q_values)
+>>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
@@ -171,12 +178,20 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
         b_all = B(s, n_samples, rng=learner.rng) ## SLOW
         b = b_all[a, :]
 
-        # 𝐿 = -sum(score_samples(b, mean(G, dims=2))) / (batch_size * n_samples)
+        # 𝐿 = -sum(score_samples(b, G)) / (batch_size * n_samples)
 
-        m = sum(b, dims=2) ./ size(b, 2)
-        ss = sum(b .^ 2, dims=2) ./ size(b, 2) .- m .^ 2
+        m1 = sum(b, dims=2) ./ size(b, 2)
         # m2 = sum(G, dims=2) ./ size(G, 2)
-        𝐿 = sum(log.(ss) .+ (m .- G) .^ 2 ./ 2ss) / (batch_size .* n_samples)
+        ss1 = Zygote.@ignore (sum(b .^ 2, dims=2) ./ (size(b, 2) - 1) .- (sum(b, dims=2) ./ size(b, 2)) .^ 2) .+ 1e-8
+        # ss = var(G, dims=2) .+ 1e-8
+        # ss2 = (sum(G .^ 2, dims=2) ./ (size(G, 2) - 1) .- (sum(G, dims=2) ./ size(G, 2)) .^ 2) .+ 1e-8
+        # ss = (sum(G .^ 2, dims=2) .- sum(G, dims=2) .^ 2) ./ size(G, 2) .+ 1e-8
+        # println(size(G), ize(m), size(ss))
+        # m2 = sum(G, dims=2) ./ size(G, 2)
+        # 𝐿 = sum((b .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
+        𝐿 = sum((G .- m1) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
+
+        # 𝐿 = sum(log.(ss) .+ (b .- G) .^ 2 ./ 2ss1) / (batch_size .* n_samples)
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)

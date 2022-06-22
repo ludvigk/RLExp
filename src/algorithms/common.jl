@@ -204,6 +204,28 @@ end
 # end
 
 # custom split layer
+struct QSplit{T}
+    paths::T
+end
+
+QSplit(paths...) = QSplit(paths)
+
+Flux.@functor QSplit
+
+function (m::QSplit)(x::AbstractArray; kwargs...)
+    if Flux.istraining()
+        return map(f -> f(x), m.paths)
+    end
+    return m.paths[1](x)
+end
+
+function (m::QSplit)(x::AbstractArray, n; kwargs...)
+    if Flux.istraining()
+        return map(f -> f(x, n), m.paths)  ## IS THIS SLOW?
+    end
+    return m.paths[1](x, n)
+end
+
 struct Split{T}
     paths::T
 end
@@ -213,24 +235,37 @@ Split(paths...) = Split(paths)
 Flux.@functor Split
 
 function (m::Split)(x::AbstractArray; kwargs...)
-    if Flux.istraining()
-        return map(f -> f(x), m.paths)
-    end
-    return m.paths[1](x)
+    return map(f -> f(x), m.paths)
 end
 
 function (m::Split)(x::AbstractArray, n; kwargs...)
-    if Flux.istraining()
-        return map(f -> f(x, n), m.paths)  ## IS THIS SLOW?
-    end
-    return m.paths[1](x, n)
+    return map(f -> f(x, n), m.paths)  ## IS THIS SLOW?
 end
 
+
+# Custom Join Layer
+
+struct Join{T,F}
+    combine::F
+    paths::T
+end
+
+Join(combine, paths...) = Join(combine, paths)
+
+Flux.@functor Join
+
+(m::Join)(xs::Tuple) = m.combine(map((f, x) -> f(x), m.paths, xs)...)
+(m::Join)(xs...) = m(xs)
 
 # ----- Spectral stein gradient estimator ----- #
 
 function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale)
     @tullio S[i, j] := -(x1[i, m] - x2[j, m])^2 / (2 * lengthscale[m]^2 + 1.0f-6)
+    return exp.(S)
+end
+
+function rbf_kernel(x1::AbstractArray, x2::AbstractArray, lengthscale::Float32)
+    @tullio S[i, j] := -(x1[i, m] - x2[j, m])^2 / (2 * lengthscale^2 + 1.0f-6)
     return exp.(S)
 end
 

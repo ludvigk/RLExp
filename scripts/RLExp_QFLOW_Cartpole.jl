@@ -29,7 +29,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:DUQNS},
+    ::Val{:QFLOW},
     ::Val{:Cartpole},
     name;
     restore=nothing,
@@ -41,32 +41,6 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-<<<<<<< HEAD
-                        "B_lr" => 1e-3,
-                        "Q_lr" => 0.1,
-                        "B_clip_norm" => 10.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 1,
-                        "B_opt" => "ADAM",
-                        "gamma" => 0.99,
-                        "update_horizon" => 1,
-                        "batch_size" => 32,
-                        "min_replay_history" => 32,
-                        "updates_per_step" => 1,
-                        "λ" => 0.99,
-                        # "prior" => "GaussianPrior(200, 100)",
-                        # "prior" => "CartpolePrior(1)",
-                        "prior" => "FlatPrior()",
-                        # "prior" => "KernelPrior()",
-                        "n_samples" => 100,
-                        "η" => 0.01,
-                        "nev" => 6,
-                        "n_eigen_threshold" => 0.99,
-                        "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000,
-                        "seed" => 1,
-                     )
-=======
             "B_lr" => 1e-3,
             "Q_lr" => 1,
             "B_clip_norm" => 10.0,
@@ -75,30 +49,20 @@ function RL.Experiment(
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
-            "batch_size" => 64,
-            "min_replay_history" => 64,
+            "batch_size" => 32,
+            "min_replay_history" => 100,
             "updates_per_step" => 1,
-            "λ" => 1 / 100,
-            # "prior" => "GaussianPrior(200, 100)",
-            # "prior" => "CartpolePrior(1)",
-            "prior" => "FlatPrior()",
-            # "prior" => "KernelPrior()",
-            "n_samples" => 100,
-            "η" => 0.01,
-            "nev" => 6,
-            "n_eigen_threshold" => 0.99,
             "is_enable_double_DQN" => true,
             "traj_capacity" => 100_000,
             "seed" => 1,
         )
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
     end
 
     lg = WandbLogger(project="BE",
-        name="DUQNS_CartPole",
+        name="QFLOW_CartPole",
         config=config,
     )
-    save_dir = datadir("sims", "DUQNS", "CartPole", "$(now())")
+    save_dir = datadir("sims", "QFLOW", "CartPole", "$(now())")
     mkpath(save_dir)
 
     """
@@ -124,71 +88,68 @@ function RL.Experiment(
         init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
-
         # B_model = Chain(
-        #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     Split(
-        #         NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #         NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     )
+        #     NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     QSplit(
+        #         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     ),
+        # ) |> gpu
+
+        # Q_model = Chain(
+        #     NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     QSplit(
+        #         NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #         NoisyDense(128, 8 * na, tanh; init_μ=init, init_σ=init_σ, rng=device_rng),
+        #     ),
         # ) |> gpu
 
         B_model = Chain(
-<<<<<<< HEAD
-            NoisyDense(ns, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(128, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            Split(
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-=======
-            NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            Split(
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
+            Dense(ns, 64, selu),
+            Dense(64, 64, selu),
+            QSplit(
+                Dense(64, na),
+                # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(64, 4 * na),
             ),
         ) |> gpu
 
-        # Q_model = Chain(
-        #     NoisyDense(ns, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     NoisyDense(128, 128, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     Split(
-        #         NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #         NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-        #     )
-        # ) |> gpu
-
         Q_model = Chain(
-<<<<<<< HEAD
-            NoisyDense(ns, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(128, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            Split(
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-=======
-            NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
-            Split(
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
-                NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
+            Dense(ns, 64, selu),
+            Dense(64, 64, selu),
+            QSplit(
+                Dense(64, na),
+                # NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+                Dense(64, 4 * na),
             ),
         ) |> gpu
 
         Flux.loadparams!(Q_model, Flux.params(B_model))
+
+        flow = PlanarFlow(
+            [
+            PlanarLayer(4),
+            PlanarLayer(4),
+            PlanarLayer(4),
+            PlanarLayer(4),
+            # PlanarLayer(8),
+            # PlanarLayer(8),
+        ]
+        ) |> gpu
 
 
         """
         CREATE AGENT
         """
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-        prior = eval(Meta.parse(get_config(lg, "prior")))
 
         agent = Agent(
             policy=QBasedPolicy(
-                learner=DUQNSLearner(
+                learner=QFLOWLearner(
                     B_approximator=NeuralNetworkApproximator(
                         model=B_model,
                         optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -196,7 +157,7 @@ function RL.Experiment(
                     Q_approximator=NeuralNetworkApproximator(
                         model=Q_model,
                     ),
-                    flow=UvPlanar(randn(Float32, 1), randn(Float32, 1)) |> gpu,
+                    flow=flow,
                     Q_lr=get_config(lg, "Q_lr"),
                     γ=get_config(lg, "gamma"),
                     update_horizon=get_config(lg, "update_horizon"),
@@ -204,15 +165,14 @@ function RL.Experiment(
                     min_replay_history=get_config(lg, "min_replay_history"),
                     B_update_freq=get_config(lg, "B_update_freq"),
                     Q_update_freq=get_config(lg, "Q_update_freq"),
-                    updates_per_step=get_config(lg, "updates_per_step"),
-                    λ=get_config(lg, "λ"),
-                    n_samples=get_config(lg, "n_samples"),
-                    η=get_config(lg, "η"),
-                    nev=get_config(lg, "nev"),
                     is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
-                    prior=prior,
                 ),
-                explorer=GreedyExplorer(),
+                explorer=EpsilonGreedyExplorer(
+                    kind=:exp,
+                    ϵ_stable=0.01,
+                    decay_steps=500,
+                    rng=rng,
+                ),
             ),
             trajectory=CircularArraySARTTrajectory(
                 capacity=get_config(lg, "traj_capacity"),
@@ -238,8 +198,8 @@ function RL.Experiment(
                     p = agent.policy.learner.logging_params
 
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    B_var, QA, s = p["B_var"], p["QA"], p["s"]
-                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
+                    B_var, QA, J = p["B_var"], p["QA"], p["J"]
+                    @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA J = J
 
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
@@ -291,5 +251,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> CartPole")
+    Experiment(agent, env, stop_condition, hook, "# QFLOW <-> CartPole")
 end

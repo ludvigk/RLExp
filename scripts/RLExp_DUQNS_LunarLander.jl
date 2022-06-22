@@ -31,41 +31,42 @@ function RL.Experiment(
     ::Val{:LunarLander},
     name;
     restore=nothing,
-    config=nothing,
-   )
+    config=nothing
+)
 
     """
     SET UP LOGGING
     """
     if isnothing(config)
         config = Dict(
-        "B_lr" => 1e-4,
-        "Q_lr" => 1.0,
-        "B_clip_norm" => 100.0,
-        "B_update_freq" => 4,
-        "Q_update_freq" => 1_000,
-        "B_opt" => "ADAM",
-        "gamma" => 0.99f0,
-        "update_horizon" => 1,
-        "batch_size" => 64,
-        "min_replay_history" => 64,
-        "updates_per_step" => 1,
-        "λ" => 1.0,
-        # "prior" => "GaussianPrior(0, 10)",
-        # "prior" => "LunarLanderPrior(50)",
-        "prior" => "FlatPrior()",
-        "n_samples" => 100,
-        "η" => 0.01,
-        "nev" => 6,
-        "n_eigen_threshold" => 0.99,
-        "is_enable_double_DQN" => true,
-        "traj_capacity" => 1_000_000,
-        "seed" => 1,
+            "B_lr" => 1e-4,
+            "Q_lr" => 1,
+            "B_clip_norm" => 10.0,
+            "B_update_freq" => 1,
+            "Q_update_freq" => 500,
+            "B_opt" => "ADAM",
+            "gamma" => 0.99f0,
+            "update_horizon" => 1,
+            "batch_size" => 64,
+            "min_replay_history" => 10000,
+            "updates_per_step" => 1,
+            "λ" => 1.0,
+            # "prior" => "GaussianPrior(0, 10)",
+            # "prior" => "LunarLanderPrior(50)",
+            "prior" => "FlatPrior()",
+            # "prior" => "KernelPrior(1)",
+            "n_samples" => 100,
+            "η" => 0.01,
+            "nev" => 6,
+            "n_eigen_threshold" => 0.99,
+            "is_enable_double_DQN" => true,
+            "traj_capacity" => 500_000,
+            "seed" => 1,
         )
     end
-    lg = WandbLogger(project = "BE",
-                     name = "DUQNS_LunarLander",
-                     config = config,    
+    lg = WandbLogger(project="BE",
+        name="DUQNS_LunarLander",
+        config=config,
     )
     save_dir = datadir("sims", "DUQNS", "LunarLander", "$(now())")
     mkpath(save_dir)
@@ -105,11 +106,11 @@ function RL.Experiment(
     # ) |> gpu
 
     B_model = Chain(
-        NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        NoisyDense(256, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
         Split(
-            NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+            NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
         ),
     ) |> gpu
 
@@ -133,11 +134,11 @@ function RL.Experiment(
     # ) |> gpu
 
     Q_model = Chain(
-        NoisyDense(ns, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
-        NoisyDense(256, 256, relu; init_μ = init, init_σ = init_σ, rng = device_rng),
+        NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
+        NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
         Split(
-            NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(256, na; init_μ = init, init_σ = init_σ, rng = device_rng),
+            NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
+            NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
         ),
     ) |> gpu
 
@@ -160,35 +161,36 @@ function RL.Experiment(
     prior = eval(Meta.parse(get_config(lg, "prior")))
 
     agent = Agent(
-        policy = QBasedPolicy(
-            learner = DUQNSLearner(
-                B_approximator = NeuralNetworkApproximator(
-                    model = B_model,
-                    optimizer = Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
+        policy=QBasedPolicy(
+            learner=DUQNSLearner(
+                B_approximator=NeuralNetworkApproximator(
+                    model=B_model,
+                    optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
                 ),
-                Q_approximator = NeuralNetworkApproximator(
-                    model = Q_model,
+                Q_approximator=NeuralNetworkApproximator(
+                    model=Q_model,
                 ),
-                Q_lr = get_config(lg, "Q_lr"),
-                γ = get_config(lg, "gamma"),
-                update_horizon = get_config(lg, "update_horizon"),
-                batch_size = get_config(lg, "batch_size"),
-                min_replay_history = get_config(lg, "min_replay_history"),
-                B_update_freq = get_config(lg, "B_update_freq"),
-                Q_update_freq = get_config(lg, "Q_update_freq"),
-                updates_per_step = get_config(lg, "updates_per_step"),
-                λ = get_config(lg, "λ"),
-                n_samples = get_config(lg, "n_samples"),
-                η = get_config(lg, "η"),
-                nev = get_config(lg, "nev"),
-                is_enable_double_DQN = get_config(lg, "is_enable_double_DQN"),
-                prior = prior,
+                flow=UvPlanar(randn(Float32, 1), randn(Float32, 1)) |> gpu,
+                Q_lr=get_config(lg, "Q_lr"),
+                γ=get_config(lg, "gamma"),
+                update_horizon=get_config(lg, "update_horizon"),
+                batch_size=get_config(lg, "batch_size"),
+                min_replay_history=get_config(lg, "min_replay_history"),
+                B_update_freq=get_config(lg, "B_update_freq"),
+                Q_update_freq=get_config(lg, "Q_update_freq"),
+                updates_per_step=get_config(lg, "updates_per_step"),
+                λ=get_config(lg, "λ"),
+                n_samples=get_config(lg, "n_samples"),
+                η=get_config(lg, "η"),
+                nev=get_config(lg, "nev"),
+                is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
+                prior=prior,
             ),
-            explorer = GreedyExplorer(),
+            explorer=GreedyExplorer(),
         ),
-        trajectory = CircularArraySARTTrajectory(
-            capacity = get_config(lg, "traj_capacity"),
-            state = Vector{Float32} => ns,
+        trajectory=CircularArraySARTTrajectory(
+            capacity=get_config(lg, "traj_capacity"),
+            state=Vector{Float32} => ns,
         ),
     )
 
@@ -207,10 +209,10 @@ function RL.Experiment(
                     KL, H, S, L, Q = p["KL"], p["H"], p["S"], p["𝐿"], p["Q"]
                     B_var, QA, s = p["B_var"], p["QA"], p["s"]
                     @info "training" KL = KL H = H S = S L = L Q = Q B_var = B_var QA = QA s = s
-                    
+
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
-                    
+
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
                     # sul = sum(abs.(last_layer)) / length(last_layer)
@@ -222,7 +224,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n = 50) do t, agent, env
+        DoEveryNEpisode(n=50) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -234,7 +236,7 @@ function RL.Experiment(
             s = @elapsed run(
                 p,
                 env,
-                StopAfterEpisode(100; is_show_progress = false),
+                StopAfterEpisode(100; is_show_progress=false),
                 h,
             )
             avg_score = mean(h[1].rewards[1:end-1])

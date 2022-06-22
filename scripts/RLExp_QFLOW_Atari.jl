@@ -29,7 +29,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:DUQNS},
+    ::Val{:QFLOW},
     ::Val{:Atari},
     name;
     restore=nothing
@@ -39,13 +39,13 @@ function RL.Experiment(
     SET UP LOGGING
     """
     lg = WandbLogger(project="RLExp",
-        name="DUQNS_Atari($name)",
+        name="Noisy_Atari($name)",
         config=Dict(
-            "B_lr" => 0.0001,
+            "B_lr" => 1e-4,
             "Q_lr" => 1,
-            "B_clip_norm" => 10_000,
+            "B_clip_norm" => 10,
             "B_update_freq" => 1,
-            "Q_update_freq" => 1_000,
+            "Q_update_freq" => 8_000,
             "B_opt" => "ADAM",
             "gamma" => 0.99f0,
             "update_horizon" => 1,
@@ -53,17 +53,13 @@ function RL.Experiment(
             "min_replay_history" => 10_000,
             "updates_per_step" => 1,
             "λ" => 1,
-            "prior" => "FlatPrior()",
-            #    "prior" => "GaussianPrior(0, 10)",
-            "n_samples" => 100,
-            "η" => 0.95,
-            "nev" => 6,
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
+            "N_H" => 16,
         ),
     )
-    save_dir = datadir("sims", "DUQNS", "Atari($name)", "$(now())")
+    save_dir = datadir("sims", "Noisy", "Atari($name)", "$(now())")
     mkpath(save_dir)
 
     """
@@ -88,13 +84,14 @@ function RL.Experiment(
     )
     N_ACTIONS = length(action_space(env))
 
+    N_H = get_config(lg, "N_H")
     if restore === nothing
         """
         CREATE MODEL
         """
         initc = glorot_uniform(rng)
-        init(a, b) = (2 .* rand(rng, Float32, a, b) .- 1) ./ Float32(sqrt(b))
-        init_σ(dims...) = fill(0.05f0 / Float32(sqrt(dims[end])), dims)
+        init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
+        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
         B_model = Chain(
             x -> x ./ 255,
@@ -103,9 +100,9 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ=init, init_σ=init_σ),
-            Split(
+            QSplit(
                 NoisyDense(512, N_ACTIONS; init_μ=init, init_σ=init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ=init, init_σ=init_σ),
+                NoisyDense(512, N_H * N_ACTIONS; init_μ=init, init_σ=init_σ),
             ),
         ) |> gpu
 
@@ -116,23 +113,32 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             NoisyDense(11 * 11 * 64, 512, relu; init_μ=init, init_σ=init_σ),
-            Split(
+            QSplit(
                 NoisyDense(512, N_ACTIONS; init_μ=init, init_σ=init_σ),
-                NoisyDense(512, N_ACTIONS; init_μ=init, init_σ=init_σ),
+                NoisyDense(512, N_H * N_ACTIONS; init_μ=init, init_σ=init_σ),
             ),
         ) |> gpu
 
-        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
+        flow = PlanarFlow(
+            [
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            PlanarLayer(N_H),
+            # PlanarLayer(8),
+            # PlanarLayer(8),
+        ]
+        ) |> gpu
 
         """
         CREATE AGENT
         """
+        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
         # B_opt = ADAM(6.25e-5, (0.4, 0.5))
-        prior = eval(Meta.parse(get_config(lg, "prior")))
 
         agent = Agent(
             policy=QBasedPolicy(
-                learner=DUQNSLearner(
+                learner=QFLOWLearner(
                     B_approximator=NeuralNetworkApproximator(
                         model=B_model,
                         optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -140,6 +146,8 @@ function RL.Experiment(
                     Q_approximator=NeuralNetworkApproximator(
                         model=Q_model
                     ),
+                    stack_size=N_FRAMES,
+                    flow=flow,
                     Q_lr=get_config(lg, "Q_lr"),
                     γ=get_config(lg, "gamma"),
                     update_horizon=get_config(lg, "update_horizon"),
@@ -147,14 +155,7 @@ function RL.Experiment(
                     min_replay_history=get_config(lg, "min_replay_history"),
                     B_update_freq=get_config(lg, "B_update_freq"),
                     Q_update_freq=get_config(lg, "Q_update_freq"),
-                    updates_per_step=get_config(lg, "updates_per_step"),
-                    λ=get_config(lg, "λ"),
-                    n_samples=get_config(lg, "n_samples"),
-                    η=get_config(lg, "η"),
-                    nev=get_config(lg, "nev"),
                     is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
-                    prior=prior,
-                    stack_size=N_FRAMES,
                 ),
                 explorer=GreedyExplorer(),
             ),
@@ -163,9 +164,9 @@ function RL.Experiment(
                 state=Matrix{Float32} => STATE_SIZE,
             ),
         )
+
     else
         agent = load(restore; agent)
-        # @load restore agent
     end
 
     """
@@ -173,7 +174,7 @@ function RL.Experiment(
     """
     EVALUATION_FREQ = 250_000
     STEP_LOG_FREQ = 1_000
-    EPISODE_LOG_FREQ = 1
+    EPISODE_LOG_FREQ = 100
     MAX_EPISODE_STEPS_EVAL = 27_000
 
     screens = []
@@ -189,13 +190,8 @@ function RL.Experiment(
         DoEveryNStep(; n=STEP_LOG_FREQ) do t, agent, env
             try
                 with_logger(lg) do
-                    p = agent.policy.learner.logging_params
-                    KL, MSE, H, S, L, Q = p["KL"], p["mse"], p["H"], p["S"], p["𝐿"], p["Q"]
-                    s = p["s"]
-                    @info "training" KL = KL MSE = MSE H = H S = S L = L Q = Q s = s log_step_increment = STEP_LOG_FREQ
-
-                    last_layer = agent.policy.learner.B_approximator.model[end].paths[1].w_ρ
-                    penultimate_layer = agent.policy.learner.B_approximator.model[end-1].w_ρ
+                    last_layer = agent.policy.learner.approximator.model[end].w_ρ
+                    penultimate_layer = agent.policy.learner.approximator.model[end-1].w_ρ
                     sul = sum(abs.(last_layer)) / length(last_layer)
                     spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
                     @info "training" sigma_penultimate_layer = spl sigma_ultimate_layer = sul log_step_increment = 0
@@ -214,7 +210,6 @@ function RL.Experiment(
         DoEveryNStep(; n=EVALUATION_FREQ) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
             jldsave(save_dir * "/model_latest.jld2"; agent)
-            # @save (save_dir * "/latest.") agent
             @info "evaluating agent at $t step..."
             p = agent.policy
 
@@ -279,5 +274,5 @@ function RL.Experiment(
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# DUQNS <-> Atari($name)")
+    Experiment(agent, env, stop_condition, hook, "# Noisy <-> Atari($name)")
 end

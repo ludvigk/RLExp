@@ -1,4 +1,4 @@
-export DUQNSLearner
+export QQFLOWLearner, FlowNetwork
 import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
@@ -7,40 +7,50 @@ using StatsBase: sample
 using Flux.Losses
 import Statistics.mean
 
-mutable struct DUQNSLearner{
+Base.@kwdef struct FlowNetwork{B,F}
+    base::B
+    flow::F
+end
+
+Flux.@functor FlowNetwork
+
+function (m::FlowNetwork)(samples::AbstractMatrix, state::AbstractMatrix; action=nothing, reverse::Bool=true)
+    h = m.base(state)
+    return m.flow(samples, h; action, reverse)
+end
+
+function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; action=nothing, reverse::Bool=true) where {T}
+    h = m.base(state)
+    return m.flow(samples, h; action, reverse)
+end
+
+mutable struct QQFLOWLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
-    P<:AbstractPrior,
     R<:AbstractRNG,
 } <: AbstractLearner
     B_approximator::Tq
     Q_approximator::Tt
-    flow
+    num_actions::Int
     Q_lr::Float32
-    prior::P
-    λ::Union{Float32,Nothing}
     min_replay_history::Int
     B_update_freq::Int
     Q_update_freq::Int
-    updates_per_step::Int
     update_step::Int
+    n_samples_act::Int
+    n_samples_target::Int
     sampler::NStepBatchSampler
     rng::R
-    sse::SpectralSteinEstimator
-    injected_noise::Float32
-    n_samples::Int
     is_enable_double_DQN::Bool
     training::Bool
     logging_params
 end
 
-function DUQNSLearner(;
+function QQFLOWLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
-    flow,
+    num_actions::Int,
     Q_lr::Real=0.01f0,
-    prior::AbstractPrior=FlatPrior(),
-    λ::Union{Real,Nothing}=1,
     stack_size::Union{Int,Nothing}=nothing,
     γ::Real=0.99f0,
     batch_size::Int=32,
@@ -48,61 +58,55 @@ function DUQNSLearner(;
     min_replay_history::Int=100,
     B_update_freq::Int=1,
     Q_update_freq::Int=1,
-    updates_per_step::Int=1,
     traces=SARTS,
     update_step::Int=0,
-    injected_noise::Real=0.01f0,
-    n_samples::Int=100,
-    η::Real=0.05f0,
-    nev::Int=10,
+    n_samples_act::Int=30,
+    n_samples_target::Int=30,
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
-) where {Tq,Tt,M}
+) where {Tq,Tt}
     sampler = NStepBatchSampler{traces}(;
         γ=Float32(γ),
         n=update_horizon,
         stack_size=stack_size,
         batch_size=batch_size
     )
-    return DUQNSLearner(
+    return QQFLOWLearner(
         B_approximator,
         Q_approximator,
-        flow,
+        num_actions,
         Float32(Q_lr),
-        prior,
-        Float32(λ),
         min_replay_history,
         B_update_freq,
         Q_update_freq,
-        updates_per_step,
         update_step,
+        n_samples_act,
+        n_samples_target,
         sampler,
         rng,
-        SpectralSteinEstimator(Float32(η), nev, 0.99f0),
-        Float32(injected_noise),
-        n_samples,
         is_enable_double_DQN,
         training,
         DefaultDict(0.0),
     )
 end
 
-Flux.functor(x::DUQNSLearner) = (B=x.B_approximator, Q=x.Q_approximator),
+Flux.functor(x::QQFLOWLearner) = (B=x.B_approximator, Q=x.Q_approximator),
 y -> begin
     x = @set x.B_approximator = y.B
     x = @set x.Q_approximator = y.Q
     x
 end
 
-function (learner::DUQNSLearner)(env)
+function (learner::QQFLOWLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    q = learner.B_approximator(s)
+    norm_samples = send_to_device(device(learner.B_approximator), randn(learner.num_actions, size(s, 2), learner.n_samples_act))
+    q = dropdims(mean(learner.B_approximator(norm_samples, s; reverse=true), dims=3), dims=3)
     vec(q) |> send_to_host
 end
 
-function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
+function RLBase.update!(learner::QQFLOWLearner, t::AbstractTrajectory)
     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
 
     learner.update_step += 1
@@ -123,22 +127,18 @@ function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
             Flux.loadparams!(Q, Bp)
         else
             p = Qp .- η .* (Qp .- Bp)
-            # for _=1:(learner.updates_per_step-1)
-            #     p = p .- η .* (p .- Bp)
-            # end
             Flux.loadparams!(Q, p)
         end
     end
 end
 
-function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
+function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     B = learner.B_approximator
     Q = learner.Q_approximator
-    sse = learner.sse
+    num_actions = learner.num_actions
+    n_samples_target = learner.n_samples_target
     γ = learner.sampler.γ
     n = learner.sampler.n
-    flow = learner.flow
-    n_samples = learner.n_samples
     batch_size = learner.sampler.batch_size
     is_enable_double_DQN = learner.is_enable_double_DQN
     D = device(Q)
@@ -146,16 +146,11 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
 
+    norm_samples = send_to_device(device(B), randn(num_actions, batch_size, n_samples_target))
     if is_enable_double_DQN
-<<<<<<< HEAD
-        # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = Q(s′)
-        # rng_B = Random.MersenneTwister(seed)
-=======
-        q_values = B(s′)
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
+        q_values = dropdims(mean(B(norm_samples, s′; reverse=true), dims=3), dims=3)
     else
-        q_values = Q(s′)
+        q_values = dropdims(mean(Q(norm_samples, s′; reverse=true), dims=3), dims=3)
     end
 
     if haskey(batch, :next_legal_actions_mask)
@@ -165,66 +160,29 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-<<<<<<< HEAD
-        q′ = @view Q(s′)[selected_actions]
-=======
-        q′ = Q(s′)
-        q′ = @inbounds q′[selected_actions]
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
-        # q′ = dropdims(q′, dims=ndims(q′))
+        q′ = dropdims(mean(Q(norm_samples, s′; reverse=true), dims=3), dims=3)
+        # q′ = @inbounds q′[]
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
+        q′ = q_values
     end
-    G = r .+ γ^n .* (1 .- t) .* q′
+    println(size(q′), size(r))
+    G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), 1) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
-<<<<<<< HEAD
-        b = @view b_all[a, :]
-        ss = @view s_all[a, :]
-        # clamp!(ss, -2, 2)
-        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
-        λ = learner.λ
-        sig = softplus.(ss)
-        𝐿 = sum(log.(sig) .+ (b .- G) .^ 2 ./ sig) / n_samples
-=======
-        b = @inbounds b_all[a, :]
-        ss = @inbounds s_all[a, :]
-        preds = flow(G)
-        # preds = G
-        # clamp!(ss, -2, 8)
-        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
-        λ = learner.λ
-        ll = (b .- preds) .^ 2
-        # ll = huber_loss(b, preds)
-        𝐿 = sum(ss .+ ll .* exp.(-ss)) .- sum(logpdf(flow, G))
-        𝐿 = 𝐿 / n_samples * batch_size
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
-
-        b_rand = reshape(b_all, :, n_samples) ## SLOW
-        b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
-
-        S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-        H = learner.prior(s, b_all) ./ (n_samples)
-
-        KL = H - S
-        # KL = 0
+        preds, sldj = B(G, s; reverse=false)
+        ll = preds[selected_actions] .^ 2 ./ 2
+        𝐿 = sum(ll) - sum(sldj)
+        𝐿 = 𝐿 / batch_size
 
         Zygote.ignore() do
-            learner.logging_params["KL"] = KL
-            learner.logging_params["H"] = H
-            learner.logging_params["S"] = S
-            learner.logging_params["s"] = sum(ss) / length(ss)
             learner.logging_params["𝐿"] = 𝐿
-            learner.logging_params["Q"] = sum(B̂) / length(B̂)
+            learner.logging_params["nll"] = sum(ll)
+            learner.logging_params["sldj"] = sum(sldj)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
-            # learner.logging_params["B_var"] = sum(var(b, dims=ndims(b)))
-            # learner.logging_params["QA"] = sum(getindex.(a, 1))
         end
 
-        return 𝐿 + KL / learner.update_step
-
-        # return 𝐿 + λ * KL / batch_size
+        return 𝐿
     end
     update!(B, gs)
 end

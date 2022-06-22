@@ -1,4 +1,4 @@
-export DUQNSLearner
+export DUQNFLearner
 import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
@@ -7,7 +7,7 @@ using StatsBase: sample
 using Flux.Losses
 import Statistics.mean
 
-mutable struct DUQNSLearner{
+mutable struct DUQNFLearner{
     Tq<:AbstractApproximator,
     Tt<:AbstractApproximator,
     P<:AbstractPrior,
@@ -34,7 +34,7 @@ mutable struct DUQNSLearner{
     logging_params
 end
 
-function DUQNSLearner(;
+function DUQNFLearner(;
     B_approximator::Tq,
     Q_approximator::Tt,
     flow,
@@ -65,7 +65,7 @@ function DUQNSLearner(;
         stack_size=stack_size,
         batch_size=batch_size
     )
-    return DUQNSLearner(
+    return DUQNFLearner(
         B_approximator,
         Q_approximator,
         flow,
@@ -88,21 +88,21 @@ function DUQNSLearner(;
     )
 end
 
-Flux.functor(x::DUQNSLearner) = (B=x.B_approximator, Q=x.Q_approximator),
+Flux.functor(x::DUQNFLearner) = (B=x.B_approximator, Q=x.Q_approximator),
 y -> begin
     x = @set x.B_approximator = y.B
     x = @set x.Q_approximator = y.Q
     x
 end
 
-function (learner::DUQNSLearner)(env)
+function (learner::DUQNFLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
     q = learner.B_approximator(s)
     vec(q) |> send_to_host
 end
 
-function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
+function RLBase.update!(learner::DUQNFLearner, t::AbstractTrajectory)
     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
 
     learner.update_step += 1
@@ -131,7 +131,7 @@ function RLBase.update!(learner::DUQNSLearner, t::AbstractTrajectory)
     end
 end
 
-function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
+function RLBase.update!(learner::DUQNFLearner, batch::NamedTuple)
     B = learner.B_approximator
     Q = learner.Q_approximator
     sse = learner.sse
@@ -147,13 +147,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     a = CartesianIndex.(a, 1:batch_size)
 
     if is_enable_double_DQN
-<<<<<<< HEAD
-        # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = Q(s′)
-        # rng_B = Random.MersenneTwister(seed)
-=======
         q_values = B(s′)
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
     else
         q_values = Q(s′)
     end
@@ -165,12 +159,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-<<<<<<< HEAD
-        q′ = @view Q(s′)[selected_actions]
-=======
         q′ = Q(s′)
         q′ = @inbounds q′[selected_actions]
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
         # q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
@@ -178,28 +168,18 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     G = r .+ γ^n .* (1 .- t) .* q′
 
     gs = gradient(params(B)) do
-        b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
-<<<<<<< HEAD
-        b = @view b_all[a, :]
-        ss = @view s_all[a, :]
-        # clamp!(ss, -2, 2)
-        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
-        λ = learner.λ
-        sig = softplus.(ss)
-        𝐿 = sum(log.(sig) .+ (b .- G) .^ 2 ./ sig) / n_samples
-=======
+        b_all, s_all, h = B(s, n_samples, rng=learner.rng) ## SLOW
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
-        preds = flow(G)
+        preds, sldj = flow(Flux.unsqueeze(G, 1), h)
         # preds = G
         # clamp!(ss, -2, 8)
         B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
         λ = learner.λ
         ll = (b .- preds) .^ 2
         # ll = huber_loss(b, preds)
-        𝐿 = sum(ss .+ ll .* exp.(-ss)) .- sum(logpdf(flow, G))
+        𝐿 = sum(ss .+ ll .* exp.(-ss)) - sum(sldj)
         𝐿 = 𝐿 / n_samples * batch_size
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
@@ -208,7 +188,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         H = learner.prior(s, b_all) ./ (n_samples)
 
         KL = H - S
-        # KL = 0
 
         Zygote.ignore() do
             learner.logging_params["KL"] = KL
@@ -222,9 +201,9 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
             # learner.logging_params["QA"] = sum(getindex.(a, 1))
         end
 
-        return 𝐿 + KL / learner.update_step
+        # return 𝐿 + KL / learner.update_step
 
-        # return 𝐿 + λ * KL / batch_size
+        return 𝐿 + λ * KL / batch_size
     end
     update!(B, gs)
 end
