@@ -286,8 +286,13 @@ vector \(\hat{\rvu}\) that satisfies \(\rvw^\top \hat{\rvu} \leq -1\).
 
 \section{Our Algorithm}
 
-We propose to use conditional normalizing flows to model the value distribution
-\(Z^\pi\) with a continous estimate.
+We propose to use conditional normalizing flows to model the value distribution,
+\(Z^\pi\), with a continous estimate.
+
+\begin{equation}
+  \mathcal{L}_{x,a}(\theta) = \KL{\hat{\T}
+  Z_{\tilde{\theta}}(x,a)}{Z_{\theta}(x,a)}
+\end{equation}
 
 \begin{figure}[ht]
 \vspace{.3in}
