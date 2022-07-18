@@ -1,0 +1,68 @@
+@InProceedings{rezende15,
+    title       = 	 {Variational Inference with Normalizing Flows},
+    author      = 	 {Rezende, Danilo and Mohamed, Shakir},
+    booktitle   = 	 {Proceedings of the 32nd International Conference on Machine Learning},
+    pages       = 	 {1530--1538},
+    year        = 	 {2015},
+    editor      = 	 {Bach, Francis and Blei, David},
+    volume      = 	 {37},
+    series      = 	 {Proceedings of Machine Learning Research},
+    address     = 	 {Lille, France},
+    month       = 	 {07--09 Jul},
+    publisher   =    {PMLR},
+    pdf         = 	 {http://proceedings.mlr.press/v37/rezende15.pdf},
+    url         = 	 {https://proceedings.mlr.press/v37/rezende15.html},
+    abstract    = 	 {The choice of the approximate posterior distribution is one of the core problems in variational inference. Most applications of variational inference employ simple families of posterior approximations in order to allow for efficient inference, focusing on mean-field or other simple structured approximations. This restriction has a significant impact on the quality of inferences made using variational methods. We introduce a new approach for specifying flexible, arbitrarily complex and scalable approximate posterior distributions. Our approximations are distributions constructed through a normalizing flow, whereby a simple initial density is transformed into a more complex one by applying a sequence of invertible transformations until a desired level of complexity is attained. We use this view of normalizing flows to develop categories of finite and infinitesimal flows and provide a unified view of approaches for constructing rich posterior approximations. We demonstrate that the theoretical advantages of having posteriors that better match the true posterior, combined with the scalability of amortized variational approaches, provides a clear improvement in performance and applicability of variational inference.}
+}
+
+@inproceedings{puterman94,
+  title={Markov Decision Processes: Discrete Stochastic Dynamic Programming},
+  author={Martin L. Puterman},
+  booktitle={Wiley Series in Probability and Statistics},
+  year={1994}
+}
+
+@book{bellman57,
+  title={Dynamic Programming},
+  author={Bellman, R. and Bellman, R.E. and Rand Corporation},
+  lccn={lc57005444},
+  series={Rand Corporation research study},
+  url={https://books.google.no/books?id=rZW4ugAACAAJ},
+  year={1957},
+  publisher={Princeton University Press}
+}
+
+@article{watkins89,
+  abstract = {Q-learning (Watkins, 1989) is a simple way for agents to learn how to act optimally in controlled Markovian domains. It amounts to an incremental method for dynamic programming which imposes limited computational demands. It works by successively improving its evaluations of the quality of particular actions at particular states.},
+  added-at = {2020-01-01T20:16:30.000+0100},
+  author = {Watkins, Christopher J. C. H. and Dayan, Peter},
+  biburl = {https://www.bibsonomy.org/bibtex/2416ac9f845c6ccea5a7eacee4dedead8/lanteunis},
+  day = 01,
+  doi = {10.1007/BF00992698},
+  interhash = {a4436f9e14335d677f156049cb798253},
+  intrahash = {416ac9f845c6ccea5a7eacee4dedead8},
+  issn = {1573-0565},
+  journal = {Machine Learning},
+  keywords = {DRLAlgoComparison q-learning reinforcement_learning},
+  month = may,
+  number = 3,
+  pages = {279--292},
+  timestamp = {2020-01-01T20:16:30.000+0100},
+  title = {Q-learning},
+  url = {https://doi.org/10.1007/BF00992698},
+  volume = 8,
+  year = 1989
+}
+
+@inproceedings{bellmare17,
+author = {Bellemare, Marc G. and Dabney, Will and Munos, R\'{e}mi},
+title = {A Distributional Perspective on Reinforcement Learning},
+year = {2017},
+publisher = {JMLR.org},
+abstract = {In this paper we argue for the fundamental importance of the value distribution: the distribution of the random return received by a reinforcement learning agent. This is in contrast to the common approach to reinforcement learning which models the expectation of this return, or value. Although there is an established body of literature studying the value distribution, thus far it has always been used for a specific purpose such as implementing risk-aware behaviour. We begin with theoretical results in both the policy evaluation and control settings, exposing a significant distributional instability in the latter. We then use the distributional perspective to design a new algorithm which applies Bellman's equation to the learning of approximate value distributions. We evaluate our algorithm using the suite of games from the Arcade Learning Environment. We obtain both state-of-the-art results and anecdotal evidence demonstrating the importance of the value distribution in approximate reinforcement learning. Finally, we combine theoretical and empirical evidence to highlight the ways in which the value distribution impacts learning in the approximate setting.},
+booktitle = {Proceedings of the 34th International Conference on Machine Learning - Volume 70},
+pages = {449–458},
+numpages = {10},
+location = {Sydney, NSW, Australia},
+series = {ICML'17}
+}

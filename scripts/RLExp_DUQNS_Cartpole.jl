@@ -41,32 +41,6 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-<<<<<<< HEAD
-                        "B_lr" => 1e-3,
-                        "Q_lr" => 0.1,
-                        "B_clip_norm" => 10.0,
-                        "B_update_freq" => 1,
-                        "Q_update_freq" => 1,
-                        "B_opt" => "ADAM",
-                        "gamma" => 0.99,
-                        "update_horizon" => 1,
-                        "batch_size" => 32,
-                        "min_replay_history" => 32,
-                        "updates_per_step" => 1,
-                        "λ" => 0.99,
-                        # "prior" => "GaussianPrior(200, 100)",
-                        # "prior" => "CartpolePrior(1)",
-                        "prior" => "FlatPrior()",
-                        # "prior" => "KernelPrior()",
-                        "n_samples" => 100,
-                        "η" => 0.01,
-                        "nev" => 6,
-                        "n_eigen_threshold" => 0.99,
-                        "is_enable_double_DQN" => true,
-                        "traj_capacity" => 1_000,
-                        "seed" => 1,
-                     )
-=======
             "B_lr" => 1e-3,
             "Q_lr" => 1,
             "B_clip_norm" => 10.0,
@@ -91,7 +65,6 @@ function RL.Experiment(
             "traj_capacity" => 100_000,
             "seed" => 1,
         )
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
     end
 
     lg = WandbLogger(project="BE",
@@ -135,19 +108,11 @@ function RL.Experiment(
         # ) |> gpu
 
         B_model = Chain(
-<<<<<<< HEAD
-            NoisyDense(ns, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(128, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            Split(
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-=======
             NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             Split(
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
             ),
         ) |> gpu
 
@@ -161,19 +126,11 @@ function RL.Experiment(
         # ) |> gpu
 
         Q_model = Chain(
-<<<<<<< HEAD
-            NoisyDense(ns, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            NoisyDense(128, 128, selu; init_μ = init, init_σ = init_σ, rng = device_rng),
-            Split(
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-                NoisyDense(128, na; init_μ = init, init_σ = init_σ, rng = device_rng),
-=======
             NoisyDense(ns, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             NoisyDense(128, 128, selu; init_μ=init, init_σ=init_σ, rng=device_rng),
             Split(
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
                 NoisyDense(128, na; init_μ=init, init_σ=init_σ, rng=device_rng),
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
             ),
         ) |> gpu
 

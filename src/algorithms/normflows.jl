@@ -1,64 +1,181 @@
 using Flux
 using Zygote
+using MLUtils
+using Setfield
+using NNlib
+using DataStructures: counter
+
 # using DataFrames
 # using SyntheticDatasets
 # using Plots
 # using StatsPlots
 # using ProgressMeter
 
-import Distributions: logpdf
-
-export UvPlanar
 export CouplingLayer, ConditionalCouplingLayer
 export ConditionalRealNVP, RealNVP
 export PlanarLayer, PlanarFlow
+export FlowNorm
+export Flow
 
-struct UvPlanar
-    u
-    w
-    b
-end
-
-Flux.@functor UvPlanar
-Flux.trainable(f::UvPlanar) = (f.u, f.w)
-
-tanh_prime(x) = 1 - tanh(x)^2
-
-function (f::UvPlanar)(x)
-    return x .+ f.u .* tanh.(f.w .* x .+ b)
-end
-
-function logpdf(f, x)
-    return log.(abs.(1 .+ f.u .* tanh_prime.(f.w .* x .+ b) .* f.w) .+ 1.0f-6)
-end
+tanh_prime(x) = 1 - tanh_fast(x) ^ 2
 
 struct PlanarLayer
-    u
-    w
-    b
-    f
-    f_prime
+    net
+    neg_slope
 end
 
 Flux.@functor PlanarLayer
-Flux.trainable(f::PlanarLayer) = (f.u, f.w, fb)
 
-function PlanarLayer(h_size)
-    u = glorot_uniform(1, 1)
-    w = glorot_uniform(1, h_size)
-    b = glorot_uniform(1, 1)
-    f = tanh
-    f_prime = tanh_prime
-    return PlanarLayer(u, w, b, f, f_prime)
+function PlanarLayer(in::Int, h_size::Int, h_dims::Int)
+    net = Chain(
+        Dense(h_size, h_dims, leakyrelu),
+        Dense(h_dims, h_dims, leakyrelu),
+        Dense(h_dims, 3 * in),
+    )
+    return PlanarLayer(net, 0.2f0)
 end
 
-function (l::PlanarLayer)(x, h; reverse=true)
-    wh = l.w * h
-    fwb = wh .* x #.+ l.b
-    x = x .+ l.u .* l.f.(fwb)
-    sldj = log.(abs.(1 .+ l.f_prime.(fwb) .* wh .* l.u))
+function (l::PlanarLayer)(x, h)
+    m(x) = -1 + log(1 + exp(x))
+    w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
+    u, w = tanh_fast.(u), tanh_fast.(w)
+    # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-5) ./ (abs2.(w) .+ 1f-5)
+    f(x) = x .+ u .* tanh_fast.(w .* x .+ b)
+    ψ(x) = tanh_prime.(w .* x .+ b) .* w
+    f′(x) = 1 .+ u .* ψ(x)
+    x = f(x)
+    return x, log.(abs.(f′(x)))
+end
+
+function inverse(l::PlanarLayer, x, h)
+    m(x) = -1 + log(1 + exp(x))
+    w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
+    u, w = tanh_fast.(u), tanh_fast.(w)
+    # if any(w .* u .<= -1)
+    # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-5) ./ (abs2.(w) .+ 1f-5)
+    # end
+    f(x) = x .+ u .* tanh_fast.(w .* x .+ b)
+    ψ(x) = tanh_prime.(w .* x .+ b) .* w
+    f′(x) = 1 .+ u .* ψ(x)
+
+    x_inv_new = similar(x)
+    x_inv_new .= x .- sign.(w) .* u
+    x_diff = Inf
+    wtx = w .* x
+    wtu = w .* u
+    for _ = 1:10
+        x_inv = x_inv_new
+        fx = x_inv .+ wtu .* tanh_fast.(x_inv .+ b) .- wtx
+        fx′ = 1 .+ wtu .* tanh_prime.(x_inv .+ b)
+        x_inv_new = x_inv .- fx ./ (fx′ .+ 1f-6)
+        x_diff = maximum(abs, x_inv .- x_inv_new)
+        if x_diff < 1f-4
+            break
+        end
+    end
+    return x .- u .* tanh_fast.(x_inv_new .+ b), 0f0
+end
+
+# struct ScaleAndShiftLayer
+#     net
+# end
+
+# Flux.@functor ScaleAndShiftLayer
+
+# function (l::ScaleAndShiftLayer)(x, h)
+#     μ, ρ = 
+# end
+
+struct Flow
+    layers
+end
+
+Flux.@functor Flow
+
+function (f::Flow)(x, h)
+    sldj = Zygote.@ignore similar(x)
+    Zygote.@ignore fill!(sldj, 0)
+    for layer in f.layers
+        x, sldj_ = layer(x, h)
+        sldj = sldj .+ sldj_
+    end
     return x, sldj
 end
+
+function inverse(f::Flow, x, h)
+    sldj = Zygote.@ignore similar(x)
+    Zygote.@ignore fill!(sldj, 0)
+    for layer in Base.reverse(f.layers)
+        x, sldj_ = inverse(layer, x, h)
+        sldj = sldj .+ sldj_
+    end
+    return x, sldj
+end
+
+# function (r::Flow)(x, h::AbstractArray{T,3}, a; reverse=false) where {T}
+#     if reverse
+#         for layer in r.coupling_layers
+#             x = layer(x, h; action=a, reverse)
+#         end
+#         return x
+#     else
+#         sldj = Zygote.@ignore similar(x, size(x, 2))
+#         Zygote.@ignore fill!(sldj, zero(eltype(x)))
+#         for layer in Base.reverse(r.coupling_layers)
+#             x, sldj = layer(x, h, sldj; action=a, reverse)
+#         end
+#         return x, sldj
+#     end
+# end
+
+# function PlanarLayer(in::Int, h_size::Int, h_dims::Int)
+#     net = Chain(
+#         Dense(h_size, h_dims, leakyrelu),
+#         Dense(h_dims, h_dims, leakyrelu),
+#         Dense(h_dims, 3 * in),
+#     )
+#     f = tanh
+#     f_prime = tanh_prime
+#     return PlanarLayer(net, f, f_prime)
+# end
+
+# function (l::PlanarLayer)(x, h, sldj=nothing; action=nothing, reverse=true)
+#     m(x) = -1 + log(1 + exp(x))
+#     w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
+
+#     # if any(w .* u .<= -1)
+#     u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-5) ./ (abs2.(w) .+ 1f-5)
+#     # end
+#     f(x) = x .+ u .* tanh_fast.(w .* x .+ b)
+#     ψ(x) = tanh_prime.(w .* x .+ b) .* w
+#     f′(x) = 1 .+ u .* ψ(x)
+#     if reverse
+#         x_inv_new = similar(x)
+#         x_inv_new .= x .- sign.(w) .* u
+#         x_diff = Inf
+#         wtx = w .* x
+#         wtu = w .* u
+#         for _ = 1:30
+#             x_inv = x_inv_new
+#             fx = x_inv .+ wtu .* tanh_fast.(x_inv .+ b) .- wtx
+#             fx′ = 1 .+ wtu .* tanh_prime.(x_inv .+ b)
+#             x_inv_new = x_inv .- fx ./ fx′
+#             x_diff = maximum(abs, x_inv .- x_inv_new)
+#             if x_diff < 1f-4
+#                 break
+#             end
+#         end
+#         return x .- u .* tanh_fast.(x_inv_new .+ b)
+#     else
+#         x = f(x)
+#         if isnothing(action)
+#             sldj += sum(log.(abs.(f′(x))))
+#         else
+#             sldj += sum(log.(abs.(f′(x)))[action, :])
+#         end
+#         return x, sldj
+#     end
+# end
 
 struct PlanarFlow
     layers
@@ -143,38 +260,40 @@ end
 Flux.@functor ConditionalCouplingLayer
 Flux.trainable(c::ConditionalCouplingLayer) = (c.net, c.rescale)
 
+ConditionalCouplingLayer(in::Int, cond::Int, hidden::Int) = ConditionalCouplingLayer(in, cond, hidden, nothing)
+
 function ConditionalCouplingLayer(in::Int, cond::Int, hidden::Int, mask)
     net = Chain(
-        Dense(in + cond, hidden, leakyrelu),
+        Dense(cond, hidden, leakyrelu),
         Dense(hidden, hidden, leakyrelu),
-        Split(
-            Dense(hidden, in, tanh),
-            Dense(hidden, in),
-        ),
+        Dense(hidden, 2in),
     )
     return ConditionalCouplingLayer(mask, net, RescaleLayer(in))
 end
 
 function (c::ConditionalCouplingLayer)(x, h::AbstractMatrix{T}, sldj=nothing; action=nothing, reverse=true) where {T}
-    x_ = x .* c.mask
-    x_h_ = vcat(x_, h)
-    s, t = c.net(x_h_)
+    x_ = x
+    x_h_ = h
+    s, t = MLUtils.chunk(c.net(x_h_), 2, dims=1)
+    # s = tanh.(s)
 
-    s = c.rescale(s)
-    s = s .* (1 .- c.mask)
-    t = t .* (1 .- c.mask)
+    # s = c.rescale(s)
+    # s = s .* (1 .- c.mask)
+    # t = t .* (1 .- c.mask)
 
     if reverse
-        inv_exp_s = exp.(-s)
-        x = x .* inv_exp_s - t
+        # inv_exp_s = exp.(-s)
+        # x = x .* inv_exp_s .- t
+        x = x .- t
         return x
     else
-        x = (x .+ t) .* exp.(s)
-        if isnothing(action)
-            sldj += dropdims(sum(s, dims=1), dims=1)
-        else
-            sldj += s[action, :]
-        end
+        x = (x .+ t)
+        # x = (x .+ t) .* exp.(s)
+        # if isnothing(action)
+        #     sldj = sldj + sum(s)
+        # else
+        #     sldj = sldj + sum(s[action, :])
+        # end
         return x, sldj
     end
 end
@@ -194,28 +313,32 @@ function (c::ConditionalCouplingLayer)(x::AbstractMatrix, h::AbstractArray{T,3},
 end
 
 function (c::ConditionalCouplingLayer)(x::AbstractArray{T,3}, h::AbstractArray{T,3}, sldj=nothing; action=nothing, reverse=true) where {T}
-    x_ = x .* c.mask
-    x_h_ = cat(x_, h, dims=1)
-    s, t = c.net(x_h_)
+    x_ = x
+    x_h_ = h
+    s, t = MLUtils.chunk(c.net(x_h_), 2, dims=1)
+    # s = tanh.(s)
 
-    s = c.rescale(s)
-    s = s .* (1 .- c.mask)
-    t = t .* (1 .- c.mask)
+    # s = c.rescale(s)
+    # s = s .* (1 .- c.mask)
+    # t = t .* (1 .- c.mask)
 
     if reverse
-        inv_exp_s = exp.(-s)
-        x = x .* inv_exp_s - t
+        # inv_exp_s = exp.(-s)
+        x = x .- t
+        # x = x .* inv_exp_s - t
         return x
     else
-        x = (x .+ t) .* exp.(s)
-        if isnothing(action)
-            sldj += dropdims(sum(s, dims=1), dims=1)
-        else
-            sldj += s[action, :]
-        end
+        x = (x .+ t)
+        # x = (x .+ t) .* exp.(s)
+        # if isnothing(action)
+        #     sldj = sldj + sum(s)
+        # else
+        #     sldj = sldj + sum(s[action, :])
+        # end
         return x, sldj
     end
 end
+
 
 ## Real-NVP
 
@@ -232,10 +355,9 @@ function (r::RealNVP)(x; reverse=false)
         end
         return x
     else
-        sldj = Zygote.@ignore similar(x, size(x, 2))
-        Zygote.@ignore fill!(sldj, zero(eltype(x)))
+        sldj = 0f0
         for layer in Base.reverse(r.coupling_layers)
-            x, sldj = layer(x, sldj; reverse)
+            x, sldj = layer(x; reverse)
         end
         return x, sldj
     end
@@ -247,77 +369,137 @@ end
 
 Flux.@functor ConditionalRealNVP
 
-function (r::ConditionalRealNVP)(x, h::AbstractMatrix; action=nothing, reverse=false)
+function (r::ConditionalRealNVP)(x, h::AbstractMatrix, a; reverse=false)
     if reverse
         for layer in r.coupling_layers
-            x = layer(x, h; reverse)
+            x = layer(x, h; action=a, reverse=reverse)
+        end
+        return x
+    else
+        sldj = 0f0
+        for layer in Base.reverse(r.coupling_layers)
+            x, sldj = layer(x, h, sldj; action=a, reverse=reverse)
+        end
+        return x, sldj
+    end
+end
+
+function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}, a; reverse=false) where {T}
+    if reverse
+        for layer in r.coupling_layers
+            x = layer(x, h; action=a, reverse)
         end
         return x
     else
         sldj = Zygote.@ignore similar(x, size(x, 2))
         Zygote.@ignore fill!(sldj, zero(eltype(x)))
         for layer in Base.reverse(r.coupling_layers)
-            x, sldj = layer(x, h, sldj; action, reverse)
+            x, sldj = layer(x, h, sldj; action=a, reverse)
+            println(sldj)
         end
         return x, sldj
     end
 end
 
-function (r::ConditionalRealNVP)(x, h::AbstractArray{T,3}; action=nothing, reverse=false) where {T}
+struct FlowNorm
+    beta
+    gamma
+    train_m
+    train_s
+    decay
+    ϵ
+end
+
+Flux.@functor FlowNorm
+Flux.trainable(f::FlowNorm) = (f.beta, f.gamma)
+
+function FlowNorm(n, decay=0.95f0)
+    return FlowNorm(glorot_uniform(n),
+                    glorot_uniform(n),
+                    zeros(n),
+                    ones(n),
+                    Float32(decay),
+                    1f-6)
+end
+
+function (a::FlowNorm)(x, h, sldj=nothing; action=nothing, reverse=false)
     if reverse
-        for layer in r.coupling_layers
-            x = layer(x, h; reverse)
-        end
-        return x
+        z = (x .- a.beta) .* exp.(-a.gamma) .* (a.train_s .+ a.ϵ) .+ a.train_m
+        return z
     else
-        sldj = Zygote.@ignore similar(x, size(x, 2), size(h, 3))
-        Zygote.@ignore fill!(sldj, zero(eltype(x)))
-        for layer in Base.reverse(r.coupling_layers)
-            x, sldj = layer(x, h, sldj; action, reverse)
+        m = Zygote.@ignore sum(x, dims=2) ./ size(x, 2)
+        s = Zygote.@ignore std(x, dims=2)
+        Zygote.ignore() do 
+            @set a.train_m = a.train_m - a.decay .* (a.train_m .- m)
+            @set a.train_s = a.train_s - a.decay .* (a.train_s .- s)
         end
-        return x, sldj
+        z = (x .- m) ./ (s .+ a.ϵ) .* exp.(a.gamma) .+ a.beta
+        if isnothing(action)
+            sldj = sldj + sum(a.gamma .- log.(s .+ a.ϵ))
+        else
+            bs = length(action)
+            s = repeat(s, 1, bs)[action]
+            gamma = repeat(s, 1, bs)[action]
+            sldj = sldj + sum(gamma .- log.(s .+ a.ϵ))
+        end
+        return z, sldj
     end
 end
-
-# struct ConditionalBatchNorm
-#     eps
-#     decay
-#     beta
-#     gamma
-#     mean
-#     var
-# end
-
-# ConditionalBatchNorm(eps=1f-5, decay=0.95f0) = ConditionalBatchNorm(eps, decay, )
 
 # function main()
 
-#     moons = SyntheticDatasets.make_moons(n_samples=100; noise=0.05)
+#     moons = SyntheticDatasets.make_blobs(n_samples = 200, 
+#     n_features = 2,
+#     centers = [-1 1; -0.5 0.5], 
+#     cluster_std = 0.1,
+#     center_box = (-2.0, 2.0), 
+#     shuffle = true,
+#     random_state = nothing)
 #     data = Matrix(moons[:, 1:2])'
 
 #     DTYPE = Float32
 #     # dist = MvNormal(zeros(DTYPE, 2), ones(DTYPE, 2))
 
-#     loss(td, data) = -mean(logpdf_forward(td, data))
+#     # loss(td, data) = -mean(logpdf_forward(td, data))
 
-#     coupling_layers = [
-#         ConditionalCouplingLayer(2, 1, 100, [0, 1]),
-#         ConditionalCouplingLayer(2, 1, 100, [1, 0]),
-#         ConditionalCouplingLayer(2, 1, 100, [0, 1]),
-#         ConditionalCouplingLayer(2, 1, 100, [1, 0]),
+#     layers = [
+#         PlanarLayer(2, 1, 32),
+#         PlanarLayer(2, 1, 32),
+#         PlanarLayer(2, 1, 32),
+#         PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
+#         # PlanarLayer(2, 1, 32),
 #     ]
-#     rnvp = ConditionalRealNVP(coupling_layers)
+#     rnvp = Flow(layers)
 
 #     function loss(model, data)
 #         action = [
 #             CartesianIndex(rand(1:2), i) for i = 1:size(data, 2)
 #         ]
-#         x, sldj = model(data, rand(1, size(data, 2)); action)
-#         nll = sum(x[action] .^ 2) / 2 - sum(sldj)
+#         x, sldj = model(data, ones(1, size(data, 2)))
+#         nll = sum(x[action] .^ 2) / 2 - sum(sldj[action])
 #         return nll / size(data, 2)
 #     end
 
-#     opt = ADAM(0.0003)
+#     opt = ADAM(0.0001)
 #     function nf_train(td, data, opt, ps, epochs; batchsize=100)
 #         p = Progress(epochs, 1)
 #         for i ∈ 1:epochs
@@ -335,7 +517,7 @@ end
 #     nf_train(rnvp, data, opt, Flux.params(rnvp), 5000)
 #     # contour(-2:0.1:3, -2:0.1:2, (x, y) -> pdf(td, [x, y]), fill=true)
 #     # samples = rand(td, 100)
-#     samples = rnvp(randn(2, 100), rand(1, 100), reverse=true)
+#     samples = inverse(rnvp, randn(2, 300), ones(1, 300))[1]
 #     @df moons scatter(:feature_1, :feature_2)
 #     scatter!(samples[1, :], samples[2, :])
 # end

@@ -21,7 +21,7 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     using DrWatson
     using RLExp
     using Random
-    include("RLExp_QFLOW_Atari.jl")
+    include("RLExp_QQFLOW_Atari.jl")
 end
 
-run(E`RLExp_QFLOW_Atari(pong)`)
+run(E`RLExp_QQFLOW_Atari(breakout)`)

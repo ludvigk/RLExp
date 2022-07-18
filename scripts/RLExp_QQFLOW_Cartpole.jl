@@ -13,6 +13,7 @@ using Random
 using ReinforcementLearning
 using Setfield
 using Statistics
+using StatsPlots
 using Wandb
 using Zygote
 
@@ -41,14 +42,14 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-            "B_lr" => 1e-4,
+            "B_lr" => 5e-5,
             "Q_lr" => 1,
-            "B_clip_norm" => 10.0,
+            "B_clip_norm" => 1.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 4,
+            "hidden_dim" => 32,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -92,29 +93,49 @@ function RL.Experiment(
 
         hidden_dim = get_config(lg, "hidden_dim")
 
-        flow_B = ConditionalRealNVP(
+        flow_B = Flow(
             [
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                # PlanarLayer(na, hidden_dim, 32),
+                # PlanarLayer(na, hidden_dim, 32),
         ]
         )
 
-        flow_Q = ConditionalRealNVP(
+        flow_Q = Flow(
             [
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 0 for i = 1:na]),
-            # ConditionalCouplingLayer(na, hidden_dim, 32, [i % 2 == 1 for i = 1:na]),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                PlanarLayer(na, hidden_dim, 32),
+                # PlanarLayer(na, hidden_dim, 32),
+                # PlanarLayer(na, hidden_dim, 32),
         ]
         )
 
@@ -123,7 +144,12 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, hidden_dim, tanh)),
+                    Dense(ns, 128, leakyrelu),
+                    Dense(128, hidden_dim, leakyrelu),
+                ),
+                prior=Chain(Dense(hidden_dim, 32),
+                            Dense(32, 2na)
+                ),
                 flow=flow_B,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
@@ -132,7 +158,12 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, hidden_dim, tanh)),
+                    Dense(ns, 128, leakyrelu),
+                    Dense(128, hidden_dim, leakyrelu),
+                ),
+                prior=Chain(Dense(hidden_dim, 32),
+                            Dense(32, 2na)
+                ),
                 flow=flow_Q,
             ),
         ) |> gpu
@@ -187,8 +218,10 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-                    L, nll, sldj, Qt = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"]
-                    @info "training" L = L nll = nll sldj = sldj Qt = Qt
+                    L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
+                    Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
+                    min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"],p["max_pred"]
+                    @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
 
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
                     # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
@@ -202,6 +235,17 @@ function RL.Experiment(
             end
         end,
         DoEveryNEpisode() do t, agent, env
+            try
+                with_logger(lg) do
+                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                    @info "training" episode = t log_step_increment = 0
+                end
+            catch
+                close(lg)
+                stop("Program most likely terminated through WandB interface.")
+            end
+        end,
+        DoEveryNEpisode(n=100) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -228,14 +272,25 @@ function RL.Experiment(
                 close(lg)
                 stop("Program most likely terminated through WandB interface.")
             end
+
+            @info "Saving agent at step $t to $save_dir"
+            env = CartPoleEnv(; T=Float32)
+            s = Flux.unsqueeze(env.state, 2) |> gpu
+            samples = agent.policy.learner.B_approximator(s, 500)[1] |> cpu
+            p = plot()
+            for action in 1:size(samples, 1)
+                density!(samples[action, 1, :], c=action, label="action $(action)")
+                vline!([mean(samples[action, 1, :])], c=action, label=false)
+            end
+            Plots.savefig(p, save_dir * "/qdistr_$(t).png")
         end,
-        DoEveryNEpisode(n=100) do t, agent, env
+        DoEveryNEpisode(n=5000) do t, agent, env
             @info "Saving agent at step $t to $save_dir"
             jldsave(save_dir * "/model_$t.jld2"; agent)
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(30_000, is_show_progress=true)
+    stop_condition = StopAfterStep(300_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

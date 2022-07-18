@@ -147,13 +147,7 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
     a = CartesianIndex.(a, 1:batch_size)
 
     if is_enable_double_DQN
-<<<<<<< HEAD
-        # q_values = B(s′, n_samples, rng = rng_B)
-        q_values = Q(s′)
-        # rng_B = Random.MersenneTwister(seed)
-=======
         q_values = B(s′)
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
     else
         q_values = Q(s′)
     end
@@ -165,12 +159,8 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     if is_enable_double_DQN
         selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-<<<<<<< HEAD
-        q′ = @view Q(s′)[selected_actions]
-=======
         q′ = Q(s′)
         q′ = @inbounds q′[selected_actions]
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
         # q′ = dropdims(q′, dims=ndims(q′))
     else
         q′ = dropdims(maximum(q_values; dims=1); dims=1)
@@ -179,15 +169,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         b_all, s_all = B(s, n_samples, rng=learner.rng) ## SLOW
-<<<<<<< HEAD
-        b = @view b_all[a, :]
-        ss = @view s_all[a, :]
-        # clamp!(ss, -2, 2)
-        B̂ = dropdims(sum(b, dims=ndims(b)) / size(b, ndims(b)), dims=ndims(b))
-        λ = learner.λ
-        sig = softplus.(ss)
-        𝐿 = sum(log.(sig) .+ (b .- G) .^ 2 ./ sig) / n_samples
-=======
         b = @inbounds b_all[a, :]
         ss = @inbounds s_all[a, :]
         preds = flow(G)
@@ -199,7 +180,6 @@ function RLBase.update!(learner::DUQNSLearner, batch::NamedTuple)
         # ll = huber_loss(b, preds)
         𝐿 = sum(ss .+ ll .* exp.(-ss)) .- sum(logpdf(flow, G))
         𝐿 = 𝐿 / n_samples * batch_size
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
 
         b_rand = reshape(b_all, :, n_samples) ## SLOW
         b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)

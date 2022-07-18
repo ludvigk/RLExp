@@ -152,13 +152,9 @@ function RLBase.update!(learner::DUQNLearner, batch::NamedTuple)
     else
         q_values = Q(s′, n_samples)
     end
-<<<<<<< HEAD
-    [Random.shuffle!(@view q_values[i,j,:]) for i=1:size(q_values, 1) for j=1:size(q_values,2)]
-=======
     # q_values = cpu(q_values)
     # [Random.shuffle!(@view q_values[i, j, :]) for i = 1:size(q_values, 1), j = 1:size(q_values, 2)]
     # q_values = gpu(q_values)
->>>>>>> b0b5e96c0ca9b9c1160c5a9ad788b63568211c42
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])

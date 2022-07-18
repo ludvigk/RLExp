@@ -5,23 +5,71 @@ using DataStructures: DefaultDict
 using Distributions: Uniform, Product
 using StatsBase: sample
 using Flux.Losses
+using CUDA: randn
+using MLUtils
 import Statistics.mean
 
-Base.@kwdef struct FlowNetwork{B,F}
+Base.@kwdef struct FlowNetwork{P,B,F}
     base::B
+    prior::P
     flow::F
 end
 
 Flux.@functor FlowNetwork
 
-function (m::FlowNetwork)(samples::AbstractMatrix, state::AbstractMatrix; action=nothing, reverse::Bool=true)
+function (m::FlowNetwork)(state::AbstractMatrix; inv::Bool=true)
     h = m.base(state)
-    return m.flow(samples, h; action, reverse)
+    p = m.prior(h)
+    μ, ρ = MLUtils.chunk(p, 2, dims=1)
+    σ = softplus.(ρ)
+    σ = clamp.(σ, 1f-4, 1000)
+    # samples = μ .+ randn!(similar(μ)) .* σ
+    samples = randn!(similar(μ))
+    # x1 = rand!(similar(μ))
+    # x2 = rand!(similar(μ))
+    # samples = μ .+ log.(x1 ./ x2) .* σ
+    if inv
+        preds, sldj = inverse(m.flow, samples, h)
+        preds = μ .+ preds .* σ
+    else
+        samples = (samples .- μ) ./ σ
+        preds, sldj = m.flow(samples, h)
+    end
+    return preds, sldj
 end
 
-function (m::FlowNetwork)(samples::AbstractArray{T,3}, state::AbstractMatrix; action=nothing, reverse::Bool=true) where {T}
+function (m::FlowNetwork)(state::AbstractArray, num_samples::Int; inv::Bool=true)
     h = m.base(state)
-    return m.flow(samples, h; action, reverse)
+    p = m.prior(h)
+    μ, ρ = MLUtils.chunk(p, 2, dims=1)
+    σ = softplus.(ρ)
+    σ = clamp.(σ, 1f-4, 1000)
+    # samples = μ .+ randn!(similar(μ, size(μ)..., num_samples)) .* σ
+    samples = randn!(similar(μ, size(μ)..., num_samples))
+    # x1 = rand!(similar(μ, size(μ)..., num_samples))
+    # x2 = rand!(similar(μ, size(μ)..., num_samples))
+    # samples = μ .+ log.(x1 ./ x2) .* σ
+    if inv
+        preds, sldj = inverse(m.flow, samples, h)
+        preds = μ .+ preds .* σ
+    else
+        samples = (samples .- μ) ./ σ
+        preds, sldj = m.flow(samples, h)
+    end
+    return preds, sldj
+end
+
+function (m::FlowNetwork)(samples::AbstractArray, state::AbstractArray)
+    h = m.base(state)
+    p = m.prior(h)
+    μ, ρ = MLUtils.chunk(p, 2, dims=1)
+    σ = softplus.(ρ)
+    σ = clamp.(σ, 1f-4, 1000)
+    μ = reshape(μ, size(μ)..., 1)
+    σ = reshape(σ, size(σ)..., 1)
+    samples = (samples .- μ) ./ σ 
+    preds, sldj = m.flow(samples, h)
+    return preds, sldj, μ, σ
 end
 
 mutable struct QQFLOWLearner{
@@ -101,8 +149,7 @@ end
 function (learner::QQFLOWLearner)(env)
     s = send_to_device(device(learner.B_approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    norm_samples = send_to_device(device(learner.B_approximator), randn(learner.num_actions, size(s, 2), learner.n_samples_act))
-    q = dropdims(mean(learner.B_approximator(norm_samples, s; reverse=true), dims=3), dims=3)
+    q = dropdims(mean(learner.B_approximator(s, learner.n_samples_act)[1], dims=3), dims=3)
     vec(q) |> send_to_host
 end
 
@@ -140,46 +187,65 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     γ = learner.sampler.γ
     n = learner.sampler.n
     batch_size = learner.sampler.batch_size
-    is_enable_double_DQN = learner.is_enable_double_DQN
     D = device(Q)
 
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
 
-    norm_samples = send_to_device(device(B), randn(num_actions, batch_size, n_samples_target))
-    if is_enable_double_DQN
-        q_values = dropdims(mean(B(norm_samples, s′; reverse=true), dims=3), dims=3)
-    else
-        q_values = dropdims(mean(Q(norm_samples, s′; reverse=true), dims=3), dims=3)
-    end
+    q_values = B(s′, n_samples_target)[1]
+
+    mean_q = dropdims(mean(q_values, dims=3), dims=3)
+
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
         q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
 
-    if is_enable_double_DQN
-        selected_actions = dropdims(argmax(q_values; dims=1); dims=1)
-        q′ = dropdims(mean(Q(norm_samples, s′; reverse=true), dims=3), dims=3)
-        # q′ = @inbounds q′[]
-    else
-        q′ = dropdims(maximum(q_values; dims=1); dims=1)
-        q′ = q_values
-    end
-    println(size(q′), size(r))
-    G = Flux.unsqueeze(r .+ γ^n .* (1 .- t), 1) .* q′
+    selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
+    q_values = Q(s′, n_samples_target)[1]
+    q′ = @inbounds q_values[selected_actions, :]
+
+    G = Flux.unsqueeze(r, 2) .+ Flux.unsqueeze(γ^n .* (1 .- t), 2) .* q′
+    G = repeat(Flux.unsqueeze(G, 1), num_actions, 1, 1)
+    # G_in = similar(G, num_actions, size(G)...)
+    # fill!(G_in, 0)
+    # G_in[selected_actions] = G
+    # G = G_in
 
     gs = gradient(params(B)) do
-        preds, sldj = B(G, s; reverse=false)
-        ll = preds[selected_actions] .^ 2 ./ 2
-        𝐿 = sum(ll) - sum(sldj)
-        𝐿 = 𝐿 / batch_size
+        preds, sldj, μ, σ = B(G, s)
+        # σ = clamp.(σ, 1f-2, 1f4)
+        # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
+        ll = preds[a, :] .^ 2 ./ 2
+        # p = ((preds .- μ) ./ σ)[a,:]
+        # ll = min.(abs.(p), p .^ 2)
+        # ll = p[a,:]
+        # ll = min.(p .^ 2, p)
+        sldj = sldj[a, :]
+        𝐿 = (sum(ll) - sum(sldj)) / n_samples_target + sum(log.(σ[a, :]))
+
+        sqnorm(x) = sum(abs2, x)
+        l2norm = sum(sqnorm, Flux.params(B))
+        
+        𝐿 = 𝐿 / batch_size #+ 1f-5 * l2norm
 
         Zygote.ignore() do
             learner.logging_params["𝐿"] = 𝐿
-            learner.logging_params["nll"] = sum(ll)
-            learner.logging_params["sldj"] = sum(sldj)
+            learner.logging_params["nll"] = sum(ll) / (batch_size * n_samples_target)
+            learner.logging_params["sldj"] = sum(sldj) / (batch_size * n_samples_target)
             learner.logging_params["Qₜ"] = sum(G) / length(G)
+            learner.logging_params["QA"] = sum(selected_actions)[1] / length(selected_actions)
+            learner.logging_params["mu"] = sum(μ) / length(μ)
+            learner.logging_params["sigma"] = sum(σ[a,:]) / length(σ[a,:])
+            learner.logging_params["l2norm"] = l2norm
+            learner.logging_params["max_weight"] = maximum(maximum.(Flux.params(B)))
+            learner.logging_params["min_weight"] = minimum(minimum.(Flux.params(B)))
+            learner.logging_params["max_pred"] = maximum(preds)
+            learner.logging_params["min_pred"] = minimum(preds)
+            for i = 1:learner.num_actions
+                learner.logging_params["Q$i"] = sum(G[i,:]) / batch_size
+            end
         end
 
         return 𝐿

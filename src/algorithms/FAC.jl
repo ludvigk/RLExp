@@ -1,151 +1,114 @@
-export FACPolicy
+
+
+export FAC
 
 """
-Vanilla Policy Gradient
-FACPolicy(;kwargs)
+   FACLearner(;kwargs...)
 # Keyword arguments
-- `approximator`,
-- `baseline`,
-- `dist`, distribution function of the action
-- `γ`, discount factor
-- `α_θ`, step size of policy parameter
-- `α_w`, step size of baseline parameter
-- `batch_size`,
-- `rng`,
-- `loss`,
-- `baseline_loss`,
-if the action space is continuous,
-then the env should transform the action value, (such as using tanh),
-in order to make sure low ≤ value ≤ high
+- `approximator`, an [`ActorCritic`](@ref) based [`NeuralNetworkApproximator`](@ref)
+- `γ::Float32`, reward discount rate.
+- `λ::Float32`, lambda for GAE-lambda
+- `actor_loss_weight::Float32`
+- `critic_loss_weight::Float32`
+- `entropy_loss_weight::Float32`
 """
-Base.@kwdef mutable struct FACPolicy{
-    A<:NeuralNetworkApproximator,
-    B<:Union{NeuralNetworkApproximator,Nothing},
-    S,
-    R<:AbstractRNG,
-} <: AbstractPolicy
+Base.@kwdef mutable struct FACLearner{A<:ActorCritic} <: AbstractLearner
     approximator::A
-    baseline::B = nothing
-    action_space::S
-    dist::Any
-    γ::Float32 = 0.99f0 # discount factor
-    α_θ = 1.0f0 # step size of policy
-    α_w = 1.0f0 # step size of baseline
-    batch_size::Int = 1024
-    rng::R = Random.GLOBAL_RNG
+    γ::Float32
+    λ::Float32
+    max_grad_norm::Union{Nothing,Float32} = nothing
+    actor_loss_weight::Float32
+    critic_loss_weight::Float32
+    entropy_loss_weight::Float32
+    update_freq::Int
+    update_step::Int = 0
+    # for logging
+    actor_loss::Float32 = 0.0f0
+    critic_loss::Float32 = 0.0f0
+    entropy_loss::Float32 = 0.0f0
     loss::Float32 = 0.0f0
-    baseline_loss::Float32 = 0.0f0
+    norm::Float32 = 0.0f0
 end
 
-"""
-About continuous action space, see
-* [Diagonal Gaussian Policies](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html#stochastic-policies
-* [Clipped Action Policy Gradient](https://arxiv.org/pdf/1802.07564.pdf)
-"""
+Flux.functor(x::FACLearner) = (app = x.approximator,), y -> @set x.approximator = y.app
 
-function (π::FACPolicy)(env::AbstractEnv)
-    to_dev(x) = send_to_device(device(π.approximator), x)
+(learner::FACLearner)(env::MultiThreadEnv) =
+    learner.approximator.actor(send_to_device(device(learner), state(env))) |> send_to_host
 
-    logits = env |> state |> to_dev |> π.approximator |> send_to_host
-    logits = dropdims(logits, dims=2)
-    if π.action_space isa AbstractVector
-        dist = logits |> softmax |> π.dist
-        action = π.action_space[rand(π.rng, dist)]
-    elseif π.action_space isa Interval
-        dist = π.dist.(logits...)
-        action = rand.(π.rng, dist)[1]
-    else
-        error("not implemented")
-    end
-    action
-end
-
-function (π::FACPolicy)(env::MultiThreadEnv)
-    error("not implemented")
-    # TODO: can PG support multi env? PG only get updated at the end of an episode.
-end
-
-function RLBase.update!(
-    trajectory::ElasticSARTTrajectory,
-    policy::FACPolicy,
-    env::AbstractEnv,
-    ::PreActStage,
-    action,
-)
-    push!(trajectory[:state], state(env))
-    push!(trajectory[:action], action)
-end
-
-function RLBase.update!(
-    t::ElasticSARTTrajectory,
-    ::FACPolicy,
-    ::AbstractEnv,
-    ::PreEpisodeStage,
-)
-    empty!(t)
-end
-
-RLBase.update!(::FACPolicy, ::ElasticSARTTrajectory, ::AbstractEnv, ::PreActStage) = nothing
-
-function RLBase.update!(
-    π::FACPolicy,
-    traj::ElasticSARTTrajectory,
-    ::AbstractEnv,
-    ::PostEpisodeStage,
-)
-    model = π.approximator
-    to_dev(x) = send_to_device(device(model), x)
-
-    states = traj[:state]
-    actions = traj[:action] |> Array # need to convert ElasticArray to Array, or code will fail on gpu. `log_prob[CartesianIndex.(A, 1:length(A))`
-    gains = traj[:reward] |> x -> discount_rewards(x, π.γ)
-
-    for idx in Iterators.partition(shuffle(1:length(traj[:terminal])), π.batch_size)
-        S = select_last_dim(states, idx) |> Array |> to_dev
-        A = actions[idx]
-        G = gains[idx] |> x -> Flux.unsqueeze(x, 1) |> to_dev
-        # gains is a 1 column array, but the output of flux model is 1 row, n_batch columns array. so unsqueeze it.
-
-        if π.baseline isa NeuralNetworkApproximator
-            gs = gradient(Flux.params(π.baseline)) do
-                δ = G - π.baseline(S)
-                loss = mean(δ .^ 2) * π.α_w # mse
-                ignore() do
-                    π.baseline_loss = loss
-                end
-                loss
-            end
-            update!(π.baseline, gs)
-        elseif π.baseline isa Nothing
-            # Normalization. See
-            # (http://rail.eecs.berkeley.edu/deeprlcourse-fa17/f17docs/hw2_final.pdf)
-            # (https://web.stanford.edu/class/cs234/assignment3/solution.pdf)
-            # normalise should not be used with baseline. or the loss of the policy will be too small.
-            δ = G |> x -> normalise(x; dims=2)
-        end
-
-        gs = gradient(Flux.params(model)) do
-            if π.action_space isa AbstractVector
-                # log_prob = S |> model |> logsoftmax
-                log_prob = logsoftmax(model(S, 100), dims=3)
-                log_probₐ = log_prob[CartesianIndex.(A, 1:length(A)), :]
-            elseif π.action_space isa Interval
-                dist = π.dist.(model(S)...) # TODO: this part does not work on GPU. See: https://github.com/JuliaStats/Distributions.jl/issues/1183 .
-                log_probₐ = logpdf.(dist, A)
-            end
-            loss = -mean(log_probₐ .* δ) * π.α_θ
-
-            b_rand = reshape(log_prob, :, n_samples) ## SLOW
-            b_rand = Zygote.@ignore b_rand .+ 0.01f0 .* CUDA.randn(size(b_rand)...)
-            # S = entropy_surrogate(sse, permutedims(b_rand, (2, 1)))
-            # H = learner.prior(s, b_all) ./ (n_samples)
-            # loss -= S
-
-            ignore() do
-                π.loss = loss
-            end
-            loss
-        end
-        update!(model, gs)
+function RLBase.update!(learner::FACLearner, t::CircularArraySARTTrajectory)
+    length(t) == 0 && return  # in the first update, only state & action is inserted into trajectory
+    learner.update_step += 1
+    if learner.update_step % learner.update_freq == 0
+        _update!(learner, t)
     end
 end
+
+function _update!(learner::FACLearner, t::CircularArraySARTTrajectory)
+    n = length(t)
+
+    AC = learner.approximator
+    to_device(x) = send_to_device(device(AC), x)
+    γ = learner.γ
+    λ = learner.λ
+    w₁ = learner.actor_loss_weight
+    w₂ = learner.critic_loss_weight
+    w₃ = learner.entropy_loss_weight
+
+    S = t[:state] |> to_device
+    # (state_size..., n_thread * update_step)
+    states_flattened = select_last_dim(S, 1:n) |> flatten_batch
+
+    actions =
+        t[:action] |>
+        x ->
+            select_last_dim(x, 1:n) |> flatten_batch |> a -> CartesianIndex.(a, 1:length(a))
+
+    rollout_values =
+        S |>
+        flatten_batch |>
+        AC.critic |>
+        x -> reshape(x, :, n + 1) |>
+        send_to_host
+
+    advantages = generalized_advantage_estimation(
+        t[:reward],
+        rollout_values,
+        γ,
+        λ;
+        dims = 2,
+        terminal = t[:terminal],
+    )
+
+    gains = to_device(advantages + select_last_dim(rollout_values, 1:n))
+
+    advantages = advantages |> flatten_batch |> to_device
+
+    ps = Flux.params(AC)
+    gs = Zygote.gradient(ps) do
+        logits = AC.actor(states_flattened)
+        probs = softmax(logits)
+        log_probs = logsoftmax(logits)
+        log_probs_select = log_probs[actions]
+        values = AC.critic(states_flattened)
+        advantage = vec(gains) .- vec(values) 
+        actor_loss = -mean(log_probs_select .* advantages)
+        critic_loss = mean(advantage .^ 2)
+        entropy_loss = -sum(probs .* log_probs) * 1 // size(probs, 2)
+        loss = w₁ * actor_loss + w₂ * critic_loss - w₃ * entropy_loss
+        Zygote.ignore() do
+            learner.actor_loss = actor_loss
+            learner.critic_loss = critic_loss
+            learner.entropy_loss = entropy_loss
+            learner.loss = loss
+        end
+        loss
+    end
+
+    if !isnothing(learner.max_grad_norm)
+        learner.norm = clip_by_global_norm!(gs, ps, learner.max_grad_norm)
+    end
+
+    update!(AC, gs)
+end
+
+RLCore.check(::QBasedPolicy{<:FACLearner}, ::MultiThreadEnv) = nothing
