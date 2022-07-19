@@ -192,7 +192,11 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
     a = CartesianIndex.(a, 1:batch_size)
 
-    q_values = B(s′, n_samples_target)[1]
+    if learner.is_enable_double_DQN
+        q_values = B(s′, n_samples_target)[1]
+    else
+        q_values = Q(s′, n_samples_target)[1]
+    end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
 
@@ -203,7 +207,9 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
     end
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
-    q_values = Q(s′, n_samples_target)[1]
+    if learner.is_enable_double_DQN
+        q_values = Q(s′, n_samples_target)[1]
+    end
     q′ = @inbounds q_values[selected_actions, :]
 
     G = Flux.unsqueeze(r, 2) .+ Flux.unsqueeze(γ^n .* (1 .- t), 2) .* q′
