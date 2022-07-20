@@ -60,7 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 64,
+            "flow_width" => 16,
         )
     end
 
