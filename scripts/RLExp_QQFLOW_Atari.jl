@@ -60,6 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
+            "flow_width" => 32,
         )
     end
 
@@ -109,7 +110,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, leakyrelu),
-            Dense(512, hidden_dim, tanh),
+            Dense(512, hidden_dim, leakyrelu),
         ) |> gpu
 
         Q_model = Chain(
@@ -119,48 +120,49 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, leakyrelu),
-            Dense(512, hidden_dim, tanh),
+            Dense(512, hidden_dim, leakyrelu),
         ) |> gpu
 
+        flow_width = get_config(lg, "flow_width")
         flow_B = Flow(
             [
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
         ]
         )
 
         flow_Q = Flow(
             [
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
-                PlanarLayer(N_ACTIONS, hidden_dim, 32),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
+                PlanarLayer(N_ACTIONS, hidden_dim, flow_width),
         ]
         )
 
@@ -169,8 +171,8 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=B_model,
-                prior=Chain(Dense(hidden_dim, hidden_dim, leakyrelu),
-                            Dense(hidden_dim, 2N_ACTIONS),
+                prior=Chain(Dense(hidden_dim, flow_width, leakyrelu),
+                            Dense(flow_width, 2N_ACTIONS),
                 ),
                 flow=flow_B,
             ),
@@ -180,8 +182,8 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Q_model,
-                prior=Chain(Dense(hidden_dim, hidden_dim, leakyrelu),
-                            Dense(hidden_dim, 2N_ACTIONS),
+                prior=Chain(Dense(hidden_dim, flow_width, leakyrelu),
+                            Dense(flow_width, 2N_ACTIONS),
                 ),
                 flow=flow_Q,
             ),
