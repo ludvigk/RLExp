@@ -50,7 +50,7 @@ function RL.Experiment(
             "Q_update_freq" => 10_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 32,
+            "hidden_dim" => 16,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -60,7 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 16,
+            "flow_width" => 32,
         )
     end
 
