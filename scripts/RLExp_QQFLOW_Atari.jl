@@ -50,7 +50,7 @@ function RL.Experiment(
             "Q_update_freq" => 10_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 16,
+            "hidden_dim" => 64,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
