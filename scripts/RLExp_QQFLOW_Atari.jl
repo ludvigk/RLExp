@@ -43,14 +43,14 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-            "B_lr" => 1e-4,
+            "B_lr" => 5e-5,
             "Q_lr" => 1,
             "B_clip_norm" => 10.0,
             "B_update_freq" => 4,
             "Q_update_freq" => 10_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 32,
+            "hidden_dim" => 64,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -60,7 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 32,
+            "flow_width" => 64,
         )
     end
 
