@@ -47,7 +47,7 @@ function RL.Experiment(
             "Q_lr" => 1,
             "B_clip_norm" => 10.0,
             "B_update_freq" => 4,
-            "Q_update_freq" => 10_000,
+            "Q_update_freq" => 1_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
             "hidden_dim" => 64,
@@ -61,6 +61,7 @@ function RL.Experiment(
             "traj_capacity" => 1_000_000,
             "seed" => 1,
             "flow_width" => 64,
+            "terminal_on_life_loss" => true,
         )
     end
 
@@ -83,13 +84,15 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
+    terminal_on_life_loss = get_config(lg, "terminal_on_life_loss")
     N_FRAMES = 4
     STATE_SIZE = (84, 84)
     env = atari_env_factory(
         name,
         STATE_SIZE,
         N_FRAMES;
-        seed=isnothing(seed) ? nothing : hash(seed + 1)
+        seed=isnothing(seed) ? nothing : hash(seed + 1),
+        terminal_on_life_loss = terminal_on_life_loss,
     )
     N_ACTIONS = length(action_space(env))
 
@@ -109,8 +112,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, leakyrelu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, leakyrelu),
-            Dense(512, hidden_dim, leakyrelu),
+            Dense(11 * 11 * 64, 512, leakyrelu, init=initc),
+            Dense(512, hidden_dim, leakyrelu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -119,8 +122,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, leakyrelu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, leakyrelu),
-            Dense(512, hidden_dim, leakyrelu),
+            Dense(11 * 11 * 64, 512, leakyrelu, init=initc),
+            Dense(512, hidden_dim, leakyrelu, init=initc),
         ) |> gpu
 
         flow_width = get_config(lg, "flow_width")

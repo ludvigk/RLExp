@@ -28,6 +28,7 @@ function atari_env_factory(
     seed=nothing,
     repeat_action_probability=0.25,
     n_replica=nothing,
+    terminal_on_life_loss=false,
 )
     function init(seed)
         return RewardTransformedEnv(
@@ -38,7 +39,7 @@ function atari_env_factory(
                         grayscale_obs=true,
                         noop_max=30,
                         frame_skip=4,
-                        terminal_on_life_loss=false,
+                        terminal_on_life_loss=terminal_on_life_loss,
                         repeat_action_probability=repeat_action_probability,
                         max_num_frames_per_episode=n_frames * max_episode_steps,
                         color_averaging=false,
