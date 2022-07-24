@@ -26,7 +26,7 @@ end
 
 Flux.@functor PlanarLayer
 
-function PlanarLayer(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_uniform)
+function PlanarLayer(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_normal())
     net = Chain(
         Dense(h_size, h_dims, relu, init=init),
         Dense(h_dims, h_dims, relu, init=init),
