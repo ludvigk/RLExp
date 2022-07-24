@@ -44,9 +44,9 @@ function RL.Experiment(
         config = Dict(
             "B_lr" => 1e-4,
             "Q_lr" => 1,
-            "B_clip_norm" => 1.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
-            "Q_update_freq" => 1000,
+            "Q_update_freq" => 100,
             "n_samples_act" => 100,
             "n_samples_target" => 1,
             "hidden_dim" => 32,
@@ -147,11 +147,11 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, leakyrelu, init=init),
-                    Dense(128, 128, leakyrelu, init=init),
-                    Dense(128, hidden_dim, leakyrelu, init=init),
+                    Dense(ns, 128, relu, init=init),
+                    Dense(128, 128, relu, init=init),
+                    Dense(128, hidden_dim, relu, init=init),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
+                prior=Chain(Dense(hidden_dim, 32, relu, init=init),
                             Dense(32, 2na, init=init)
                 ),
                 flow=flow_B,
@@ -162,11 +162,11 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, leakyrelu, init=init),
-                    Dense(128, 128, leakyrelu, init=init),
-                    Dense(128, hidden_dim, leakyrelu, init=init),
+                    Dense(ns, 128, relu, init=init),
+                    Dense(128, 128, relu, init=init),
+                    Dense(128, hidden_dim, relu, init=init),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
+                prior=Chain(Dense(hidden_dim, 32, relu, init=init),
                             Dense(32, 2na, init=init)
                 ),
                 flow=flow_Q,

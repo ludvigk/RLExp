@@ -30,7 +30,7 @@ function PlanarLayer(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_normal(
     net = Chain(
         Dense(h_size, h_dims, relu, init=init),
         Dense(h_dims, h_dims, relu, init=init),
-        Dense(h_dims, 3 * in, init=init),
+        Dense(h_dims, 3 * in, init=(args...) -> init(args...) ./ 100),
     )
     return PlanarLayer(net, 0.2f0)
 end
