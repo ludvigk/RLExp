@@ -17,7 +17,7 @@ export PlanarLayer, PlanarFlow
 export FlowNorm
 export Flow
 
-tanh_prime(x) = 1 - tanh(x) ^ 2
+tanh_prime(x) = 1 - tanh_fast(x) ^ 2
 
 struct PlanarLayer
     net
@@ -38,9 +38,9 @@ end
 function (l::PlanarLayer)(x, h)
     m(x) = -1 + log(1 + exp(x))
     w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
-    u, w = tanh.(u), tanh.(w)
+    u, w = tanh_fast.(u), tanh_fast.(w)
     # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-8) ./ (abs2.(w) .+ 1f-8)
-    f(x) = x .+ u .* tanh.(w .* x .+ b)
+    f(x) = x .+ u .* tanh_fast.(w .* x .+ b)
     ψ(x) = tanh_prime.(w .* x .+ b) .* w
     f′(x) = 1 .+ u .* ψ(x)
     x = f(x)
@@ -50,11 +50,11 @@ end
 function inverse(l::PlanarLayer, x, h)
     m(x) = -1 + log(1 + exp(x))
     w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
-    u, w = tanh.(u), tanh.(w)
+    u, w = tanh_fast.(u), tanh_fast.(w)
     # if any(w .* u .<= -1)
     # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-8) ./ (abs2.(w) .+ 1f-8)
     # end
-    f(x) = x .+ u .* tanh.(w .* x .+ b)
+    f(x) = x .+ u .* tanh_fast.(w .* x .+ b)
     ψ(x) = tanh_prime.(w .* x .+ b) .* w
     f′(x) = 1 .+ u .* ψ(x)
 
@@ -65,7 +65,7 @@ function inverse(l::PlanarLayer, x, h)
     wtu = w .* u
     for _ = 1:10
         x_inv = x_inv_new
-        fx = x_inv .+ wtu .* tanh.(x_inv .+ b) .- wtx
+        fx = x_inv .+ wtu .* tanh_fast.(x_inv .+ b) .- wtx
         fx′ = 1 .+ wtu .* tanh_prime.(x_inv .+ b)
         x_inv_new = x_inv .- fx ./ (fx′ .+ 1f-6)
         x_diff = maximum(abs, x_inv .- x_inv_new)
@@ -73,7 +73,7 @@ function inverse(l::PlanarLayer, x, h)
             break
         end
     end
-    return x .- u .* tanh.(x_inv_new .+ b), 0f0
+    return x .- u .* tanh_fast.(x_inv_new .+ b), 0f0
 end
 
 # struct ScaleAndShiftLayer
