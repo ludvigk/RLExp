@@ -108,22 +108,22 @@ function RL.Experiment(
 
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, leakyrelu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, leakyrelu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, leakyrelu, init=initc),
-            Dense(512, hidden_dim, leakyrelu, init=initc),
+            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(512, hidden_dim, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, leakyrelu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, leakyrelu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, leakyrelu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, leakyrelu, init=initc),
-            Dense(512, hidden_dim, leakyrelu, init=initc),
+            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(512, hidden_dim, relu, init=initc),
         ) |> gpu
 
         flow_width = get_config(lg, "flow_width")
@@ -174,7 +174,7 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=B_model,
-                prior=Chain(Dense(hidden_dim, flow_width, leakyrelu),
+                prior=Chain(Dense(hidden_dim, flow_width, relu),
                             Dense(flow_width, 2N_ACTIONS),
                 ),
                 flow=flow_B,
@@ -185,7 +185,7 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Q_model,
-                prior=Chain(Dense(hidden_dim, flow_width, leakyrelu),
+                prior=Chain(Dense(hidden_dim, flow_width, relu),
                             Dense(flow_width, 2N_ACTIONS),
                 ),
                 flow=flow_Q,

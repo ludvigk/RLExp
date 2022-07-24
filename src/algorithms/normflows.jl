@@ -28,8 +28,8 @@ Flux.@functor PlanarLayer
 
 function PlanarLayer(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_uniform)
     net = Chain(
-        Dense(h_size, h_dims, leakyrelu, init=init),
-        Dense(h_dims, h_dims, leakyrelu, init=init),
+        Dense(h_size, h_dims, relu, init=init),
+        Dense(h_dims, h_dims, relu, init=init),
         Dense(h_dims, 3 * in, init=init),
     )
     return PlanarLayer(net, 0.2f0)
@@ -38,7 +38,7 @@ end
 function (l::PlanarLayer)(x, h)
     m(x) = -1 + log(1 + exp(x))
     w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
-    u, w = 0.9f0 .* tanh.(u), tanh.(w)
+    u, w = tanh.(u), tanh.(w)
     # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-8) ./ (abs2.(w) .+ 1f-8)
     f(x) = x .+ u .* tanh.(w .* x .+ b)
     ψ(x) = tanh_prime.(w .* x .+ b) .* w
@@ -50,7 +50,7 @@ end
 function inverse(l::PlanarLayer, x, h)
     m(x) = -1 + log(1 + exp(x))
     w, u, b = MLUtils.chunk(l.net(h), 3, dims=1)
-    u, w = 0.9f0 .* tanh.(u), tanh.(w)
+    u, w = tanh.(u), tanh.(w)
     # if any(w .* u .<= -1)
     # u = u .+ (m.(w .* u) .- w .* u) .* (w .+ 1f-8) ./ (abs2.(w) .+ 1f-8)
     # end
