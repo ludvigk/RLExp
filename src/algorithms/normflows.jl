@@ -16,6 +16,7 @@ export ConditionalRealNVP, RealNVP
 export PlanarLayer, PlanarFlow
 export FlowNorm
 export Flow
+export LuddeFlow
 
 struct LuddeFlow
     net
