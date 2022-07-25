@@ -37,7 +37,7 @@ function (l::LuddeFlow)(x, h)
     w, b, c = MLUtils.chunk(l.net(h), 3, dims=1)
     sb = softplus.(b)
     inner = exp.(abs.(x) .+ sb) .- 1
-    out = sign.(x) .* (log.(inner - 1) .- b) ./ w .- c
+    out = sign.(x) .* (log.(inner .- 1) .- b) ./ w .- c
     eax = exp.(abs.(x))
     eb = exp.(b) .+ 1
     d_upper = eb .* x .* eax .* sign.(x)
