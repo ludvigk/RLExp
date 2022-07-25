@@ -47,7 +47,7 @@ end
 
 function inverse(l::LuddeFlow, x, h)
     w, b, c = MLUtils.chunk(l.net(h), 3, dims=1)
-    inner = abs.(w * (x + c)) + b
+    inner = abs.(w .* (x .+ c)) .+ b
     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b))
     # TODO: Calculate inverse derivative
     return out, 0f0
