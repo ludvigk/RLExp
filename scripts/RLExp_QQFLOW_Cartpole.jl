@@ -97,47 +97,19 @@ function RL.Experiment(
         flow_width = get_config(lg, "flow_width")
         flow_B = Flow(
             [
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
         ]
         )
 
         flow_Q = Flow(
             [
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
-                PlanarLayer(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
+            LuddeFlow(na, hidden_dim, flow_width),
         ]
         )
 
@@ -152,7 +124,7 @@ function RL.Experiment(
                     Dense(128, hidden_dim, relu, init=init),
                 ),
                 prior=Chain(Dense(hidden_dim, 32, relu, init=init),
-                            Dense(32, 2na, init=init)
+                    Dense(32, 2na, init=init)
                 ),
                 flow=flow_B,
             ),
@@ -167,7 +139,7 @@ function RL.Experiment(
                     Dense(128, hidden_dim, relu, init=init),
                 ),
                 prior=Chain(Dense(hidden_dim, 32, relu, init=init),
-                            Dense(32, 2na, init=init)
+                    Dense(32, 2na, init=init)
                 ),
                 flow=flow_Q,
             ),
@@ -227,7 +199,7 @@ function RL.Experiment(
                     p = agent.policy.learner.logging_params
                     L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                     Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
-                    min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"],p["max_pred"]
+                    min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
                     @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
 
                     # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ

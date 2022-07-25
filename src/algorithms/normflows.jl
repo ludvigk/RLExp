@@ -17,6 +17,41 @@ export PlanarLayer, PlanarFlow
 export FlowNorm
 export Flow
 
+struct LuddeFlow
+    net
+end
+
+Flux.@functor LuddeFlow
+
+function LuddeFlow(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_normal())
+    net = Chain(
+        Dense(h_size, h_dims, relu, init=init),
+        Dense(h_dims, h_dims, relu, init=init),
+        Dense(h_dims, 3 * in, init=(args...) -> init(args...) ./ 100),
+    )
+    return LuddeFlow(net)
+end
+
+function (l::LuddeFlow)(x, h)
+    w, b, c = MLUtils.chunk(net(h), 3, dims=1)
+    sb = softplus.(b)
+    inner = exp.(abs.(x) .+ sb) .- 1
+    out = sign.(x) .* (log.(inner - 1) .- b) ./ w .- c
+    eax = exp.(abs.(x))
+    eb = exp.(b) .+ 1
+    d_upper = eb .* x .* eax .* sign.(x)
+    d_lower = w .* abs.(x) .* (eb .* eax .- 1)
+    return out, log.(abs.(d_upper ./ d_lower))
+end
+
+function inverse(l::LuddeFlow, x, h)
+    w, b, c = MLUtils.chunk(net(h), 3, dims=1)
+    inner = abs.(w * (x + c)) + b
+    out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b))
+    # TODO: Calculate inverse derivative
+    return out, 0f0
+end
+
 tanh_prime(x) = 1 - tanh_fast(x) ^ 2
 
 struct PlanarLayer
