@@ -34,7 +34,7 @@ function LuddeFlow(in::Int, h_size::Int, h_dims::Int, init=Flux.glorot_normal())
 end
 
 function (l::LuddeFlow)(x, h)
-    w, b, c = MLUtils.chunk(net(h), 3, dims=1)
+    w, b, c = MLUtils.chunk(l.net(h), 3, dims=1)
     sb = softplus.(b)
     inner = exp.(abs.(x) .+ sb) .- 1
     out = sign.(x) .* (log.(inner - 1) .- b) ./ w .- c
@@ -46,7 +46,7 @@ function (l::LuddeFlow)(x, h)
 end
 
 function inverse(l::LuddeFlow, x, h)
-    w, b, c = MLUtils.chunk(net(h), 3, dims=1)
+    w, b, c = MLUtils.chunk(l.net(h), 3, dims=1)
     inner = abs.(w * (x + c)) + b
     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b))
     # TODO: Calculate inverse derivative
