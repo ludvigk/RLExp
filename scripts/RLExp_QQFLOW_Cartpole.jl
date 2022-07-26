@@ -44,7 +44,7 @@ function RL.Experiment(
         config = Dict(
             "B_lr" => 5e-5,
             "Q_lr" => 1,
-            "B_clip_norm" => 10.0,
+            "B_clip_norm" => 1.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
@@ -143,11 +143,11 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, relu, init=init),
-                    Dense(128, 128, relu, init=init),
-                    Dense(128, hidden_dim, relu, init=init),
+                    Dense(ns, 128, leakyrelu, init=init),
+                    Dense(128, 128, leakyrelu, init=init),
+                    Dense(128, hidden_dim, init=init),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, relu, init=init),
+                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
                     Dense(32, 2na, init=init)
                 ),
                 flow=flow_B,
@@ -158,11 +158,11 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNetwork(
                 base=Chain(
-                    Dense(ns, 128, relu, init=init),
-                    Dense(128, 128, relu, init=init),
-                    Dense(128, hidden_dim, relu, init=init),
+                    Dense(ns, 128, leakyrelu, init=init),
+                    Dense(128, 128, leakyrelu, init=init),
+                    Dense(128, hidden_dim, init=init),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, relu, init=init),
+                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
                     Dense(32, 2na, init=init)
                 ),
                 flow=flow_Q,
@@ -248,7 +248,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNEpisode(n=100) do t, agent, env
+        DoEveryNStep(n=2000) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -293,7 +293,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(300_000, is_show_progress=true)
+    stop_condition = StopAfterStep(30_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
