@@ -347,23 +347,91 @@ define the value distribution model as an elementwise transformation of a
 standard normal distribution conditioned on a low-dimensional representation of
 the state \(\rvx\).
 
+Similar to other DQN methods, we let \(Z_\theta(\rvx, a)\) be the \(a\)-th
+element of a function \(\tilde{Z}_\theta : \R^{\lvert \X \rvert}
+\rightarrow \R^{\lvert \A \rvert}\). This means that we need a conditional
+normalizing flow \(v_\theta : \R^{\lvert \X \rvert} \times \R^{\lvert \A \rvert}
+\rightarrow \R^{\lvert \A \rvert}\). Given that we have
+
 \begin{equation}
-  Z_\theta(\rvx,a) = v_\theta^{-1}(z, \rvx^\prime)_a
+  \T \tilde{Z}_\theta(\rvx)_a \defeq R(\rvx, a) + \max_{a^\prime \in \A}
+  \tilde{Z}_\theta(\rvx^\prime)_{a^\prime}
 \end{equation}
-\begin{equation*}
-  z \sim \N(0, I); \quad \rvx^\prime = h(\rvx)
-\end{equation*}
+
+\noindent
+we can see that any learning signal would only come for a single action. This
+means that we need an elementwise flow so that we can learn each dimension
+independently. Given elementwise conditional normalizing flow \(v_\theta\), we
+define the loss function as
+
+\begin{multline}
+  \mathcal{L}_{\rvx, a}(\theta) \defeq \log p(v_\theta^{-1} (\rvx, v_{\tilde{
+  \theta}} (\rvx^\prime, \vepsilon))_a; 0, 1) \\- \log
+  \left\lvert \frac{\partial v^{-1}_{\theta}(\rvx, v_{\tilde{
+  \theta}} (\rvx^\prime, \vepsilon))_a}{\partial v_{\tilde{
+  \theta}} (\rvx^\prime, \vepsilon)_a} \right\rvert; \quad
+  \vepsilon \sim \N(0, I_{\lvert \A \rvert})
+\end{multline}
+
+The most popular normalizing flows right now are buildt for large dimensional
+spaces such as images. This includes coupling and autoregressive flows. Planar
+flow is very easy to turn elementwise, but unfortunately does not have a closed
+form inverse for most functions of \(h\). Although it does have one for
+piecewise linear funcitons, those do not have second derivative, hence the
+gradient of the log absolute determinant would be zero. This would mean it can
+not learn appropriate transformations. Instead we define our own flow.
+
+Equation~\ref{eq:luddeflow} shows the definitiona of the forward transformation
+\(v_{w, b, c, d}\), with 4 free parameters \(w, b, c, d\). Unlike the planar
+flow, this function is invertible and differentiable given any values for these
+parameters. Equation~\ref{eq:luddeflow_inv} and
+Equation~\ref{eq:luddeflow_inv_grad} show the closed form inverse and gradient
+respectively.
+
+% \begin{equation}
+%   Z_\theta(\rvx,a) = v_\theta^{-1}(z, \rvx^\prime)_a
+% \end{equation}
+% \begin{equation*}
+%   z \sim \N(0, I); \quad \rvx^\prime = h(\rvx)
+% \end{equation*}
 
 \begin{equation*}
   s(x) = \log(1 + \exp(x))
 \end{equation*}
 \begin{equation}
   v_{w, b, c, d}(z) = \sign(z + c) \left[ s(\lvert w(z + c) \rvert + b) 
-  - s(b) \right] + d
+  - s(b) \right] + d \label{eq:luddeflow}
 \end{equation}
+
+\begin{equation*}
+  s^{-1}(x) = \log(\exp(x) - 1); \quad x > 0
+\end{equation*}
 \begin{equation}
-  v^{-1}_{w, b, c, d}(z^\prime)
+  v^{-1}_{w, b, c, d}(z^\prime) = \frac{\sign(z^\prime - d)}{w}
+  [ s^{-1}(\lvert z^\prime - d \rvert + s(b)) - b] - c \label{eq:luddeflow_inv}
 \end{equation}
+
+\begin{equation}
+  \frac{\partial v^{-1}_{w,b,c,d}}{\partial z^\prime} = \frac{(e^b + 1)
+  (z^\prime - d) e^{\lvert z^\prime - d \rvert} \sign{(x - d)}}{w \lvert
+  z^\prime - d \rvert ((e^b + 1)e^{\lvert z^\prime - d \rvert} - 1)}
+  \label{eq:luddeflow_inv_grad}
+\end{equation}
+
+Figure~\ref{fig:luddeflow} shows the effect of the free parameters. A simple
+description is \(w\) changes the slope of the function, \(b\) changes the
+\emph{linearity} of the function (as \(b\) goes to infinity, \(v\) approaches a
+linear function), \(c\) shifts the horizontally, and \(d\) shifts the function
+vertically.
+
+\begin{figure}[ht]
+  \vspace{.3in}
+  % \centerline{\fbox{This figure intentionally left non-blank}}
+  \includegraphics[width=\columnwidth]{luddeflow.png}
+  \vspace{.3in}
+  \caption{Illustration of the effect the free parameters have on the function).
+  }\label{fig:luddeflow}
+\end{figure}
 
 \begin{figure}[ht]
 \vspace{.3in}

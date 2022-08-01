@@ -48,9 +48,9 @@ function RL.Experiment(
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
-            "n_samples_target" => 1,
+            "n_samples_target" => 100,
             "hidden_dim" => 32,
-            "B_opt" => "ADAM",
+            "B_opt" => "CenteredRMSProp",
             "gamma" => 0.99,
             "update_horizon" => 1,
             "batch_size" => 32,
@@ -248,7 +248,7 @@ function RL.Experiment(
                 stop("Program most likely terminated through WandB interface.")
             end
         end,
-        DoEveryNStep(n=2000) do t, agent, env
+        DoEveryNStep(n=200) do t, agent, env
             @info "evaluating agent at $t step..."
             p = agent.policy
             h = ComposedHook(
@@ -268,8 +268,8 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
-                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
-                    @info "training" episode = t log_step_increment = 0
+                    # @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                    # @info "training" episode = t log_step_increment = 0
                 end
             catch
                 close(lg)

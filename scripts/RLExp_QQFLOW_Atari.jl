@@ -55,13 +55,13 @@ function RL.Experiment(
             "gamma" => 0.99,
             "update_horizon" => 1,
             "batch_size" => 32,
-            "min_replay_history" => 20_000,
+            "min_replay_history" => 50_000,
             "updates_per_step" => 1,
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
             "flow_width" => 32,
-            "terminal_on_life_loss" => true,
+            "terminal_on_life_loss" => false,
         )
     end
 
@@ -272,19 +272,21 @@ function RL.Experiment(
                 @info "training" episode = t log_step_increment = 0
                 @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
             end
-            
-            s = agent.trajectory[:state]
-            beg = rand((1 + N_FRAMES):size(s,3))
-            s = s[:,:,(beg - N_FRAMES):(beg - 1)]
-            s = Flux.unsqueeze(s, 4) |> gpu
-            samples = agent.policy.learner.B_approximator(s, 500)[1] |> cpu
-            p = plot()
-            for action in 1:size(samples, 1)
-                density!(samples[action, 1, :], c=action, label="action $(action)")
-                vline!([mean(samples[action, 1, :])], c=action, label=false)
+            try
+                s = agent.trajectory[:state]
+                beg = rand((1 + N_FRAMES):size(s,3))
+                s = s[:,:,(beg - N_FRAMES):(beg - 1)]
+                s = Flux.unsqueeze(s, 4) |> gpu
+                samples = agent.policy.learner.B_approximator(s, 500)[1] |> cpu
+                p = plot()
+                for action in 1:size(samples, 1)
+                    density!(samples[action, 1, :], c=action, label="action $(action)")
+                    vline!([mean(samples[action, 1, :])], c=action, label=false)
+                end
+                Plots.savefig(p, save_dir * "/qdistr_$(t).png")
+            catch
+                @warn "Could not save plot"
             end
-            Plots.savefig(p, save_dir * "/qdistr_$(t).png")
-        
         end,
         DoEveryNStep(; n=EVALUATION_FREQ) do t, agent, env
             @info "Saving agent at step $t to $save_dir"

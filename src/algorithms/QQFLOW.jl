@@ -24,8 +24,9 @@ function (m::FlowNetwork)(state::AbstractMatrix; inv::Bool=true)
     σ = softplus.(ρ)
     σ = clamp.(σ, 1f-4, 1000)
     # samples = μ .+ randn!(similar(μ)) .* σ
-    samples = Zygote.@ignore randn!(similar(μ, 1, size(μ, 2), size(μ,3)))
-    samples = Zygote.@ignore repeat(samples, size(μ, 1), 1, 1)
+    samples = Zygote.@ignore randn!(similar(μ))
+    # samples = Zygote.@ignore randn!(similar(μ, 1, size(μ, 2), num_samples))
+    # samples = Zygote.@ignore repeat(samples, size(μ, 1), 1, 1)
     # x1 = rand!(similar(μ))
     # x2 = rand!(similar(μ))
     # samples = μ .+ log.(x1 ./ x2) .* σ
@@ -46,7 +47,9 @@ function (m::FlowNetwork)(state::AbstractArray, num_samples::Int; inv::Bool=true
     σ = softplus.(ρ)
     σ = clamp.(σ, 1f-4, 1000)
     # samples = μ .+ randn!(similar(μ, size(μ)..., num_samples)) .* σ
-    samples = randn!(similar(μ, size(μ)..., num_samples))
+    samples = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    # samples = Zygote.@ignore randn!(similar(μ, 1, size(μ, 2), num_samples))
+    # samples = Zygote.@ignore repeat(samples, size(μ, 1), 1, 1)
     # x1 = rand!(similar(μ, size(μ)..., num_samples))
     # x2 = rand!(similar(μ, size(μ)..., num_samples))
     # samples = μ .+ log.(x1 ./ x2) .* σ
@@ -68,7 +71,7 @@ function (m::FlowNetwork)(samples::AbstractArray, state::AbstractArray)
     σ = clamp.(σ, 1f-4, 1000)
     μ = reshape(μ, size(μ)..., 1)
     σ = reshape(σ, size(σ)..., 1)
-    samples = (samples .- μ) ./ σ 
+    samples = (samples .- μ) ./ σ
     preds, sldj = m.flow(samples, h)
     return preds, sldj, μ, σ
 end
