@@ -218,7 +218,7 @@ function RL.Experiment(
                 ),
                 explorer=EpsilonGreedyExplorer(
                     ϵ_init = 1.0,
-                    ϵ_stable = 0.01,
+                    ϵ_stable = 0.1,
                     decay_steps = 1_000_000,
                     kind = :linear,
                     rng=rng,
