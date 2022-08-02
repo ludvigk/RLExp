@@ -54,7 +54,9 @@ function inverse(l::LuddeFlow, x, h)
     inner = abs.(w .* (x .+ c)) .+ b
     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
     # TODO: Calculate inverse derivative
-    return out, 0f0
+    d_inner = exp.(abs.(w .* (c .+ x)) .+ b)
+    d = w .* d_inner ./ (d_inner .+ 1)
+    return out, log.(abs.(d))
 end
 
 tanh_prime(x) = 1 - tanh_fast(x) ^ 2

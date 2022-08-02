@@ -30,12 +30,14 @@ function (m::FlowNetwork)(state::AbstractMatrix; inv::Bool=true)
     # x1 = rand!(similar(μ))
     # x2 = rand!(similar(μ))
     # samples = μ .+ log.(x1 ./ x2) .* σ
-    if inv
-        preds, sldj = inverse(m.flow, samples, h)
-        preds = μ .+ preds .* σ
-    else
+    if !inv
         samples = (samples .- μ) ./ σ
+        preds, sldj = inverse(m.flow, samples, h)
+        # preds = μ .+ preds .* σ
+    else
+        # samples = (samples .- μ) ./ σ
         preds, sldj = m.flow(samples, h)
+        preds = μ .+ preds .* σ
     end
     return preds, sldj
 end
@@ -53,12 +55,14 @@ function (m::FlowNetwork)(state::AbstractArray, num_samples::Int; inv::Bool=true
     # x1 = rand!(similar(μ, size(μ)..., num_samples))
     # x2 = rand!(similar(μ, size(μ)..., num_samples))
     # samples = μ .+ log.(x1 ./ x2) .* σ
-    if inv
-        preds, sldj = inverse(m.flow, samples, h)
-        preds = μ .+ preds .* σ
-    else
+    if !inv
         samples = (samples .- μ) ./ σ
+        preds, sldj = inverse(m.flow, samples, h)
+        # preds = μ .+ preds .* σ
+    else
+        # samples = (samples .- μ) ./ σ
         preds, sldj = m.flow(samples, h)
+        preds = μ .+ preds .* σ
     end
     return preds, sldj
 end
@@ -72,7 +76,7 @@ function (m::FlowNetwork)(samples::AbstractArray, state::AbstractArray)
     μ = reshape(μ, size(μ)..., 1)
     σ = reshape(σ, size(σ)..., 1)
     samples = (samples .- μ) ./ σ
-    preds, sldj = m.flow(samples, h)
+    preds, sldj = inverse(m.flow, samples, h)
     return preds, sldj, μ, σ
 end
 

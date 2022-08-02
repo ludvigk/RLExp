@@ -12,7 +12,7 @@ export stop, CenteredRMSProp
 export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
 export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, ConditionalCouplingLayer, PlanarLayer, PlanarFlow
-export DUQNF, QFLOW, QQFlow, FlowNetwork, FlowNorm, Flow, LuddeFlow
+export DUQNF, QFLOW, QQFlow, FlowNetwork, FlowNorm, Flow, LuddeFlow, inverse
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
