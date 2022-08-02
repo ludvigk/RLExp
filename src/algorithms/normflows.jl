@@ -43,8 +43,8 @@ function (l::LuddeFlow)(x, h)
     out = sign.(xd) .* (log.(max.(inner, ϵ)) .- b) ./ w .- c
     eax = exp.(abs.(xd))
     eb = exp.(b) .+ 1
-    d_upper = eb .* xd .* eax .* sign.(xd) .+ ϵ
-    d_lower = w .* abs.(xd) .* (eb .* eax .- 1) .+ ϵ
+    d_upper = eb .* eax
+    d_lower = w .* (d_upper .- 1) .+ ϵ
     return out, log.(max.(abs.(d_upper ./ d_lower), ϵ))
 end
 
