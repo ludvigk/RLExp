@@ -61,7 +61,7 @@ function RL.Experiment(
             "traj_capacity" => 1_000_000,
             "seed" => 1,
             "flow_width" => 32,
-            "terminal_on_life_loss" => false,
+            "terminal_on_life_loss" => true,
         )
     end
 
