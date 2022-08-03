@@ -112,8 +112,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, hidden_dim, relu, init=(args...) -> initc(args...) ./ 100),
+            Dense(11 * 11 * 64, 256, relu, init=initc),
+            Dense(256, hidden_dim, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -122,8 +122,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, hidden_dim, relu, init=(args...) -> initc(args...) ./ 100),
+            Dense(11 * 11 * 64, 256, relu, init=initc),
+            Dense(256, hidden_dim, relu, init=initc),
         ) |> gpu
 
         flow_width = get_config(lg, "flow_width")
@@ -133,18 +133,18 @@ function RL.Experiment(
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
         ]
         )
 
@@ -154,18 +154,18 @@ function RL.Experiment(
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
                 LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
+                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
         ]
         )
 
@@ -219,7 +219,7 @@ function RL.Experiment(
                 explorer=EpsilonGreedyExplorer(
                     ϵ_init = 1.0,
                     ϵ_stable = 0.01,
-                    decay_steps = 1_000_000,
+                    decay_steps = 250_000,
                     kind = :linear,
                     rng=rng,
                 ),
