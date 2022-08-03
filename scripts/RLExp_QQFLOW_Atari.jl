@@ -50,7 +50,7 @@ function RL.Experiment(
             "Q_update_freq" => 8_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 32,
+            "hidden_dim" => 16,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -60,7 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 32,
+            "flow_width" => 16,
             "terminal_on_life_loss" => true,
         )
     end
@@ -112,8 +112,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 256, relu, init=initc),
-            Dense(256, hidden_dim, relu, init=initc),
+            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(512, hidden_dim, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -122,8 +122,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 256, relu, init=initc),
-            Dense(256, hidden_dim, relu, init=initc),
+            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(512, hidden_dim, relu, init=initc),
         ) |> gpu
 
         flow_width = get_config(lg, "flow_width")
