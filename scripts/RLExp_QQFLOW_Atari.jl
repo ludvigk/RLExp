@@ -105,6 +105,8 @@ function RL.Experiment(
         initc = glorot_uniform(rng)
         init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+        
+        flow_depth = get_config(lg, "flow_depth")
 
         B_model = Chain(
             x -> x ./ 255,
@@ -113,7 +115,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, (2 + 3 * 6) * N_ACTIONS, relu, init=initc),
+            Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -123,7 +125,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, (2 + 3 * 6) * N_ACTIONS, relu, init=initc),
+            Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
         ) |> gpu
 
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
