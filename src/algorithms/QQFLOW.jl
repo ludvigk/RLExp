@@ -56,7 +56,7 @@ Flux.@functor FlowNet
 #     z, lz
 # end
 
-function (m::FlowNet)(state::AbstractMatrix, num_samples::Int)
+function (m::FlowNet)(state::AbstractArray, num_samples::Int)
     na = m.n_actions
     p = m.net(state)
     μ = @inbounds p[1:na,:]
@@ -87,12 +87,12 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray)
     p = m.net(state)
     μ = @inbounds p[1:na,:]
     ρ = @inbounds p[(na+1):(2na),:]
-    σ = softplus.(ρ) 
+    σ = softplus.(ρ)
     σ = clamp.(σ, 1f-4, 1000)
 
     z = samples
     lz = Zygote.@ignore fill!(similar(z), 0f0)
-        
+
     μ = reshape(μ, size(μ)..., 1)
     σ = reshape(σ, size(σ)..., 1)
     
