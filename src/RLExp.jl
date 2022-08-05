@@ -13,6 +13,7 @@ export MountainCarPrior, LunarLanderPrior, KernelPrior
 export AcrobotEnv, GymEnv
 export UvPlanar, CouplingLayer, RealNVP, ConditionalRealNVP, ConditionalCouplingLayer, PlanarLayer, PlanarFlow
 export DUQNF, QFLOW, QQFlow, FlowNetwork, FlowNorm, Flow, LuddeFlow, inverse
+export FlowNet
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight

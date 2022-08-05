@@ -50,7 +50,7 @@ function RL.Experiment(
             "n_samples_act" => 100,
             "n_samples_target" => 100,
             "hidden_dim" => 8,
-            "B_opt" => "ADAM",
+            "B_opt" => "CenteredRMSProp",
             "gamma" => 0.99,
             "update_horizon" => 1,
             "batch_size" => 32,
@@ -59,7 +59,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 64,
+            "flow_depth" => 16,
         )
     end
 
@@ -92,80 +92,30 @@ function RL.Experiment(
         init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
-        hidden_dim = get_config(lg, "hidden_dim")
-
-        flow_width = get_config(lg, "flow_width")
-        flow_B = Flow(
-            [
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-        ]
-        )
-
-        flow_Q = Flow(
-            [
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-            # LuddeFlow(na, hidden_dim, flow_width),
-        ]
-        )
-
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
         init = Flux.glorot_uniform()
 
+        flow_depth = get_config(lg, "flow_depth")
         B_approximator = NeuralNetworkApproximator(
-            model=FlowNetwork(
-                base=Chain(
-                    Dense(ns, 128, leakyrelu, init=init),
-                    Dense(128, 128, leakyrelu, init=init),
-                    Dense(128, hidden_dim, init=init),
+            model=FlowNet(
+                net=Chain(
+                    Dense(ns, 512, leakyrelu, init=init),
+                    Dense(512, 512, leakyrelu, init=init),
+                    Dense(512, (2 + 3 * flow_depth) * na, init=(args...) -> init(args...) ./ 100),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
-                    Dense(32, 2na, init=init),
-                ),
-                flow=flow_B,
+                n_actions=na,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
         ) |> gpu
 
         Q_approximator = NeuralNetworkApproximator(
-            model=FlowNetwork(
-                base=Chain(
-                    Dense(ns, 128, leakyrelu, init=init),
-                    Dense(128, 128, leakyrelu, init=init),
-                    Dense(128, hidden_dim, init=init),
+            model=FlowNet(
+                net=Chain(
+                    Dense(ns, 512, leakyrelu, init=init),
+                    Dense(512, 512, leakyrelu, init=init),
+                    Dense(512, (2 + 3 * flow_depth) * na, init=(args...) -> init(args...) ./ 100),
                 ),
-                prior=Chain(Dense(hidden_dim, 32, leakyrelu, init=init),
-                    Dense(32, 2na, init=init),
-                ),
-                flow=flow_Q,
+                n_actions=na,
             ),
         ) |> gpu
 

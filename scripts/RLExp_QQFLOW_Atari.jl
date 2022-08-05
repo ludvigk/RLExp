@@ -60,7 +60,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_width" => 16,
+            "flow_depth" => 16,
             "terminal_on_life_loss" => false,
         )
     end
@@ -113,7 +113,7 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, hidden_dim, relu, init=initc),
+            Dense(512, (2 + 3 * 6) * N_ACTIONS, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -123,72 +123,23 @@ function RL.Experiment(
             Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
             Dense(11 * 11 * 64, 512, relu, init=initc),
-            Dense(512, hidden_dim, relu, init=initc),
+            Dense(512, (2 + 3 * 6) * N_ACTIONS, relu, init=initc),
         ) |> gpu
-
-        flow_width = get_config(lg, "flow_width")
-        flow_B = Flow(
-            [
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-        ]
-        )
-
-        flow_Q = Flow(
-            [
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-                # LuddeFlow(N_ACTIONS, hidden_dim, flow_width),
-        ]
-        )
 
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
 
         B_approximator = NeuralNetworkApproximator(
-            model=FlowNetwork(
-                base=B_model,
-                prior=Chain(Dense(hidden_dim, flow_width, relu, init=initc),
-                            Dense(flow_width, 2N_ACTIONS, init=initc),
-                ),
-                flow=flow_B,
+            model=FlowNet(
+                net=B_model,
+                n_actions=N_ACTIONS,
             ),
             optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
         ) |> gpu
 
         Q_approximator = NeuralNetworkApproximator(
-            model=FlowNetwork(
-                base=Q_model,
-                prior=Chain(Dense(hidden_dim, flow_width, relu, init = initc),
-                            Dense(flow_width, 2N_ACTIONS, init = initc),
-                ),
-                flow=flow_Q,
+            model=FlowNet(
+                net=Q_model,
+                n_actions=N_ACTIONS,
             ),
         ) |> gpu
 

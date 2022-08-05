@@ -1,4 +1,4 @@
-export QQFLOWLearner, FlowNetwork
+export QQFLOWLearner, FlowNetwork, FlowNet
 import ReinforcementLearning.RLBase.update!
 
 using DataStructures: DefaultDict
@@ -8,6 +8,105 @@ using Flux.Losses
 using CUDA: randn
 using MLUtils
 import Statistics.mean
+
+function v(x, b, c, d)
+    ϵ = 1f-6
+    xd = x .- d
+    sb = softplus.(b)
+    inner = exp.(abs.(xd) .+ sb) .- 1
+    out = sign.(xd) .* (log.(max.(inner, ϵ)) .- b) .- c
+    eax = exp.(abs.(xd))
+    eb = exp.(b) .+ 1
+    d_upper = eb .* eax
+    d_lower = d_upper .- 1 .+ ϵ
+    return out, log.(max.(abs.(d_upper ./ d_lower), ϵ))
+end
+
+function v⁻¹(x, b, c, d)
+    ϵ = 1f-6
+    inner = abs.(x .+ c) .+ b
+    out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
+    d_inner = exp.(abs.(c .+ x) .+ b)
+    d = d_inner ./ (d_inner .+ 1 .+ ϵ)
+    return out, log.(max.(abs.(d), ϵ))
+end
+
+Base.@kwdef struct FlowNet{P}
+    net::P
+    n_actions::Int
+end
+
+Flux.@functor FlowNet
+
+# function (m::FlowNet)(state::AbstractMatrix)
+#     na = m.n_actions
+#     p = m.net(state)
+#     μ = p[1:na,:]
+#     ρ = p[(na+1):(2na),:]
+#     σ = softplus.(ρ)
+#     σ = clamp.(σ, 1f-4, 1000)
+#     z = Zygote.@ignore randn!(similar(μ))
+#     lz = Zygote.@ignore fill!(similar(z), 0f0)
+#     for i=(2na + 1):(3na):(size(p,3) - 3na + 1)
+#         b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
+#         z, lz_ = v(z, b, c, d)
+#         lz = lz .+ lz_
+#     end
+#     z = μ .+ z .* σ
+#     z, lz
+# end
+
+function (m::FlowNet)(state::AbstractMatrix, num_samples::Int)
+    na = m.n_actions
+    p = m.net(state)
+    μ = @inbounds p[1:na,:]
+    ρ = @inbounds p[(na+1):(2na),:]
+    σ = softplus.(ρ) 
+    σ = clamp.(σ, 1f-4, 1000)
+    
+    z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    lz = Zygote.@ignore fill!(similar(z), 0f0)
+    
+    μ = reshape(μ, size(μ)..., 1)
+    σ = reshape(σ, size(σ)..., 1)
+    
+    for i=(2na + 1):(3na):(size(p,1) - 3na + 1)
+        # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
+        b = @inbounds p[i:(i + na - 1), :]
+        c = @inbounds p[(i+na):(i + 2na - 1), :]
+        d = @inbounds p[(i+2na):(i + 3na - 1), :]
+        z, lz_ = v(z, b, c, d)
+        lz = lz .+ lz_
+    end
+    z = μ .+ z .* σ
+    z, lz
+end
+
+function (m::FlowNet)(samples::AbstractArray, state::AbstractArray)
+    na = m.n_actions
+    p = m.net(state)
+    μ = @inbounds p[1:na,:]
+    ρ = @inbounds p[(na+1):(2na),:]
+    σ = softplus.(ρ) 
+    σ = clamp.(σ, 1f-4, 1000)
+
+    z = samples
+    lz = Zygote.@ignore fill!(similar(z), 0f0)
+        
+    μ = reshape(μ, size(μ)..., 1)
+    σ = reshape(σ, size(σ)..., 1)
+    
+    z = (z .- μ) ./ σ
+    for i=(size(p,1) - 3na + 1):(-3na):(2na + 1)
+        b = @inbounds p[i:(i + na - 1), :]
+        c = @inbounds p[(i+na):(i + 2na - 1), :]
+        d = @inbounds p[(i+2na):(i + 3na - 1), :]
+        # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
+        z, lz_ = v⁻¹(z, b, c, d)
+        lz = lz .+ lz_
+    end
+    z, lz, μ, σ
+end
 
 Base.@kwdef struct FlowNetwork{P,B,F}
     base::B
@@ -229,6 +328,7 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
 
     gs = gradient(params(B)) do
         preds, sldj, μ, σ = B(G, s)
+        # @show size(preds)
         # σ = clamp.(σ, 1f-2, 1f4)
         # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
         ll = preds[a, :] .^ 2 ./ 2
