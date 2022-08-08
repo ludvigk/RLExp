@@ -70,12 +70,14 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
     σ = clamp.(σ, 1f-4, 1000)
     
     # z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
-    r = Zygote.@ignore rand!(similar(μ, size(μ)..., num_samples))
-    tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μ, size(μ)..., num_samples))
-    lap = Zygote.@ignore rand!(Exponential(), similar(μ, size(μ)..., num_samples))
-    sig = Zygote.@ignore sign.(rand!(similar(μ, size(μ)..., num_samples)) .- 0.5)
+    μcpu = cpu(μ)
+    r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
+    tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
+    lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
+    sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
     z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
-
+    z = gpu(z)
+    
     lz = Zygote.@ignore fill!(similar(z), 0f0)
     
     μ = reshape(μ, size(μ)..., 1)
