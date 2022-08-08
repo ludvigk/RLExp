@@ -353,11 +353,11 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
         # σ = clamp.(σ, 1f-2, 1f4)
         # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
         TD_error = preds[a, :]
-        ll =  TD_error .^ 2 ./ 2
-        # abs_error = abs.(TD_error)
-        # quadratic = min.(abs_error, 1)
-        # linear = abs_error .- quadratic
-        # ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
+        # ll =  TD_error .^ 2 ./ 2
+        abs_error = abs.(TD_error)
+        quadratic = min.(abs_error, 1)
+        linear = abs_error .- quadratic
+        ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
         # p = ((preds .- μ) ./ σ)[a,:]
         # ll = min.(abs.(p), p .^ 2)
         # ll = p[a,:]
