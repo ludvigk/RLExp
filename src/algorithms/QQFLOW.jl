@@ -16,6 +16,9 @@ const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)
 
 function v(x, b, c, d)
     ϵ = 1f-6
+    # clamp!(b, -4,4)
+    # clamp!(c, -4,4)
+    # clamp!(d, -4,4)
     xd = x .- d
     sb = softplus.(b)
     inner = exp.(abs.(xd) .+ sb) .- 1
@@ -28,12 +31,17 @@ function v(x, b, c, d)
 end
 
 function v⁻¹(x, b, c, d)
-    ϵ = 1f-6
+    # ϵ = 1f-6
+    # clamp!(b, -4,4)
+    # clamp!(c, -4,4)
+    # clamp!(d, -4,4)
     inner = abs.(x .+ c) .+ b
     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
-    d_inner = exp.(abs.(c .+ x) .+ b)
-    d = d_inner ./ (d_inner .+ 1 .+ ϵ)
-    return out, log.(max.(abs.(d), ϵ))
+    acb = abs.(c .+ x) .+ b
+    # d = sigmoid.(acb)
+    # d_inner = exp.(acb)
+    # d = d_inner ./ (d_inner .+ 1 .+ ϵ)
+    return out, logsigmoid.(acb)
 end
 
 Base.@kwdef struct FlowNet{P}
@@ -69,15 +77,15 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
     σ = softplus.(ρ) 
     σ = clamp.(σ, 1f-4, 1000)
     
-    # z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
-    μcpu = cpu(μ)
-    r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
-    tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
-    lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
-    sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
-    z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
-    z = gpu(z)
-    
+    z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    # μcpu = cpu(μ)
+    # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
+    # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
+    # lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
+    # sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
+    # z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
+    # z = gpu(z)
+
     lz = Zygote.@ignore fill!(similar(z), 0f0)
     
     μ = reshape(μ, size(μ)..., 1)
@@ -345,11 +353,11 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
         # σ = clamp.(σ, 1f-2, 1f4)
         # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
         TD_error = preds[a, :]
-        # ll = preds[a, :] .^ 2 ./ 2
-        abs_error = abs.(TD_error)
-        quadratic = min.(abs_error, 1)
-        linear = abs_error .- quadratic
-        ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
+        ll =  TD_error .^ 2 ./ 2
+        # abs_error = abs.(TD_error)
+        # quadratic = min.(abs_error, 1)
+        # linear = abs_error .- quadratic
+        # ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
         # p = ((preds .- μ) ./ σ)[a,:]
         # ll = min.(abs.(p), p .^ 2)
         # ll = p[a,:]
