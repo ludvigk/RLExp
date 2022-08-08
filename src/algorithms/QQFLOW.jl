@@ -7,7 +7,12 @@ using StatsBase: sample
 using Flux.Losses
 using CUDA: randn
 using MLUtils
+using SpecialFunctions
 import Statistics.mean
+
+const erf1 = Float32(erf(1))
+const erfm1 = Float32(erf(-1))
+const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
 
 function v(x, b, c, d)
     ϵ = 1f-6
@@ -64,7 +69,13 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
     σ = softplus.(ρ) 
     σ = clamp.(σ, 1f-4, 1000)
     
-    z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    # z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    r = Zygote.@ignore rand!(similar(μ, size(μ)..., num_samples))
+    tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μ, size(μ)..., num_samples))
+    lap = Zygote.@ignore rand!(Exponential(), similar(μ, size(μ)..., num_samples))
+    sig = Zygote.@ignore sign.(rand!(similar(μ, size(μ)..., num_samples)) .- 0.5)
+    z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
+
     lz = Zygote.@ignore fill!(similar(z), 0f0)
     
     μ = reshape(μ, size(μ)..., 1)
@@ -331,7 +342,12 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
         # @show size(preds)
         # σ = clamp.(σ, 1f-2, 1f4)
         # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
-        ll = preds[a, :] .^ 2 ./ 2
+        TD_error = preds[a, :]
+        # ll = preds[a, :] .^ 2 ./ 2
+        abs_error = abs.(TD_error)
+        quadratic = min.(abs_error, 1)
+        linear = abs_error .- quadratic
+        ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
         # p = ((preds .- μ) ./ σ)[a,:]
         # ll = min.(abs.(p), p .^ 2)
         # ll = p[a,:]

@@ -42,15 +42,15 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-            "B_lr" => 5e-5,
+            "B_lr" => 1e-4,
             "Q_lr" => 1,
-            "B_clip_norm" => 1.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
-            "Q_update_freq" => 100,
+            "Q_update_freq" => 500,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
             "hidden_dim" => 8,
-            "B_opt" => "CenteredRMSProp",
+            "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
             "batch_size" => 32,
@@ -59,7 +59,7 @@ function RL.Experiment(
             "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 1,
-            "flow_depth" => 16,
+            "flow_depth" => 8,
         )
     end
 
@@ -99,9 +99,9 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNet(
                 net=Chain(
-                    Dense(ns, 512, leakyrelu, init=init),
-                    Dense(512, 512, leakyrelu, init=init),
-                    Dense(512, (2 + 3 * flow_depth) * na, init=(args...) -> init(args...) ./ 100),
+                    Dense(ns, 256, leakyrelu, init=init),
+                    Dense(256, 256, leakyrelu, init=init),
+                    Dense(256, (2 + 3 * flow_depth) * na, init=init),
                 ),
                 n_actions=na,
             ),
@@ -111,9 +111,9 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNet(
                 net=Chain(
-                    Dense(ns, 512, leakyrelu, init=init),
-                    Dense(512, 512, leakyrelu, init=init),
-                    Dense(512, (2 + 3 * flow_depth) * na, init=(args...) -> init(args...) ./ 100),
+                    Dense(ns, 256, leakyrelu, init=init),
+                    Dense(256, 256, leakyrelu, init=init),
+                    Dense(256, (2 + 3 * flow_depth) * na, init=init),
                 ),
                 n_actions=na,
             ),
