@@ -16,12 +16,12 @@ const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)
 
 function v(x, b, c, d)
     ϵ = 1f-6
-    # clamp!(b, -4,4)
-    # clamp!(c, -4,4)
-    # clamp!(d, -4,4)
+    # b = 4tanh.(b)
+    # c = 4tanh.(c)
+    # d = 4tanh.(d)
     xd = x .- d
     sb = softplus.(b)
-    inner = exp.(abs.(xd) .+ sb) .- 1
+    inner = expm1.(abs.(xd) .+ sb)
     out = sign.(xd) .* (log.(max.(inner, ϵ)) .- b) .- c
     eax = exp.(abs.(xd))
     eb = exp.(b) .+ 1
@@ -32,9 +32,9 @@ end
 
 function v⁻¹(x, b, c, d)
     # ϵ = 1f-6
-    # clamp!(b, -4,4)
-    # clamp!(c, -4,4)
-    # clamp!(d, -4,4)
+    # b = 4tanh.(b)
+    # c = 4tanh.(c)
+    # d = 4tanh.(d)
     inner = abs.(x .+ c) .+ b
     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
     acb = abs.(c .+ x) .+ b

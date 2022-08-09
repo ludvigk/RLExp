@@ -50,7 +50,6 @@ function RL.Experiment(
             "Q_update_freq" => 8_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "hidden_dim" => 16,
             "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 1,
@@ -95,8 +94,6 @@ function RL.Experiment(
         terminal_on_life_loss = terminal_on_life_loss,
     )
     N_ACTIONS = length(action_space(env))
-
-    hidden_dim = get_config(lg, "hidden_dim")
 
     if restore === nothing
         """
