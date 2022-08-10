@@ -42,9 +42,9 @@ function RL.Experiment(
     """
     if isnothing(config)
         config = Dict(
-            "B_lr" => 1e-4,
+            "B_lr" => 5e-5,
             "Q_lr" => 1,
-            "B_clip_norm" => 10.0,
+            "B_clip_norm" => 1.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
@@ -98,9 +98,9 @@ function RL.Experiment(
         B_approximator = NeuralNetworkApproximator(
             model=FlowNet(
                 net=Chain(
-                    Dense(ns, 256, leakyrelu, init=init),
-                    Dense(256, 256, leakyrelu, init=init),
-                    Dense(256, (2 + 3 * flow_depth) * na, init=init),
+                    Dense(ns, 512, gelu, init=init),
+                    Dense(512, 512, gelu, init=init),
+                    Dense(512, (2 + 3 * flow_depth) * na, init=init),
                 ),
                 n_actions=na,
             ),
@@ -110,9 +110,9 @@ function RL.Experiment(
         Q_approximator = NeuralNetworkApproximator(
             model=FlowNet(
                 net=Chain(
-                    Dense(ns, 256, leakyrelu, init=init),
-                    Dense(256, 256, leakyrelu, init=init),
-                    Dense(256, (2 + 3 * flow_depth) * na, init=init),
+                    Dense(ns, 512, gelu, init=init),
+                    Dense(512, 512, gelu, init=init),
+                    Dense(512, (2 + 3 * flow_depth) * na, init=init),
                 ),
                 n_actions=na,
             ),
@@ -242,7 +242,7 @@ function RL.Experiment(
         end,
         CloseLogger(lg),
     )
-    stop_condition = StopAfterStep(30_000, is_show_progress=true)
+    stop_condition = StopAfterStep(10_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT

@@ -8,6 +8,7 @@ using Flux.Losses
 using CUDA: randn
 using MLUtils
 using SpecialFunctions
+using StatsFuns
 import Statistics.mean
 
 const erf1 = Float32(erf(1))
@@ -20,14 +21,15 @@ function v(x, b, c, d)
     # c = 4tanh.(c)
     # d = 4tanh.(d)
     xd = x .- d
+    axd = abs.(xd)
     sb = softplus.(b)
-    inner = expm1.(abs.(xd) .+ sb)
-    out = sign.(xd) .* (log.(max.(inner, ϵ)) .- b) .- c
-    eax = exp.(abs.(xd))
-    eb = exp.(b) .+ 1
-    d_upper = eb .* eax
-    d_lower = d_upper .- 1 .+ ϵ
-    return out, log.(max.(abs.(d_upper ./ d_lower), ϵ))
+    inner = logexpm1.(axd .+ sb)
+    out = sign.(xd) .* (inner .- b) .- c
+    # eb = exp.(b) .+ 1
+    # leb = softplus.(b)
+    # d = axd .+ leb .- log.(eb .* exp.(axd) .- 1)
+    d = 0f0
+    return out, d
 end
 
 function v⁻¹(x, b, c, d)
@@ -77,14 +79,14 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
     σ = softplus.(ρ) 
     σ = clamp.(σ, 1f-4, 1000)
     
-    # z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
-    μcpu = cpu(μ)
-    r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
-    tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
-    lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
-    sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
-    z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
-    z = gpu(z)
+    z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
+    # μcpu = cpu(μ)
+    # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
+    # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
+    # lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
+    # sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
+    # z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
+    # z = gpu(z)
 
     lz = Zygote.@ignore fill!(similar(z), 0f0)
     
@@ -353,11 +355,13 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
         # σ = clamp.(σ, 1f-2, 1f4)
         # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
         TD_error = preds[a, :]
-        # ll =  TD_error .^ 2 ./ 2
-        abs_error = abs.(TD_error)
-        quadratic = min.(abs_error, 1)
-        linear = abs_error .- quadratic
-        ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
+        ll =  TD_error .^ 2 ./ 2
+        
+        # abs_error = abs.(TD_error)
+        # quadratic = min.(abs_error, 1)
+        # linear = abs_error .- quadratic
+        # ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
+        
         # p = ((preds .- μ) ./ σ)[a,:]
         # ll = min.(abs.(p), p .^ 2)
         # ll = p[a,:]
