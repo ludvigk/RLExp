@@ -107,21 +107,21 @@ function RL.Experiment(
 
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, gelu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(11 * 11 * 64, 512, gelu, init=initc),
             Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
         ) |> gpu
 
         Q_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, gelu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 512, relu, init=initc),
+            Dense(11 * 11 * 64, 512, gelu, init=initc),
             Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
         ) |> gpu
 
