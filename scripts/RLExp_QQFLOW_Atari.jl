@@ -111,8 +111,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 1024, gelu, init=initc),
-            Dense(1024, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
+            Dense(11 * 11 * 64, 512, gelu, init=initc),
+            Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
         ) |> gpu
 
         Q_model = Chain(
@@ -121,8 +121,8 @@ function RL.Experiment(
             Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
             Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 1024, gelu, init=initc),
-            Dense(1024, (2 + 3 * flow_depth) * N_ACTIONS, relu, init=initc),
+            Dense(11 * 11 * 64, 512, gelu, init=initc),
+            Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
         ) |> gpu
 
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
