@@ -50,7 +50,7 @@ function RL.Experiment(
             "Q_update_freq" => 10_000,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "B_opt" => "CenteredRMSProp",
+            "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 3,
             "batch_size" => 32,
@@ -60,7 +60,7 @@ function RL.Experiment(
             "traj_capacity" => 1_000_000,
             "seed" => 1,
             "flow_depth" => 8,
-            "terminal_on_life_loss" => true,
+            "terminal_on_life_loss" => false,
         )
     end
 
@@ -99,7 +99,8 @@ function RL.Experiment(
         """
         CREATE MODEL
         """
-        initc = glorot_uniform(rng)
+        # initc = glorot_uniform(rng)
+        initc = Flux.kaiming_normal(rng)
         init(a, b) = (2 .* rand(a, b) .- 1) ./ sqrt(b)
         init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
         
@@ -107,21 +108,21 @@ function RL.Experiment(
 
         B_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, gelu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 1024, gelu, init=initc),
+            Dense(11 * 11 * 64, 1024, relu, init=initc),
             Dense(1024, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
         ) |> gpu
 
         Q_model = Chain(
             x -> x ./ 255,
-            Conv((8, 8), N_FRAMES => 32, gelu; stride=4, pad=2, init=initc),
-            Conv((4, 4), 32 => 64, gelu; stride=2, pad=2, init=initc),
-            Conv((3, 3), 64 => 64, gelu; stride=1, pad=1, init=initc),
+            Conv((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
+            Conv((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
+            Conv((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
             x -> reshape(x, :, size(x)[end]),
-            Dense(11 * 11 * 64, 1024, gelu, init=initc),
+            Dense(11 * 11 * 64, 1024, relu, init=initc),
             Dense(1024, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
         ) |> gpu
 
