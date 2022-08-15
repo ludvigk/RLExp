@@ -45,7 +45,7 @@ function RL.Experiment(
         config = Dict(
             "B_lr" => 5e-5,
             "Q_lr" => 1,
-            "B_clip_norm" => 1000.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 4,
             "Q_update_freq" => 10_000,
             "n_samples_act" => 100,
@@ -170,7 +170,7 @@ function RL.Experiment(
                 explorer=EpsilonGreedyExplorer(
                     ϵ_init = 1.0,
                     ϵ_stable = 0.01,
-                    decay_steps = 1_000_000,
+                    decay_steps = 250_000,
                     kind = :linear,
                     rng=rng,
                 ),
