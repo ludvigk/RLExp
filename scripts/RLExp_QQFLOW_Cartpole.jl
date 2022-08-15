@@ -44,18 +44,18 @@ function RL.Experiment(
         config = Dict(
             "B_lr" => 5e-5,
             "Q_lr" => 1,
-            "B_clip_norm" => 1000.0,
+            "B_clip_norm" => 10.0,
             "B_update_freq" => 1,
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "B_opt" => "ADAM",
+            "B_opt" => "CenteredRMSProp",
             "gamma" => 0.99,
             "update_horizon" => 3,
             "batch_size" => 32,
             "min_replay_history" => 100,
             "updates_per_step" => 1,
-            "is_enable_double_DQN" => false,
+            "is_enable_double_DQN" => true,
             "traj_capacity" => 1_000_000,
             "seed" => 2,
             "flow_depth" => 8,
@@ -88,11 +88,13 @@ function RL.Experiment(
         """
         CREATE MODEL
         """
-        init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
-        init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+        # init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
+        # init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-        init = Flux.glorot_uniform()
+        init = Flux.glorot_normal()
+        # init = Flux.kaiming_normal()
+        initl = (args...) -> init(args...) ./ 100
 
         flow_depth = get_config(lg, "flow_depth")
         B_approximator = NeuralNetworkApproximator(
