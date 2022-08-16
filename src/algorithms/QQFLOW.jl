@@ -58,7 +58,15 @@ function v2(x, b, c, d)
     out, log.(dupper ./ dlower)
 end
 
-v2⁻¹(x, b, c, d) = v2(x, -b, d, c)
+function v2⁻¹(x, b, c, d)
+    xc = x .- c
+    axc = abs.(xc)
+    u = max.(axc, b)
+    s = exp.(axc .- u) .+ exp.(b .- u) .- exp.(-u)
+    r = u .+ log.(s) .- b
+    out = sign.(xc) .* r .+ d
+    out, 0f0
+end
 
 Base.@kwdef struct FlowNet{P}
     net::P
@@ -113,7 +121,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
         b = 4tanh.(b)
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
-        z, lz_ = v2(z, b, c, d)
+        z, lz_ = v2⁻¹(z, b, c, d)
         lz = lz .+ lz_
     end
     z = μ .+ z .* σ
@@ -141,7 +149,7 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray)
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
         # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
-        z, lz_ = v2⁻¹(z, b, c, d)
+        z, lz_ = v2(z, b, c, d)
         lz = lz .+ lz_
     end
     z, lz, μ, σ
