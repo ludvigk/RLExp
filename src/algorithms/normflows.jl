@@ -1,7 +1,7 @@
 using Flux
 using Zygote
 using MLUtils
-using Setfield
+# using Setfield
 using NNlib
 using DataStructures: counter
 

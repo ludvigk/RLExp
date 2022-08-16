@@ -49,7 +49,7 @@ function RL.Experiment(
             "Q_update_freq" => 100,
             "n_samples_act" => 100,
             "n_samples_target" => 100,
-            "B_opt" => "CenteredRMSProp",
+            "B_opt" => "ADAM",
             "gamma" => 0.99,
             "update_horizon" => 3,
             "batch_size" => 32,
@@ -92,32 +92,26 @@ function RL.Experiment(
         # init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
 
         B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-        init = Flux.glorot_normal()
-        # init = Flux.kaiming_normal()
+        # init = Flux.glorot_normal()
+        init = Flux.kaiming_normal()
         initl = (args...) -> init(args...) ./ 100
 
         flow_depth = get_config(lg, "flow_depth")
-        B_approximator = NeuralNetworkApproximator(
-            model=FlowNet(
-                net=Chain(
-                    Dense(ns, 512, gelu, init=init),
-                    Dense(512, 512, gelu, init=init),
-                    Dense(512, (2 + 3 * flow_depth) * na, init=init),
-                ),
-                n_actions=na,
-            ),
-            optimizer=Optimiser(ClipNorm(get_config(lg, "B_clip_norm")), B_opt(get_config(lg, "B_lr"))),
-        ) |> gpu
 
-        Q_approximator = NeuralNetworkApproximator(
-            model=FlowNet(
-                net=Chain(
-                    Dense(ns, 512, gelu, init=init),
-                    Dense(512, 512, gelu, init=init),
-                    Dense(512, (2 + 3 * flow_depth) * na, init=init),
-                ),
-                n_actions=na,
+        approximator=Approximator(
+            model=TwinNetwork(
+                FlowNet(;
+                    net=Chain(
+                        Dense(ns, 128, relu; init=init),
+                        Dense(128, 128, relu; init=init),
+                        Dense(128, (2 + 3 * flow_depth) * na; init=init),
+                        ),
+                    n_actions = na,
+                    ),
+                ;
+                sync_freq=100
             ),
+            optimiser=ADAM(0.0005),
         ) |> gpu
 
         Bp = Flux.params(B_approximator)
@@ -129,10 +123,8 @@ function RL.Experiment(
         agent = Agent(
             policy=QBasedPolicy(
                 learner=QQFLOWLearner(
-                    B_approximator=B_approximator,
-                    Q_approximator=Q_approximator,
+                    approximator=approximator,
                     num_actions=na,
-                    Q_lr=get_config(lg, "Q_lr"),
                     γ=get_config(lg, "gamma"),
                     update_horizon=get_config(lg, "update_horizon"),
                     n_samples_act=get_config(lg, "n_samples_act"),
@@ -172,7 +164,7 @@ function RL.Experiment(
             try
                 with_logger(lg) do
                     p = agent.policy.learner.logging_params
-                    L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
+                    L, nll, sldj, Qt, QA = p["loss"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                     Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
                     min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
                     @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred

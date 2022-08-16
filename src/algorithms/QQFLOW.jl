@@ -1,5 +1,5 @@
 export QQFLOWLearner, FlowNetwork, FlowNet
-import ReinforcementLearning.RLBase.update!
+import ReinforcementLearning.RLBase.optimise!
 
 using DataStructures: DefaultDict
 using Distributions: Uniform, Product
@@ -50,27 +50,31 @@ function v2(x, b, c, d)
     xc = x .- c
     axc = abs.(xc)
     u = max.(axc, b)
-    s = exp.(axc .- u) .+ exp.(b .- u) .- exp.(-u)
+    excu = exp.(axc .- u)
+    exbu = exp.(b .- u)
+    exu = exp.(-u)
+    s = excu .+ exbu .- exu
     r = u .+ log.(s) .- b
     out = sign.(xc) .* r .+ d
-    dupper = exp.(axc .- u)
-    dlower = dupper .+ exp.(b .- u) .- exp.(-u)
-    out, log.(dupper ./ dlower)
+    # dupper = excu
+    # dlower = s
+    out, log.(excu ./ s)
 end
 
-function v2⁻¹(x, b, c, d)
-    xc = x .- c
-    axc = abs.(xc)
-    u = max.(axc, b)
-    s = exp.(axc .- u) .+ exp.(b .- u) .- exp.(-u)
-    r = u .+ log.(s) .- b
-    out = sign.(xc) .* r .+ d
-    out, 0f0
-end
+v2⁻¹(x, b, c, d) = v2(x, -b, d, c)
+
+# function v2⁻¹(x, b, c, d)
+#     xc = x .- c
+#     axc = abs.(xc)
+#     u = max.(axc, b)
+#     s = exp.(axc .- u) .+ exp.(b .- u) .- exp.(-u)
+#     r = u .+ log.(s) .- b
+#     out = sign.(xc) .* r .+ d
+#     out, 0f0
+# end
 
 Base.@kwdef struct FlowNet{P}
     net::P
-    n_actions::Int
 end
 
 Flux.@functor FlowNet
@@ -93,8 +97,7 @@ Flux.@functor FlowNet
 #     z, lz
 # end
 
-function (m::FlowNet)(state::AbstractArray, num_samples::Int)
-    na = m.n_actions
+function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     p = m.net(state)
     μ = @inbounds p[1:na,:]
     ρ = @inbounds p[(na+1):(2na),:]
@@ -121,15 +124,14 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int)
         b = 4tanh.(b)
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
-        z, lz_ = v2⁻¹(z, b, c, d)
+        z, lz_ = v2(z, b, c, d)
         lz = lz .+ lz_
     end
     z = μ .+ z .* σ
     z, lz
 end
 
-function (m::FlowNet)(samples::AbstractArray, state::AbstractArray)
-    na = m.n_actions
+function (m::FlowNet)(samples::AbstractArray, state::AbstractArray, na::Int)
     p = m.net(state)
     μ = @inbounds p[1:na,:]
     ρ = @inbounds p[(na+1):(2na),:]
@@ -149,7 +151,7 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray)
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
         # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
-        z, lz_ = v2(z, b, c, d)
+        z, lz_ = v2⁻¹(z, b, c, d)
         lz = lz .+ lz_
     end
     z, lz, μ, σ
@@ -226,48 +228,34 @@ function (m::FlowNetwork)(samples::AbstractArray, state::AbstractArray)
     return preds, sldj, μ, σ
 end
 
-mutable struct QQFLOWLearner{
-    Tq<:AbstractApproximator,
-    Tt<:AbstractApproximator,
-    R<:AbstractRNG,
-} <: AbstractLearner
-    B_approximator::Tq
-    Q_approximator::Tt
-    num_actions::Int
-    Q_lr::Float32
+mutable struct QQFLOWLearner{A<:AbstractApproximator} <: AbstractLearner
+    approximator::A
+    n_actions::Int
     min_replay_history::Int
-    B_update_freq::Int
-    Q_update_freq::Int
-    update_step::Int
     n_samples_act::Int
     n_samples_target::Int
     sampler::NStepBatchSampler
-    rng::R
+    rng::AbstractRNG
     is_enable_double_DQN::Bool
     training::Bool
     logging_params
 end
 
 function QQFLOWLearner(;
-    B_approximator::Tq,
-    Q_approximator::Tt,
-    num_actions::Int,
-    Q_lr::Real=0.01f0,
+    approximator::A,
+    n_actions::Int,
     stack_size::Union{Int,Nothing}=nothing,
     γ::Real=0.99f0,
     batch_size::Int=32,
     update_horizon::Int=1,
     min_replay_history::Int=100,
-    B_update_freq::Int=1,
-    Q_update_freq::Int=1,
     traces=SARTS,
-    update_step::Int=0,
     n_samples_act::Int=30,
     n_samples_target::Int=30,
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
-) where {Tq,Tt}
+) where {A}
     sampler = NStepBatchSampler{traces}(;
         γ=Float32(γ),
         n=update_horizon,
@@ -275,14 +263,9 @@ function QQFLOWLearner(;
         batch_size=batch_size
     )
     return QQFLOWLearner(
-        B_approximator,
-        Q_approximator,
-        num_actions,
-        Float32(Q_lr),
+        approximator,
+        n_actions,
         min_replay_history,
-        B_update_freq,
-        Q_update_freq,
-        update_step,
         n_samples_act,
         n_samples_target,
         sampler,
@@ -293,67 +276,67 @@ function QQFLOWLearner(;
     )
 end
 
-Flux.functor(x::QQFLOWLearner) = (B=x.B_approximator, Q=x.Q_approximator),
-y -> begin
-    x = @set x.B_approximator = y.B
-    x = @set x.Q_approximator = y.Q
-    x
-end
+Flux.@functor QQFLOWLearner (approximator,)
 
 function (learner::QQFLOWLearner)(env)
-    s = send_to_device(device(learner.B_approximator), state(env))
+    s = send_to_device(device(learner.approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
-    q = dropdims(mean(learner.B_approximator(s, learner.n_samples_act)[1], dims=3), dims=3)
+    q = dropdims(mean(learner.approximator(s, learner.n_samples_act)[1], dims=3), dims=3)
     vec(q) |> send_to_host
 end
 
-function RLBase.update!(learner::QQFLOWLearner, t::AbstractTrajectory)
-    length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
+# function RLBase.update!(learner::QQFLOWLearner, t::AbstractTrajectory)
+#     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
 
-    learner.update_step += 1
+#     learner.update_step += 1
 
-    learner.update_step % learner.B_update_freq == 0 || learner.update_step % learner.Q_update_freq == 0 || return nothing
+#     learner.update_step % learner.B_update_freq == 0 || learner.update_step % learner.Q_update_freq == 0 || return nothing
 
-    if learner.update_step % learner.B_update_freq == 0
-        _, batch = sample(learner.rng, t, learner.sampler)
-        update!(learner, batch)
-    end
-    if learner.update_step % learner.Q_update_freq == 0
-        η = learner.Q_lr
-        B = learner.B_approximator
-        Q = learner.Q_approximator
-        Bp = Flux.params(B)
-        Qp = Flux.params(Q)
-        if η == 1
-            Flux.loadparams!(Q, Bp)
-        else
-            p = Qp .- η .* (Qp .- Bp)
-            Flux.loadparams!(Q, p)
-        end
-    end
-end
+#     if learner.update_step % learner.B_update_freq == 0
+#         _, batch = sample(learner.rng, t, learner.sampler)
+#         update!(learner, batch)
+#     end
+#     if learner.update_step % learner.Q_update_freq == 0
+#         η = learner.Q_lr
+#         B = learner.B_approximator
+#         Q = learner.Q_approximator
+#         Bp = Flux.params(B)
+#         Qp = Flux.params(Q)
+#         if η == 1
+#             Flux.loadparams!(Q, Bp)
+#         else
+#             p = Qp .- η .* (Qp .- Bp)
+#             Flux.loadparams!(Q, p)
+#         end
+#     end
+# end
 
-function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
-    B = learner.B_approximator
-    Q = learner.Q_approximator
-    num_actions = learner.num_actions
+function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
+    A = learner.approximator
+    Z = A.model.source
+    Zₜ = A.model.target
+    n_actions = learner.n_actions
     n_samples_target = learner.n_samples_target
     γ = learner.sampler.γ
     n = learner.sampler.n
-    batch_size = learner.sampler.batch_size
+    lp = learner.logging_params
+    
     D = device(Q)
+    states = send_to_device(D, batch.state)
+    rewards = send_to_device(D, batch.reward)
+    terminals = send_to_device(D, batch.terminal)
+    next_states = send_to_device(D, batch.next_state)
 
-    s, a, r, t, s′ = (send_to_device(D, batch[x]) for x in SARTS)
-    a = CartesianIndex.(a, 1:batch_size)
+    batch_size = length(terminals)
+    actions = CartesianIndex.(batch.action, 1:batch_size)
 
     if learner.is_enable_double_DQN
-        q_values = B(s′, n_samples_target)[1]
+        q_values = Z(next_states, n_samples_target, n_actions)[1]
     else
-        q_values = Q(s′, n_samples_target)[1]
+        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
-
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
@@ -362,61 +345,48 @@ function RLBase.update!(learner::QQFLOWLearner, batch::NamedTuple)
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     if learner.is_enable_double_DQN
-        q_values = Q(s′, n_samples_target)[1]
+        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     end
-    q′ = @inbounds q_values[selected_actions, :]
+    next_q = @inbounds q_values[selected_actions, :]
 
-    G = Flux.unsqueeze(r, 2) .+ Flux.unsqueeze(γ^n .* (1 .- t), 2) .* q′
-    G = repeat(Flux.unsqueeze(G, 1), num_actions, 1, 1)
-    # G_in = similar(G, num_actions, size(G)...)
-    # fill!(G_in, 0)
-    # G_in[selected_actions] = G
-    # G = G_in
+    target_distribution =
+        Flux.unsqueeze(rewards, 2) .+
+        Flux.unsqueeze(γ^n .* (1 .- terminals), 2) .* next_q
+    target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
+                                 n_actions, 1, 1)
 
     gs = gradient(params(B)) do
-        preds, sldj, μ, σ = B(G, s)
-        # @show size(preds)
-        # σ = clamp.(σ, 1f-2, 1f4)
-        # p = (preds .- μ) .^ 2 ./ (2 .* σ .^ 2 .+ 1f-6)
-        TD_error = preds[a, :]
-        ll =  TD_error .^ 2 ./ 2
+        preds, sldj, μ, σ = Z(target_distribution, states, n_actions)
+
+        nll = preds[actions, :] .^ 2 ./ 2
         
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
         # linear = abs_error .- quadratic
-        # ll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
-        
-        # p = ((preds .- μ) ./ σ)[a,:]
-        # ll = min.(abs.(p), p .^ 2)
-        # ll = p[a,:]
-        # ll = min.(p .^ 2, p)
-        sldj = sldj[a, :]
-        𝐿 = (sum(ll) - sum(sldj)) / n_samples_target + sum(log.(σ[a, :]))
+        # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
 
-        sqnorm(x) = sum(abs2, x)
-        l2norm = sum(sqnorm, Flux.params(B))
-        
-        𝐿 = 𝐿 / batch_size #+ 1f-5 * l2norm
+        sldj = sldj[actions, :]
+        loss = (sum(nll) - sum(sldj)) / n_samples_target + sum(log.(σ[a, :]))
+        loss = loss / batch_size
 
         Zygote.ignore() do
-            learner.logging_params["𝐿"] = 𝐿
-            learner.logging_params["nll"] = sum(ll) / (batch_size * n_samples_target)
-            learner.logging_params["sldj"] = sum(sldj) / (batch_size * n_samples_target)
-            learner.logging_params["Qₜ"] = sum(G) / length(G)
-            learner.logging_params["QA"] = sum(selected_actions)[1] / length(selected_actions)
-            learner.logging_params["mu"] = sum(μ) / length(μ)
-            learner.logging_params["sigma"] = sum(σ[a,:]) / length(σ[a,:])
-            learner.logging_params["l2norm"] = l2norm
-            learner.logging_params["max_weight"] = maximum(maximum.(Flux.params(B)))
-            learner.logging_params["min_weight"] = minimum(minimum.(Flux.params(B)))
-            learner.logging_params["max_pred"] = maximum(preds)
-            learner.logging_params["min_pred"] = minimum(preds)
-            for i = 1:learner.num_actions
-                learner.logging_params["Q$i"] = sum(G[i,:]) / batch_size
+            lp["loss"] = loss
+            lp["nll"] = sum(nll) / (batch_size * n_samples_target)
+            lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
+            lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
+            lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
+            lp["mu"] = sum(μ) / length(μ)
+            lp["sigma"] = sum(σ[a,:]) / length(σ[a,:])
+            lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
+            lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
+            lp["max_pred"] = maximum(preds)
+            lp["min_pred"] = minimum(preds)
+            for i = 1:n_actions
+                lp["Q$i"] = sum(G[i,:]) / batch_size
             end
         end
 
         return 𝐿
     end
-    update!(B, gs)
+    optimise!(B, gs)
 end

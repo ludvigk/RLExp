@@ -385,8 +385,7 @@ Equation~\ref{eq:luddeflow} shows the definitiona of the forward transformation
 \(v_{w, b, c, d}\), with 4 free parameters \(w, b, c, d\). Unlike the planar
 flow, this function is invertible and differentiable given any values for these
 parameters. Equation~\ref{eq:luddeflow_inv} and
-Equation~\ref{eq:luddeflow_inv_grad} show the closed form inverse and gradient
-respectively.
+Equation~\ref{eq:luddeflow_grad} show the closed form gradient.
 
 % \begin{equation}
 %   Z_\theta(\rvx,a) = v_\theta^{-1}(z, \rvx^\prime)_a
@@ -395,26 +394,41 @@ respectively.
 %   z \sim \N(0, I); \quad \rvx^\prime = h(\rvx)
 % \end{equation*}
 
-\begin{equation*}
-  s(x) = \log(1 + \exp(x))
-\end{equation*}
+% \begin{equation*}
+%   s(x) = \log(1 + \exp(x))
+% \end{equation*}
+% \begin{equation}
+%   v_{w, b, c, d}(z) = \sign(z + c) \left[ s(\lvert w(z + c) \rvert + b) 
+%   - s(b) \right] + d \label{eq:luddeflow}
+% \end{equation}
+
+% \begin{equation*}
+%   s^{-1}(x) = \log(\exp(x) - 1); \quad x > 0
+% \end{equation*}
+% \begin{equation}
+%   v^{-1}_{w, b, c, d}(z^\prime) = \frac{\sign(z^\prime - d)}{w}
+%   [ s^{-1}(\lvert z^\prime - d \rvert + s(b)) - b] - c \label{eq:luddeflow_inv}
+% \end{equation}
+
+% \begin{equation}
+%   \frac{\partial v^{-1}_{w,b,c,d}}{\partial z^\prime} = \frac{(e^b + 1) 
+%   e^{\lvert z^\prime - d \rvert}}{w (e^b + 1)e^{\lvert z^\prime - d \rvert} - w}
+%   \label{eq:luddeflow_inv_grad}
+% \end{equation}
+
 \begin{equation}
-  v_{w, b, c, d}(z) = \sign(z + c) \left[ s(\lvert w(z + c) \rvert + b) 
-  - s(b) \right] + d \label{eq:luddeflow}
+  v(z; b, c, d) = \sign(z - c) \log \left( e^{\lvert x - c \rvert}
+   + e^{b} - 1 \right) + d \label{eq:luddeflow}
 \end{equation}
 
-\begin{equation*}
-  s^{-1}(x) = \log(\exp(x) - 1); \quad x > 0
-\end{equation*}
 \begin{equation}
-  v^{-1}_{w, b, c, d}(z^\prime) = \frac{\sign(z^\prime - d)}{w}
-  [ s^{-1}(\lvert z^\prime - d \rvert + s(b)) - b] - c \label{eq:luddeflow_inv}
+  \frac{\partial v(z; b, c, d)}{\partial z} = \frac{e^{\lvert x - c \rvert}}
+  {e^{\lvert x - c \rvert} + e^{b} - 1}
+  \label{eq:luddeflow_grad}
 \end{equation}
 
 \begin{equation}
-  \frac{\partial v^{-1}_{w,b,c,d}}{\partial z^\prime} = \frac{(e^b + 1) 
-  e^{\lvert z^\prime - d \rvert}}{w (e^b + 1)e^{\lvert z^\prime - d \rvert} - w}
-  \label{eq:luddeflow_inv_grad}
+  v^{-1}(z^\prime; b, c, d) = v(z^\prime; -b, d, c) \label{eq:luddeflow_inv}
 \end{equation}
 
 Figure~\ref{fig:luddeflow} shows the effect of the free parameters. A simple
