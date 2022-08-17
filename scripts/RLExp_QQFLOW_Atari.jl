@@ -218,10 +218,7 @@ function RL.Experiment(
         @info "evaluating agent at $t step..."
         p = agent.policy
         p = @set p.explorer = EpsilonGreedyExplorer(0.001; rng = rng)
-        h = ComposedHook(
-            TotalOriginalRewardPerEpisode(),
-            StepsPerEpisode(),
-        )
+        h = TotalOriginalRewardPerEpisode() + StepsPerEpisode()
         s = @elapsed run(
             p,
             atari_env_factory(
@@ -245,18 +242,17 @@ function RL.Experiment(
                 seed=isnothing(seed) ? nothing : hash(seed + t)
             ),
             StopAfterEpisode(1; is_show_progress=false),
-            ComposedHook(
-                DoEveryNStep() do tt, agent, env
-                    push!(screens, get_screen(env))
-                end,
-                DoEveryNEpisode() do tt, agent, env
-                    Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
-                    Wandb.log(lg, Dict(
-                            "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
-                        ); step=lg.global_step)
-                    screens = []
-                end,
-            ),
+            DoEveryNStep() do tt, agent, env
+                push!(screens, get_screen(env))
+            end +
+            DoEveryNEpisode() do tt, agent, env
+                Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
+                Wandb.log(lg, Dict(
+                        "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
+                    ); step=lg.global_step)
+                screens = []
+            end
+        
         )
         avg_score = mean(h[1].rewards[1:end-1])
         avg_length = mean(h[2].steps[1:end-1])
