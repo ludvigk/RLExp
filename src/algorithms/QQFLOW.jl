@@ -1,50 +1,49 @@
-export QQFLOWLearner, FlowNetwork, FlowNet
-import ReinforcementLearning.RLBase.optimise!
+export QQFLOWLearner, FlowNet
+import ReinforcementLearning.RLBase
 
 using DataStructures: DefaultDict
-using Distributions: Uniform, Product
 using StatsBase: sample
-using Flux.Losses
+# using Flux.Losses
 using CUDA: randn
 using MLUtils
 using SpecialFunctions
-using StatsFuns
+# using StatsFuns
+using RLExp
 import Statistics.mean
+using Functors: @functor
 
-const erf1 = Float32(erf(1))
-const erfm1 = Float32(erf(-1))
 const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
 
-function v(x, b, c, d)
-    ϵ = 1f-6
-    # b = 4tanh.(b)
-    # c = 4tanh.(c)
-    # d = 4tanh.(d)
-    xd = x .- d
-    axd = abs.(xd)
-    sb = softplus.(b)
-    inner = logexpm1.(axd .+ sb)
-    out = sign.(xd) .* (inner .- b) .- c
-    # eb = exp.(b) .+ 1
-    # leb = softplus.(b)
-    # d = axd .+ leb .- log.(eb .* exp.(axd) .- 1)
-    d = 0f0
-    return out, d
-end
+# function v(x, b, c, d)
+#     ϵ = 1f-6
+#     # b = 4tanh.(b)
+#     # c = 4tanh.(c)
+#     # d = 4tanh.(d)
+#     xd = x .- d
+#     axd = abs.(xd)
+#     sb = softplus.(b)
+#     inner = logexpm1.(axd .+ sb)
+#     out = sign.(xd) .* (inner .- b) .- c
+#     # eb = exp.(b) .+ 1
+#     # leb = softplus.(b)
+#     # d = axd .+ leb .- log.(eb .* exp.(axd) .- 1)
+#     d = 0f0
+#     return out, d
+# end
 
-function v⁻¹(x, b, c, d)
-    # ϵ = 1f-6
-    # b = 4tanh.(b)
-    # c = 4tanh.(c)
-    # d = 4tanh.(d)
-    inner = abs.(x .+ c) .+ b
-    out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
-    acb = abs.(c .+ x) .+ b
-    # d = sigmoid.(acb)
-    # d_inner = exp.(acb)
-    # d = d_inner ./ (d_inner .+ 1 .+ ϵ)
-    return out, logsigmoid.(acb)
-end
+# function v⁻¹(x, b, c, d)
+#     # ϵ = 1f-6
+#     # b = 4tanh.(b)
+#     # c = 4tanh.(c)
+#     # d = 4tanh.(d)
+#     inner = abs.(x .+ c) .+ b
+#     out = sign.(x .+ c) .* (softplus.(inner) .- softplus.(b)) .+ d
+#     acb = abs.(c .+ x) .+ b
+#     # d = sigmoid.(acb)
+#     # d_inner = exp.(acb)
+#     # d = d_inner ./ (d_inner .+ 1 .+ ϵ)
+#     return out, logsigmoid.(acb)
+# end
 
 function v2(x, b, c, d)
     xc = x .- c
@@ -77,31 +76,13 @@ Base.@kwdef struct FlowNet{P}
     net::P
 end
 
-Flux.@functor FlowNet
-
-# function (m::FlowNet)(state::AbstractMatrix)
-#     na = m.n_actions
-#     p = m.net(state)
-#     μ = p[1:na,:]
-#     ρ = p[(na+1):(2na),:]
-#     σ = softplus.(ρ)
-#     σ = clamp.(σ, 1f-4, 1000)
-#     z = Zygote.@ignore randn!(similar(μ))
-#     lz = Zygote.@ignore fill!(similar(z), 0f0)
-#     for i=(2na + 1):(3na):(size(p,3) - 3na + 1)
-#         b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
-#         z, lz_ = v(z, b, c, d)
-#         lz = lz .+ lz_
-#     end
-#     z = μ .+ z .* σ
-#     z, lz
-# end
+@functor FlowNet (net,)
 
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     p = m.net(state)
     μ = @inbounds p[1:na,:]
     ρ = @inbounds p[(na+1):(2na),:]
-    σ = softplus.(ρ) 
+    σ = Flux.softplus.(ρ) 
     σ = clamp.(σ, 1f-4, 1000)
     
     z = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
@@ -121,7 +102,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     for i=(2na + 1):(3na):(size(p,1) - 3na + 1)
         # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
         b = @inbounds p[i:(i + na - 1), :]
-        b = 4tanh.(b)
+        # b = 4tanh.(b)
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
         z, lz_ = v2(z, b, c, d)
@@ -135,7 +116,7 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray, na::Int)
     p = m.net(state)
     μ = @inbounds p[1:na,:]
     ρ = @inbounds p[(na+1):(2na),:]
-    σ = softplus.(ρ)
+    σ = Flux.softplus.(ρ)
     σ = clamp.(σ, 1f-4, 1000)
 
     z = samples
@@ -147,7 +128,7 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray, na::Int)
     z = (z .- μ) ./ σ
     for i=(size(p,1) - 3na + 1):(-3na):(2na + 1)
         b = @inbounds p[i:(i + na - 1), :]
-        b = 4tanh.(b)
+        # b = 4tanh.(b)e
         c = @inbounds p[(i+na):(i + 2na - 1), :]
         d = @inbounds p[(i+2na):(i + 3na - 1), :]
         # b, c, d = MLUtils.chunk(p[i:(i+3na-1), :], 3, dims=1)
@@ -157,84 +138,13 @@ function (m::FlowNet)(samples::AbstractArray, state::AbstractArray, na::Int)
     z, lz, μ, σ
 end
 
-Base.@kwdef struct FlowNetwork{P,B,F}
-    base::B
-    prior::P
-    flow::F
-end
-
-Flux.@functor FlowNetwork
-
-function (m::FlowNetwork)(state::AbstractMatrix; inv::Bool=true)
-    h = m.base(state)
-    p = m.prior(h)
-    μ, ρ = MLUtils.chunk(p, 2, dims=1)
-    σ = softplus.(ρ)
-    σ = clamp.(σ, 1f-4, 1000)
-    # samples = μ .+ randn!(similar(μ)) .* σ
-    samples = Zygote.@ignore randn!(similar(μ))
-    # samples = Zygote.@ignore randn!(similar(μ, 1, size(μ, 2), num_samples))
-    # samples = Zygote.@ignore repeat(samples, size(μ, 1), 1, 1)
-    # x1 = rand!(similar(μ))
-    # x2 = rand!(similar(μ))
-    # samples = μ .+ log.(x1 ./ x2) .* σ
-    if !inv
-        samples = (samples .- μ) ./ σ
-        preds, sldj = inverse(m.flow, samples, h)
-        # preds = μ .+ preds .* σ
-    else
-        # samples = (samples .- μ) ./ σ
-        preds, sldj = m.flow(samples, h)
-        preds = μ .+ preds .* σ
-    end
-    return preds, sldj
-end
-
-function (m::FlowNetwork)(state::AbstractArray, num_samples::Int; inv::Bool=true)
-    h = m.base(state)
-    p = m.prior(h)
-    μ, ρ = MLUtils.chunk(p, 2, dims=1)
-    σ = softplus.(ρ)
-    σ = clamp.(σ, 1f-4, 1000)
-    # samples = μ .+ randn!(similar(μ, size(μ)..., num_samples)) .* σ
-    samples = Zygote.@ignore randn!(similar(μ, size(μ)..., num_samples))
-    # samples = Zygote.@ignore randn!(similar(μ, 1, size(μ, 2), num_samples))
-    # samples = Zygote.@ignore repeat(samples, size(μ, 1), 1, 1)
-    # x1 = rand!(similar(μ, size(μ)..., num_samples))
-    # x2 = rand!(similar(μ, size(μ)..., num_samples))
-    # samples = μ .+ log.(x1 ./ x2) .* σ
-    if !inv
-        samples = (samples .- μ) ./ σ
-        preds, sldj = inverse(m.flow, samples, h)
-        # preds = μ .+ preds .* σ
-    else
-        # samples = (samples .- μ) ./ σ
-        preds, sldj = m.flow(samples, h)
-        preds = μ .+ preds .* σ
-    end
-    return preds, sldj
-end
-
-function (m::FlowNetwork)(samples::AbstractArray, state::AbstractArray)
-    h = m.base(state)
-    p = m.prior(h)
-    μ, ρ = MLUtils.chunk(p, 2, dims=1)
-    σ = softplus.(ρ)
-    σ = clamp.(σ, 1f-4, 1000)
-    μ = reshape(μ, size(μ)..., 1)
-    σ = reshape(σ, size(σ)..., 1)
-    samples = (samples .- μ) ./ σ
-    preds, sldj = inverse(m.flow, samples, h)
-    return preds, sldj, μ, σ
-end
-
-mutable struct QQFLOWLearner{A<:AbstractApproximator} <: AbstractLearner
+mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     approximator::A
     n_actions::Int
-    min_replay_history::Int
     n_samples_act::Int
     n_samples_target::Int
-    sampler::NStepBatchSampler
+    update_horizon::Int
+    γ::Float32
     rng::AbstractRNG
     is_enable_double_DQN::Bool
     training::Bool
@@ -244,31 +154,21 @@ end
 function QQFLOWLearner(;
     approximator::A,
     n_actions::Int,
-    stack_size::Union{Int,Nothing}=nothing,
     γ::Real=0.99f0,
-    batch_size::Int=32,
     update_horizon::Int=1,
-    min_replay_history::Int=100,
-    traces=SARTS,
     n_samples_act::Int=30,
     n_samples_target::Int=30,
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
     rng=Random.GLOBAL_RNG
 ) where {A}
-    sampler = NStepBatchSampler{traces}(;
-        γ=Float32(γ),
-        n=update_horizon,
-        stack_size=stack_size,
-        batch_size=batch_size
-    )
     return QQFLOWLearner(
         approximator,
         n_actions,
-        min_replay_history,
         n_samples_act,
         n_samples_target,
-        sampler,
+        update_horizon,
+        Float32(γ),
         rng,
         is_enable_double_DQN,
         training,
@@ -278,38 +178,16 @@ end
 
 Flux.@functor QQFLOWLearner (approximator,)
 
-function (learner::QQFLOWLearner)(env)
-    s = send_to_device(device(learner.approximator), state(env))
-    s = Flux.unsqueeze(s, ndims(s) + 1)
-    q = dropdims(mean(learner.approximator(s, learner.n_samples_act)[1], dims=3), dims=3)
-    vec(q) |> send_to_host
+function (L::QQFLOWLearner)(s::AbstractArray)
+    q = L.approximator(s, L.n_samples_act, L.n_actions)[1]
+    q = dropdims(mean(q, dims=3), dims=3)
 end
 
-# function RLBase.update!(learner::QQFLOWLearner, t::AbstractTrajectory)
-#     length(t[:terminal]) - learner.sampler.n <= learner.min_replay_history && return nothing
-
-#     learner.update_step += 1
-
-#     learner.update_step % learner.B_update_freq == 0 || learner.update_step % learner.Q_update_freq == 0 || return nothing
-
-#     if learner.update_step % learner.B_update_freq == 0
-#         _, batch = sample(learner.rng, t, learner.sampler)
-#         update!(learner, batch)
-#     end
-#     if learner.update_step % learner.Q_update_freq == 0
-#         η = learner.Q_lr
-#         B = learner.B_approximator
-#         Q = learner.Q_approximator
-#         Bp = Flux.params(B)
-#         Qp = Flux.params(Q)
-#         if η == 1
-#             Flux.loadparams!(Q, Bp)
-#         else
-#             p = Qp .- η .* (Qp .- Bp)
-#             Flux.loadparams!(Q, p)
-#         end
-#     end
-# end
+function (learner::QQFLOWLearner)(env::AbstractEnv)
+    s = send_to_device(device(learner.approximator), state(env))
+    s = Flux.unsqueeze(s, ndims(s) + 1)
+    s |> learner |> vec |> send_to_host
+end
 
 function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     A = learner.approximator
@@ -317,15 +195,15 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     Zₜ = A.model.target
     n_actions = learner.n_actions
     n_samples_target = learner.n_samples_target
-    γ = learner.sampler.γ
-    n = learner.sampler.n
+    γ = learner.γ
+    update_horizon = learner.update_horizon
     lp = learner.logging_params
     
-    D = device(Q)
-    states = send_to_device(D, batch.state)
+    D = device(Z)
+    states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
-    next_states = send_to_device(D, batch.next_state)
+    next_states = send_to_device(D, collect(batch.next_state))
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
@@ -351,11 +229,12 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     target_distribution =
         Flux.unsqueeze(rewards, 2) .+
-        Flux.unsqueeze(γ^n .* (1 .- terminals), 2) .* next_q
+        Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
     target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
                                  n_actions, 1, 1)
+    target_distribution = reshape(target_distribution, size(target_distribution))
 
-    gs = gradient(params(B)) do
+    gs = gradient(Flux.params(Z)) do
         preds, sldj, μ, σ = Z(target_distribution, states, n_actions)
 
         nll = preds[actions, :] .^ 2 ./ 2
@@ -366,7 +245,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
 
         sldj = sldj[actions, :]
-        loss = (sum(nll) - sum(sldj)) / n_samples_target + sum(log.(σ[a, :]))
+        loss = (sum(nll) - sum(sldj)) / n_samples_target + sum(log.(σ[actions, :]))
         loss = loss / batch_size
 
         Zygote.ignore() do
@@ -376,17 +255,17 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
             lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
             lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
             lp["mu"] = sum(μ) / length(μ)
-            lp["sigma"] = sum(σ[a,:]) / length(σ[a,:])
+            lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
             lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
             lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
             lp["max_pred"] = maximum(preds)
             lp["min_pred"] = minimum(preds)
             for i = 1:n_actions
-                lp["Q$i"] = sum(G[i,:]) / batch_size
+                lp["Q$i"] = sum(target_distribution[i,:]) / batch_size
             end
         end
 
-        return 𝐿
+        return loss
     end
-    optimise!(B, gs)
+    optimise!(A, gs)
 end

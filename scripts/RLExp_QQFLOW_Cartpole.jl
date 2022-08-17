@@ -1,9 +1,7 @@
 using Base.Iterators: tail
-# using BSON: @load, @save
 using JLD2
 using CUDA
 using Dates: now
-using Distributions: Uniform, Product
 using DrWatson
 using Flux
 using Flux: Optimiser
@@ -11,6 +9,7 @@ using Logging
 using RLExp
 using Random
 using ReinforcementLearning
+using RLExp
 using Setfield
 using Statistics
 using StatsPlots
@@ -31,36 +30,30 @@ end
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:QQFLOW},
-    ::Val{:Cartpole},
-    name;
-    restore=nothing,
-    config=nothing
+    ::Val{:Cartpole};
+    seed=123,
 )
+    restore=nothing
 
     """
     SET UP LOGGING
     """
-    if isnothing(config)
-        config = Dict(
-            "B_lr" => 5e-5,
-            "Q_lr" => 1,
-            "B_clip_norm" => 10.0,
-            "B_update_freq" => 1,
-            "Q_update_freq" => 100,
-            "n_samples_act" => 100,
-            "n_samples_target" => 100,
-            "B_opt" => "ADAM",
-            "gamma" => 0.99,
-            "update_horizon" => 3,
-            "batch_size" => 32,
-            "min_replay_history" => 100,
-            "updates_per_step" => 1,
-            "is_enable_double_DQN" => true,
-            "traj_capacity" => 1_000_000,
-            "seed" => 2,
-            "flow_depth" => 8,
-        )
-    end
+    config = Dict(
+        "lr" => 5e-4,
+        "update_freq" => 4,
+        "target_update_freq" => 100,
+        "n_samples_act" => 100,
+        "n_samples_target" => 100,
+        "opt" => "ADAM",
+        "gamma" => 0.99,
+        "update_horizon" => 1,
+        "batch_size" => 32,
+        "min_replay_history" => 100,
+        "is_enable_double_DQN" => false,
+        "traj_capacity" => 1_000,
+        "seed" => 2,
+        "flow_depth" => 4,
+    )
 
     lg = WandbLogger(project="BE",
         name="QQFLOW_CartPole",
@@ -84,162 +77,164 @@ function RL.Experiment(
     env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
 
-    if restore === nothing
-        """
-        CREATE MODEL
-        """
-        # init(dims...) = (2 .* rand(dims...) .- 1) ./ Float32(sqrt(dims[end]))
-        # init_σ(dims...) = fill(0.4f0 / Float32(sqrt(dims[end])), dims)
+    """
+    CREATE MODEL
+    """
+    init = Flux.glorot_uniform()
+    # inil = (args...) -> init(args...) ./ 100
+    # init = Flux.glorot_normal()
+    # init = Flux.kaiming_normal()
 
-        B_opt = eval(Meta.parse(get_config(lg, "B_opt")))
-        # init = Flux.glorot_normal()
-        init = Flux.kaiming_normal()
-        initl = (args...) -> init(args...) ./ 100
+    flow_depth = get_config(lg, "flow_depth")
+    opt = eval(Meta.parse(get_config(lg, "opt")))
+    lr = get_config(lg, "lr")
 
-        flow_depth = get_config(lg, "flow_depth")
-
-        approximator=Approximator(
-            model=TwinNetwork(
-                FlowNet(;
-                    net=Chain(
-                        Dense(ns, 128, relu; init=init),
-                        Dense(128, 128, relu; init=init),
-                        Dense(128, (2 + 3 * flow_depth) * na; init=init),
-                        ),
-                    n_actions = na,
+    approximator=Approximator(
+        model=TwinNetwork(
+            FlowNet(;
+                net=Chain(
+                    Dense(ns, 128, relu; init=init),
+                    Dense(128, 128, relu; init=init),
+                    Dense(128, (2 + 3 * flow_depth) * na; init=init),
                     ),
-                ;
-                sync_freq=100
-            ),
-            optimiser=ADAM(0.0005),
-        ) |> gpu
+                ) |> gpu,
+            ;
+            sync_freq=get_config(lg, "target_update_freq")
+        ),
+        optimiser=opt(lr),
+    )
 
-        Bp = Flux.params(B_approximator)
-        Flux.loadparams!(Q_approximator, Bp)
-        """
-        CREATE AGENT
-        """
-
-        agent = Agent(
-            policy=QBasedPolicy(
-                learner=QQFLOWLearner(
-                    approximator=approximator,
-                    num_actions=na,
-                    γ=get_config(lg, "gamma"),
-                    update_horizon=get_config(lg, "update_horizon"),
-                    n_samples_act=get_config(lg, "n_samples_act"),
-                    n_samples_target=get_config(lg, "n_samples_target"),
-                    batch_size=get_config(lg, "batch_size"),
-                    min_replay_history=get_config(lg, "min_replay_history"),
-                    B_update_freq=get_config(lg, "B_update_freq"),
-                    Q_update_freq=get_config(lg, "Q_update_freq"),
-                    is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
-                ),
-                explorer=EpsilonGreedyExplorer(
-                    kind=:exp,
-                    ϵ_stable=0.01,
-                    decay_steps=500,
-                    rng=rng,
-                ),
+    """
+    CREATE AGENT
+    """
+    agent = Agent(
+        policy=QBasedPolicy(
+            learner=QQFLOWLearner(
+                approximator=approximator,
+                n_actions=na,
+                γ=get_config(lg, "gamma"),
+                update_horizon=get_config(lg, "update_horizon"),
+                n_samples_act=get_config(lg, "n_samples_act"),
+                n_samples_target=get_config(lg, "n_samples_target"),
+                is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
             ),
-            trajectory=CircularArraySARTTrajectory(
+            explorer=EpsilonGreedyExplorer(
+                kind=:exp,
+                ϵ_stable=0.01,
+                decay_steps=500,
+                rng=rng,
+            ),
+        ),
+        trajectory=Trajectory(
+            container = CircularArraySARTTraces(
                 capacity=get_config(lg, "traj_capacity"),
-                state=Vector{Float32} => ns,
+                state=Float32 => (ns,),
+            ),
+            sampler=NStepBatchSampler{SS′ART}(
+                n=get_config(lg, "update_horizon"),
+                γ=get_config(lg, "gamma"),
+                batch_size=get_config(lg, "batch_size"),
+                rng=rng
+            ),
+            controller = InsertSampleRatioController(
+                ratio=get_config(lg, "update_freq"),
+                threshold=get_config(lg, "min_replay_history"),
+                n_inserted=-1,
             ),
         )
-    else
-        agent = load(restore; agent)
-        # @load restore agent
-    end
+    )
 
     """
     SET UP HOOKS
     """
     step_per_episode = StepsPerEpisode()
     reward_per_episode = TotalRewardPerEpisode()
-    hook = ComposedHook(
-        step_per_episode,
-        reward_per_episode,
-        DoEveryNStep() do t, agent, env
-            try
-                with_logger(lg) do
-                    p = agent.policy.learner.logging_params
-                    L, nll, sldj, Qt, QA = p["loss"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
-                    Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
-                    min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
-                    @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
+    every_step = DoEveryNStep() do t, agent, env
+        try
+            with_logger(lg) do
+                p = agent.policy.learner.logging_params
+                L, nll, sldj, Qt, QA = p["loss"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
+                Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
+                min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
+                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
 
-                    # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
-                    # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
-                    # sul = sum(abs.(last_layer)) / length(last_layer)
-                    # spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
-                    # @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
-                end
-            catch
-                close(lg)
-                stop("Program most likely terminated through WandB interface.")
+                # last_layer = agent.policy.learner.B_approximator.model[end].paths[1][end].w_ρ
+                # penultimate_layer = agent.policy.learner.B_approximator.model[end].paths[1][end-1].w_ρ
+                # sul = sum(abs.(last_layer)) / length(last_layer)
+                # spl = sum(abs.(penultimate_layer)) / length(penultimate_layer)
+                # @info "training" sigma_ultimate_layer = sul sigma_penultimate_layer = spl log_step_increment = 0
             end
-        end,
-        DoEveryNEpisode() do t, agent, env
-            try
-                with_logger(lg) do
-                    @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
-                    @info "training" episode = t log_step_increment = 0
-                end
-            catch
-                close(lg)
-                stop("Program most likely terminated through WandB interface.")
+        catch
+            close(lg)
+            stop("Program most likely terminated through WandB interface.")
+        end
+    end
+    every_ep = DoEveryNEpisode(;stage=PostEpisodeStage()) do t, agent, env
+        try
+            with_logger(lg) do
+                @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                @info "training" episode = t log_step_increment = 0
             end
-        end,
-        DoEveryNStep(n=200) do t, agent, env
-            @info "evaluating agent at $t step..."
-            p = agent.policy
-            h = ComposedHook(
-                TotalRewardPerEpisode(),
-                StepsPerEpisode(),
-            )
-            s = @elapsed run(
-                p,
-                CartPoleEnv(; T=Float32),
-                StopAfterEpisode(100; is_show_progress=false),
-                h,
-            )
-            avg_score = mean(h[1].rewards[1:end-1])
-            avg_length = mean(h[2].steps[1:end-1])
+        catch
+            close(lg)
+            stop("Program most likely terminated through WandB interface.")
+        end
+    end
+    every_n_step = DoEveryNStep(n=200) do t, agent, env
+        @info "evaluating agent at $t step..."
+        p = agent.policy
+        total_reward = TotalRewardPerEpisode() 
+        steps = StepsPerEpisode()
+        s = @elapsed run(
+            p,
+            CartPoleEnv(; T=Float32),
+            StopAfterEpisode(100; is_show_progress=false),
+            total_reward + steps,
+        )
+        avg_score = mean(total_reward.rewards[1:end-1])
+        avg_length = mean(steps.steps[1:end-1])
 
-            @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
-            try
-                with_logger(lg) do
-                    @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
-                    # @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
-                    # @info "training" episode = t log_step_increment = 0
-                end
-            catch
-                close(lg)
-                stop("Program most likely terminated through WandB interface.")
+        @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
+        try
+            with_logger(lg) do
+                @info "evaluating" avg_length = avg_length avg_score = avg_score log_step_increment = 0
+                # @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
+                # @info "training" episode = t log_step_increment = 0
             end
+        catch
+            close(lg)
+            stop("Program most likely terminated through WandB interface.")
+        end
 
-            @info "Saving agent at step $t to $save_dir"
+        # @info "Saving agent at step $t to $save_dir"
+        try
             env = CartPoleEnv(; T=Float32)
             s = Flux.unsqueeze(env.state, 2) |> gpu
-            samples = agent.policy.learner.B_approximator(s, 500)[1] |> cpu
+            samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
             p = plot()
             for action in 1:size(samples, 1)
                 density!(samples[action, 1, :], c=action, label="action $(action)")
                 vline!([mean(samples[action, 1, :])], c=action, label=false)
             end
             Plots.savefig(p, save_dir * "/qdistr_$(t).png")
-        end,
-        DoEveryNEpisode(n=5000) do t, agent, env
-            @info "Saving agent at step $t to $save_dir"
-            jldsave(save_dir * "/model_$t.jld2"; agent)
-        end,
-        CloseLogger(lg),
-    )
+        catch
+            close(lg)
+            @error "Failed to save plot. Probably NaN values."
+            throw(Error())
+        end
+    end
+
+    every_n_ep = DoEveryNEpisode(n=5000; stage=PostEpisodeStage()) do t, agent, env
+        @info "Saving agent at step $t to $save_dir"
+        jldsave(save_dir * "/model_$t.jld2"; agent)
+    end
+
+    hook = step_per_episode + reward_per_episode + every_step + every_ep +
+        every_n_step + every_n_ep + CloseLogger(lg)
     stop_condition = StopAfterStep(10_000, is_show_progress=true)
 
     """
     RETURN EXPERIMENT
     """
-    Experiment(agent, env, stop_condition, hook, "# QQFLOW <-> CartPole")
+    Experiment(agent, env, stop_condition, hook)
 end

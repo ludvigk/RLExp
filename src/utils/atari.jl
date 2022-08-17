@@ -56,17 +56,18 @@ function atari_env_factory(
         )
     end
 
-    if isnothing(n_replica)
-        init(seed)
-    else
-        envs = [init(isnothing(seed) ? nothing : hash(seed + i)) for i in 1:n_replica]
-        states = Flux.batch(state.(envs))
-        rewards = reward.(envs)
-        terminals = is_terminated.(envs)
-        A = Space([action_space(x) for x in envs])
-        S = Space(fill(0 .. 255, size(states)))
-        MultiThreadEnv(envs, states, rewards, terminals, A, S, nothing)
-    end
+    # if isnothing(n_replica)
+    #     init(seed)
+    # else
+    #     envs = [init(isnothing(seed) ? nothing : hash(seed + i)) for i in 1:n_replica]
+    #     states = Flux.batch(state.(envs))
+    #     rewards = reward.(envs)
+    #     terminals = is_terminated.(envs)
+    #     A = Space([action_space(x) for x in envs])
+    #     S = Space(fill(0 .. 255, size(states)))
+    #     MultiThreadEnv(envs, states, rewards, terminals, A, S, nothing)
+    # end
+    init(seed)
 end
 
 "Total reward per episode before reward reshaping"
@@ -98,17 +99,17 @@ function TotalBatchOriginalRewardPerEpisode(batch_size::Int)
     )
 end
 
-function (hook::TotalBatchOriginalRewardPerEpisode)(
-    ::PostActStage, agent, env::MultiThreadEnv{<:RewardTransformedEnv}
-)
-    for (i, e) in enumerate(env.envs)
-        hook.reward[i] += reward(e.env)
-        if is_terminated(e)
-            push!(hook.rewards[i], hook.reward[i])
-            hook.reward[i] = 0.0
-        end
-    end
-end
+# function (hook::TotalBatchOriginalRewardPerEpisode)(
+#     ::PostActStage, agent, env::MultiThreadEnv{<:RewardTransformedEnv}
+# )
+#     for (i, e) in enumerate(env.envs)
+#         hook.reward[i] += reward(e.env)
+#         if is_terminated(e)
+#             push!(hook.rewards[i], hook.reward[i])
+#             hook.reward[i] = 0.0
+#         end
+#     end
+# end
 
 function get_screen(env::T) where {T<:AbstractEnv}
     game = get_base_atari_env(env)
