@@ -33,8 +33,6 @@ function RL.Experiment(
     ::Val{:Cartpole};
     seed=123,
 )
-    restore=nothing
-
     """
     SET UP LOGGING
     """

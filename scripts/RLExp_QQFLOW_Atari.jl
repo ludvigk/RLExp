@@ -51,7 +51,7 @@ function RL.Experiment(
         "batch_size" => 32,
         "min_replay_history" => 20_000,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 1_000_000,
+        "traj_capacity" => 10_000,
         "seed" => 1,
         "flow_depth" => 8,
         "terminal_on_life_loss" => false,
@@ -106,9 +106,9 @@ function RL.Experiment(
         CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
         CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
         x -> reshape(x, :, size(x)[end]),
-        Dense(11 * 11 * 64, 1024, relu, init=initc),
-        Dense(1024, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
-    )
+        Dense(11 * 11 * 64, 512, relu, init=initc),
+        Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
+    ) |> gpu
 
 
     approximator = Approximator(
@@ -119,7 +119,7 @@ function RL.Experiment(
             sync_freq=get_config(lg, "target_update_freq"),
         );
         optimiser=Optimiser(ClipNorm(clip_norm), opt(lr)),
-    ) |> gpu
+    )
 
     """
     CREATE AGENT
@@ -135,7 +135,7 @@ function RL.Experiment(
                 n_samples_target=get_config(lg, "n_samples_target"),
                 is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
             ),
-            explorer=EpsilonGreedyExplorer(
+            explorer=EpsilonGreedyExplorer(                                                                                                                                                                                                             
                 ϵ_init = 1.0,
                 ϵ_stable = 0.01,
                 decay_steps = 250_000,
@@ -146,8 +146,8 @@ function RL.Experiment(
         trajectory=Trajectory(
             container = CircularArraySARTTraces(
                 capacity=get_config(lg, "traj_capacity"),
-                state=Vector{Float32} => STATE_SIZE,
-            ),
+                state=Float32 => STATE_SIZE,
+            ),                                                                                                                                                                                                              
             sampler=NStepBatchSampler{SS′ART}(
                 n=get_config(lg, "update_horizon"),
                 γ=get_config(lg, "gamma"),
@@ -159,7 +159,7 @@ function RL.Experiment(
                 threshold=get_config(lg, "min_replay_history"),
                 n_inserted=-1,
             ),
-        )
+        ),
     )
 
     """

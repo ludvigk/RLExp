@@ -1,3 +1,5 @@
+import ReinforcementLearning.RLBase: action_space
+
 """
     ResizeImage(img::Array{T, N})
     ResizeImage(dims::Int...) -> ResizeImage(Float32, dims...)
@@ -128,3 +130,5 @@ get_base_atari_env(env::AtariEnv) = env
 @recipe function f(::Type{T}, env::T) where {T<:AbstractEnv}
     return get_screen(env)
 end
+
+RLBase.action_space(env::AtariEnv, player::DefaultPlayer) = action_space(env)
