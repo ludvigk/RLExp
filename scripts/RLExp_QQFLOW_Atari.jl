@@ -245,7 +245,7 @@ function RL.Experiment(
             DoEveryNStep() do tt, agent, env
                 push!(screens, get_screen(env))
             end +
-            DoEveryNEpisode() do tt, agent, env
+            DoEveryNEpisode(;stage=PostEpisodeStage()) do tt, agent, env
                 Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
                 Wandb.log(lg, Dict(
                         "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
