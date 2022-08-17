@@ -1822,7 +1822,7 @@ version = "0.3.2"
 
 [[ReinforcementLearning]]
 deps = ["Reexport", "ReinforcementLearningBase", "ReinforcementLearningCore", "ReinforcementLearningEnvironments", "ReinforcementLearningZoo"]
-path = "/home/ludvig/.julia/dev/ReinforcementLearning"
+path = "../ReinforcementLearning.jl"
 uuid = "158674fc-8238-5cab-b5ba-03dfc80d1318"
 version = "0.11.0"
 
