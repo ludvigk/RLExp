@@ -218,7 +218,9 @@ function RL.Experiment(
         @info "evaluating agent at $t step..."
         p = agent.policy
         p = @set p.explorer = EpsilonGreedyExplorer(0.001; rng = rng)
-        h = TotalOriginalRewardPerEpisode() + StepsPerEpisode()
+        tot_reward = TotalOriginalRewardPerEpisode()
+        n_steps = StepsPerEpisode()
+        h = tot_reward + n_steps
         s = @elapsed run(
             p,
             atari_env_factory(
@@ -231,6 +233,16 @@ function RL.Experiment(
             StopAfterStep(125_000; is_show_progress=false),
             h,
         )
+        p_every_step = DoEveryNStep() do tt, agent, env
+            push!(screens, get_screen(env))
+        end
+        p_every_ep = DoEveryNEpisode(;stage=PostEpisodeStage()) do tt, agent, env
+            Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
+            Wandb.log(lg, Dict(
+                    "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
+                ); step=lg.global_step)
+            screens = []
+        end
 
         run(
             p,
@@ -242,20 +254,10 @@ function RL.Experiment(
                 seed=isnothing(seed) ? nothing : hash(seed + t)
             ),
             StopAfterEpisode(1; is_show_progress=false),
-            DoEveryNStep() do tt, agent, env
-                push!(screens, get_screen(env))
-            end +
-            DoEveryNEpisode(;stage=PostEpisodeStage()) do tt, agent, env
-                Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
-                Wandb.log(lg, Dict(
-                        "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
-                    ); step=lg.global_step)
-                screens = []
-            end
-        
+            p_every_step + p_every_ep,
         )
-        avg_score = mean(h[1].rewards[1:end-1])
-        avg_length = mean(h[2].steps[1:end-1])
+        avg_score = mean(tot_reward.rewards[1:end-1])
+        avg_length = mean(n_steps.steps[1:end-1])
 
         @info "finished evaluating agent in $(round(s, digits=2)) seconds" avg_length = avg_length avg_score = avg_score
         try
