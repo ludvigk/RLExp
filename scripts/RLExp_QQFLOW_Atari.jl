@@ -39,7 +39,7 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 1e-5,
+        "lr" => 5e-5,
         "clip_norm" => 10,
         "update_freq" => 4,
         "target_update_freq" => 8_000,
@@ -138,7 +138,7 @@ function RL.Experiment(
             explorer=EpsilonGreedyExplorer(                                                                                                                                                                                                             
                 ϵ_init = 1.0,
                 ϵ_stable = 0.01,
-                decay_steps = 250_000,
+                decay_steps = 1_000_000,
                 kind = :linear,
                 rng=rng,
             ),
