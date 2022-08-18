@@ -39,7 +39,7 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 5e-5,
+        "lr" => 1e-5,
         "clip_norm" => 10,
         "update_freq" => 4,
         "target_update_freq" => 8_000,
