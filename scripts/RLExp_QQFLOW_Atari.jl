@@ -107,7 +107,7 @@ function RL.Experiment(
         CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
         x -> reshape(x, :, size(x)[end]),
         Dense(11 * 11 * 64, 512, relu, init=initc),
-        Dense(512, (2 + 3 * flow_depth) * N_ACTIONS, init=initc),
+        Dense(512, 1 + (3 * flow_depth) * N_ACTIONS, init=initc),
     ) |> gpu
 
 
@@ -156,8 +156,8 @@ function RL.Experiment(
                 rng=rng
             ),
             controller = InsertSampleRatioController(
+                ratio=get_config(lg, "update_freq"),
                 threshold=get_config(lg, "min_replay_history"),
-                n_inserted=-1,
             ),
         ),
     )
