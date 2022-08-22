@@ -92,7 +92,7 @@ function RL.Experiment(
     """
     CREATE MODEL
     """
-    initc = glorot_uniform(rng)
+    initc = Flux.glorot_uniform(rng)
     # initc = Flux.kaiming_normal(rng)
     
     flow_depth = get_config(lg, "flow_depth")
