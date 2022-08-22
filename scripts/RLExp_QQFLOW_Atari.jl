@@ -49,7 +49,7 @@ function RL.Experiment(
         "gamma" => 0.99,
         "update_horizon" => 3,
         "batch_size" => 32,
-        "min_replay_history" => 20_000,
+        "min_replay_history" => 50_000,
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
