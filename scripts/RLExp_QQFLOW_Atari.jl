@@ -53,7 +53,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
-        "flow_depth" => 4,
+        "flow_depth" => 8,
         "terminal_on_life_loss" => false,
         "n_steps" => 50_000_000,
     )

@@ -42,7 +42,7 @@ function RL.Experiment(
         "target_update_freq" => 100,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
-        "opt" => "CenteredRMSProp",
+        "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
         "batch_size" => 32,
@@ -50,7 +50,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 4,
+        "flow_depth" => 8,
     )
 
     lg = WandbLogger(project="BE",
@@ -82,6 +82,7 @@ function RL.Experiment(
     # inil = (args...) -> init(args...) ./ 100
     # init = Flux.glorot_normal()
     # init = Flux.kaiming_normal()
+    # init = Flux.kaiming_uniform()
 
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
