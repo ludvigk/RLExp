@@ -84,7 +84,8 @@ function RL.Experiment(
     # init = Flux.kaiming_normal()
 
     flow_depth = get_config(lg, "flow_depth")
-    opt = eval(Meta.parse(get_config(lg, "opt")))
+    # opt = eval(Meta.parse(get_config(lg, "opt")))
+    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
     lr = get_config(lg, "lr")
 
     approximator=Approximator(
@@ -99,7 +100,7 @@ function RL.Experiment(
             ;
             sync_freq=get_config(lg, "target_update_freq")
         ),
-        optimiser=opt(lr),
+        optimiser=opt,
     )
 
     """

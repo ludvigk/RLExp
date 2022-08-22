@@ -39,7 +39,7 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 5e-5,
+        "lr" => 0.0000625,
         "clip_norm" => 10,
         "update_freq" => 4,
         "target_update_freq" => 8_000,
@@ -92,13 +92,14 @@ function RL.Experiment(
     """
     CREATE MODEL
     """
-    # initc = glorot_uniform(rng)
-    initc = Flux.kaiming_normal(rng)
+    initc = glorot_uniform(rng)
+    # initc = Flux.kaiming_normal(rng)
     
     flow_depth = get_config(lg, "flow_depth")
-    opt = eval(Meta.parse(get_config(lg, "opt")))
-    lr = get_config(lg, "lr")
-    clip_norm = get_config(lg, "clip_norm")
+    # opt = eval(Meta.parse(get_config(lg, "opt")))
+    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
+    # lr = get_config(lg, "lr")
+    # clip_norm = get_config(lg, "clip_norm")
 
     model = Chain(
         x -> x ./ 255,
@@ -118,7 +119,7 @@ function RL.Experiment(
             ),
             sync_freq=get_config(lg, "target_update_freq"),
         );
-        optimiser=Optimiser(ClipNorm(clip_norm), opt(lr)),
+        optimiser=opt,
     )
 
     """
