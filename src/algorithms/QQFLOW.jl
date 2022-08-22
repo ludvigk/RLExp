@@ -13,7 +13,7 @@ using RLExp
 import Statistics.mean
 using Functors: @functor
 
-const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
+# const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
 
 function v2(x, b, c, d)
     xc = x .- c
@@ -50,7 +50,8 @@ end
 
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
-    μ = @inbounds ξ[end:end,:]
+    i = size(ξ, 1)
+    μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ) 
     
@@ -82,7 +83,8 @@ end
 
 function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     ξ = m.net(state)
-    μ = @inbounds ξ[end:end,:]
+    i = size(ξ, 1)
+    μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ)
 
@@ -210,10 +212,13 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # linear = abs_error .- quadratic
         # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
 
-        extra_loss = 0.5f0 * mean((μ .- mean(target_distribution, dims=(1,3))) .^ 2)
+        m = sum(target_distribution, dims=3) ./ n_samples_target
+        extra_loss = Flux.huber_loss(μ, m) ./ 100
+        # extra_loss = sum((μ .- m) .^ 2)
         sldj = sldj[actions, :]
         loss = (sum(nll) - sum(sldj)) / n_samples_target #+ sum(log.(σ[actions, :]))
-        loss = loss / batch_size .+ extra_loss
+        # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
+        loss = (loss + extra_loss) / batch_size
 
         ignore_derivatives() do
             lp["loss"] = loss

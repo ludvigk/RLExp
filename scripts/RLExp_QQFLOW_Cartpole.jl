@@ -37,12 +37,12 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 4e-5,
+        "lr" => 5e-4,
         "update_freq" => 1,
         "target_update_freq" => 100,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
-        "opt" => "ADAM",
+        "opt" => "CenteredRMSProp",
         "gamma" => 0.99,
         "update_horizon" => 1,
         "batch_size" => 32,
@@ -91,9 +91,9 @@ function RL.Experiment(
         model=TwinNetwork(
             FlowNet(;
                 net=Chain(
-                    Dense(ns, 512, gelu; init=init),
-                    Dense(512, 512, gelu; init=init),
-                    Dense(512, 1 + (3 * flow_depth) * na; init=init),
+                    Dense(ns, 512, relu; init=init),
+                    Dense(512, 512, relu; init=init),
+                    Dense(512, 1 + 3flow_depth * na; init=init),
                     ),
                 ) |> gpu,
             ;
@@ -144,7 +144,6 @@ function RL.Experiment(
             #     ch_in_sz = 1,
             #     ch_out_sz = 1,
             # ),
-
         )
     )
 
