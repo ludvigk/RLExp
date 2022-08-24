@@ -64,7 +64,7 @@ function RL.Experiment(
     SEEDS
     """
     seed = get_config(lg, "seed")
-    rng = MersenneTwister()
+    rng = Xoshiro()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
     Random.seed!(device_rng, isnothing(seed) ? nothing : hash(seed + 1))

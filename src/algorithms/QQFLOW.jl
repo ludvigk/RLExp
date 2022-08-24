@@ -8,29 +8,137 @@ using CUDA: randn
 using MLUtils
 using SpecialFunctions
 using ChainRules: ignore_derivatives, @ignore_derivatives
+using ChainRulesCore
 # using StatsFuns
 using RLExp
 import Statistics.mean
 using Functors: @functor
+using Base.Broadcast: broadcasted
+using Zygote: @adjoint
 
 # const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
+
+myexp(x) = exp(x)
+
+Zygote.@adjoint function broadcasted(::typeof(myexp), x)
+    myexp.(x), ȳ -> (nothing, ȳ .* exp.(x))
+end
+
+mylog(x) = mylog(x)
+
+Zygote.@adjoint function broadcasted(::typeof(mylog), x)
+    mylog.(x), ȳ -> (nothing, ȳ .* inv.(x))
+end
 
 function v2(x, b, c, d)
     xc = x .- c
     axc = abs.(xc)
     u = max.(axc, b)
-    excu = exp.(axc .- u)
-    exbu = exp.(b .- u)
-    exu = exp.(-u)
+    excu = myexp.(axc .- u)
+    exbu = myexp.(b .- u)
+    exu = myexp.(-u)
     s = excu .+ exbu .- exu
     r = u .+ log.(s) .- b
     out = sign.(xc) .* r .+ d
-    # dupper = excu
-    # dlower = s
     out, log.(excu ./ s)
 end
 
 v2⁻¹(x, b, c, d) = v2(x, -b, d, c)
+
+function v3(x, b, c, d)
+    xc = x - c
+    axc = abs(xc)
+    u = max(axc, b)
+    excu = exp(axc - u)
+    exbu = exp(b - u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    r = u + log(s) - b
+    out = sign(xc) * r + d
+    out
+end
+
+function dv3(x, b, c, d)
+    xc = x - c
+    axc = abs(xc)
+    u = max(axc, b)
+    excu = exp(axc - u)
+    exbu = exp(b - u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    log(excu / s)
+end
+
+@adjoint function v3(x, b, c, d)
+    xc = x .- c
+    axc = abs(xc)
+    u = max(axc, b)
+    sxc = sign(xc)
+    excu = exp(axc - u)
+    exbu = exp(b - u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    r = u + log(s) - b
+    out = sxc * r + d
+    Δb = sxc * (exbu / s - 1)
+    Δx = excu / s
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
+end
+
+# function ChainRulesCore.rrule(::typeof(v3), x, b, c, d)
+#     xc = x - c
+#     axc = abs(xc)
+#     u = max(axc, b)
+#     excu = myexp(axc - u)
+#     exbu = myexp(b - u)
+#     exu = myexp(-u)
+#     s = excu + exbu - exu
+#     r = u + log(s) - b
+#     out = sxcu * r + d
+#     Δb = sxc * (exbu / s - 1)
+#     Δx = excu / s
+#     Δc = -Δx
+#     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, cc)
+# end
+
+@adjoint function dv3(x, b, c, d)
+    xc = x .- c
+    sxc = sign.(xc)
+    axc = abs.(xc)
+    u = max(axc, b)
+    excu = exp(axc - u)
+    excuu = exp(axc - 2u)
+    exbu = exp(b - u)
+    excbu = exp(axc + b - 2u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    out = log(excu / s)
+    s2 = s ^ 2
+    Δx = sxc * (excbu - excuu) / s2
+    Δb = -excbu / s2
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
+end
+
+# function ChainRulesCore.rrule(::typeof(dv3), x, b, c, d)
+#     xc = x - c
+#     axc = abs(xc)
+#     u = max(axc, b)
+#     excu = myexp(axc - u)
+#     exbu = myexp(b - u)
+#     exu = myexp(-u)
+#     s = excu + exbu - exu
+#     log(excu / s)
+#     s2 = s ^ 2
+#     Δx = -sxc * excu * (exbu - 1) / s2
+#     Δb = -myexp(axc + b - u) / s2
+#     Δc = -Δx
+#     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, nothing)
+# end
+
+v3⁻¹(x, b, c, d) = v3(x, -b, d, c)
+dv3⁻¹(x, b, c, d) = dv3(x, -b, d, c)
 
 # function v2⁻¹(x, b, c, d)
 #     xc = x .- c
@@ -69,11 +177,11 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
     
-    for i=1:(3na):(size(ξ,1) - 3na)
-        b = @inbounds ξ[i:(i + na - 1), :]
-        c = @inbounds ξ[(i+na):(i + 2na - 1), :]
-        d = @inbounds ξ[(i+2na):(i + 3na - 1), :]
-        z, _ = v2(z, b, c, d)
+    @inbounds for i=1:(3na):(size(ξ,1) - 3na)
+        b = ξ[i:(i + na - 1), :]
+        c = ξ[(i+na):(i + 2na - 1), :]
+        d = ξ[(i+2na):(i + 3na - 1), :]
+        z = v3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
     z = μ .+ z
@@ -95,11 +203,12 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     
     z = z .- ignore_derivatives(μ)
     # z = (z .- μ) ./ σ
-    for i=(size(ξ,1) - 3na):(-3na):1
-        b = @inbounds ξ[i:(i + na - 1), :]
-        c = @inbounds ξ[(i+na):(i + 2na - 1), :]
-        d = @inbounds ξ[(i+2na):(i + 3na - 1), :]
-        z, lz_ = v2⁻¹(z, b, c, d)
+    @inbounds for i=(size(ξ,1) - 3na):(-3na):1
+        b = ξ[i:(i + na - 1), :, :]
+        c = ξ[(i+na):(i + 2na - 1), :, :]
+        d = ξ[(i+2na):(i + 3na - 1), :, :]
+        lz_ = dv3.(z, b, c, d)
+        z = v3.(z, b, c, d)
         lz = lz .+ lz_
     end
     z, lz, μ, nothing
