@@ -51,6 +51,9 @@ function RL.Experiment(
         "traj_capacity" => 100_000,
         "seed" => 2,
         "flow_depth" => 8,
+        "num_steps" => 10_000,
+        "epsilon_decay_steps" => 500,
+        "epsilon_stable" => 0.01,
     )
 
     lg = WandbLogger(project="BE",
@@ -63,7 +66,7 @@ function RL.Experiment(
     """
     SEEDS
     """
-    seed = get_config(lg, "seed")
+    seed = config["seed"]
     rng = Xoshiro()
     Random.seed!(rng, seed)
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
@@ -84,10 +87,10 @@ function RL.Experiment(
     # init = Flux.kaiming_normal()
     # init = Flux.kaiming_uniform()
 
-    flow_depth = get_config(lg, "flow_depth")
+    flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
     opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
-    lr = get_config(lg, "lr")
+    lr = config["lr"]
 
     approximator=Approximator(
         model=TwinNetwork(
@@ -99,7 +102,7 @@ function RL.Experiment(
                     ),
                 ) |> gpu,
             ;
-            sync_freq=get_config(lg, "target_update_freq")
+            sync_freq=config["target_update_freq"]
         ),
         optimiser=opt,
     )
@@ -112,33 +115,33 @@ function RL.Experiment(
             learner=QQFLOWLearner(
                 approximator=approximator,
                 n_actions=na,
-                γ=get_config(lg, "gamma"),
-                update_horizon=get_config(lg, "update_horizon"),
-                n_samples_act=get_config(lg, "n_samples_act"),
-                n_samples_target=get_config(lg, "n_samples_target"),
-                is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
+                γ=config["gamma"],
+                update_horizon=config["update_horizon"],
+                n_samples_act=config["n_samples_act"],
+                n_samples_target=config["n_samples_target"],
+                is_enable_double_DQN=config["is_enable_double_DQN"],
             ),
             explorer=EpsilonGreedyExplorer(
                 kind=:exp,
-                ϵ_stable=0.01,
-                decay_steps=500,
+                ϵ_stable=config["epsilon_stable"],
+                decay_steps=config["epsilon_decay_steps"],
                 rng=rng,
             ),
         ),
         trajectory=Trajectory(
             container = CircularArraySARTTraces(
-                capacity=get_config(lg, "traj_capacity"),
+                capacity=config["traj_capacity"],
                 state=Float32 => (ns,),
             ),
             sampler=NStepBatchSampler{SS′ART}(
-                n=get_config(lg, "update_horizon"),
-                γ=get_config(lg, "gamma"),
-                batch_size=get_config(lg, "batch_size"),
+                n=config["update_horizon"],
+                γ=config["gamma"],
+                batch_size=config["batch_size"],
                 rng=rng
             ),
             controller = InsertSampleRatioController(
-                ratio=get_config(lg, "update_freq"),
-                threshold=get_config(lg, "min_replay_history"),
+                ratio=config["update_freq"],
+                threshold=config["min_replay_history"],
             ),
             # controller = AsyncInsertSampleRatioController(
             #     get_config(lg, "update_freq"),
@@ -237,7 +240,7 @@ function RL.Experiment(
     hook = step_per_episode + reward_per_episode + every_step + every_ep +
         every_n_step + every_n_ep + CloseLogger(lg)
     # hook = EmptyHook()
-    stop_condition = StopAfterStep(10_000, is_show_progress=true)
+    stop_condition = StopAfterStep(config["num_steps"], is_show_progress=true)
 
     """
     RETURN EXPERIMENT
