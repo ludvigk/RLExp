@@ -178,9 +178,9 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # σ = reshape(σ, size(σ)..., 1)
     
     @inbounds for i=1:(3na):(size(ξ,1) - 3na)
-        b = ξ[i:(i + na - 1), :]
-        c = ξ[(i+na):(i + 2na - 1), :]
-        d = ξ[(i+2na):(i + 3na - 1), :]
+        b = @view ξ[i:(i + na - 1), :]
+        c = @view ξ[(i+na):(i + 2na - 1), :]
+        d = @view ξ[(i+2na):(i + 3na - 1), :]
         z = v3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
@@ -276,10 +276,12 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     lp = learner.logging_params
     
     D = device(Z)
-    states = send_to_device(D, collect(batch.state))
+    states = DenseCuArray(batch.state)
+    # states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
-    next_states = send_to_device(D, collect(batch.next_state))
+    next_states = DenseCuArray(batch.next_state)
+    # next_states = send_to_device(D, collect(batch.next_state))
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
@@ -322,29 +324,29 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
 
         m = sum(target_distribution, dims=3) ./ n_samples_target
-        extra_loss = Flux.huber_loss(μ, m) ./ 100
+        extra_loss = Flux.huber_loss(μ, m) ./ 10
         # extra_loss = sum((μ .- m) .^ 2)
         sldj = sldj[actions, :]
-        loss = (sum(nll) - sum(sldj)) / n_samples_target #+ sum(log.(σ[actions, :]))
+        loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         loss = (loss + extra_loss) / batch_size
 
-        ignore_derivatives() do
-            lp["loss"] = loss
-            lp["nll"] = sum(nll) / (batch_size * n_samples_target)
-            lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
-            lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
-            lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
-            lp["mu"] = sum(μ) / length(μ)
-            # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
-            lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
-            lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
-            lp["max_pred"] = maximum(preds)
-            lp["min_pred"] = minimum(preds)
-            for i = 1:n_actions
-                lp["Q$i"] = sum(target_distribution[i,:]) / batch_size
-            end
-        end
+        # ignore_derivatives() do
+        #     lp["loss"] = loss
+        #     lp["nll"] = sum(nll) / (batch_size * n_samples_target)
+        #     lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
+        #     lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
+        #     lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
+        #     lp["mu"] = sum(μ) / length(μ)
+        #     # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
+        #     lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
+        #     lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
+        #     lp["max_pred"] = maximum(preds)
+        #     lp["min_pred"] = minimum(preds)
+        #     for i = 1:n_actions
+        #         lp["Q$i"] = sum(target_distribution[i,:]) / batch_size
+        #     end
+        # end
 
         return loss
     end

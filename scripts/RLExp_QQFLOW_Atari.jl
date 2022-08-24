@@ -47,11 +47,11 @@ function RL.Experiment(
         "n_samples_target" => 100,
         "opt" => "ADAM",
         "gamma" => 0.99,
-        "update_horizon" => 1,
+        "update_horizon" => 3,
         "batch_size" => 32,
-        "min_replay_history" => 50_000,
+        "min_replay_history" => 100,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 1_000_000,
+        "traj_capacity" => 100_000,
         "seed" => 1,
         "flow_depth" => 4,
         "terminal_on_life_loss" => false,
@@ -157,7 +157,7 @@ function RL.Experiment(
                 rng=rng
             ),
             controller = InsertSampleRatioController(
-                ratio=get_config(lg, "update_freq"),
+                ratio=1 / get_config(lg, "update_freq"),
                 threshold=get_config(lg, "min_replay_history"),
             ),
         ),
@@ -273,6 +273,7 @@ function RL.Experiment(
     end
     hook = step_per_episode + reward_per_episode + every_n_step + every_n_ep +
         eval_hook + CloseLogger(lg)
+    # hook = EmptyHook()
     stop_condition = StopAfterStep(get_config(lg, "n_steps"), is_show_progress=true)
 
     """
