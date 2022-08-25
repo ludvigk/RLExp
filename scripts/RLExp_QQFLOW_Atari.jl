@@ -55,7 +55,7 @@ function RL.Experiment(
         "seed" => 1,
         "flow_depth" => 8,
         "terminal_on_life_loss" => false,
-        "n_steps" => 50_000_000,
+        "n_steps" => 200_000_000,
     )
 
     lg = WandbLogger(project="BE",
