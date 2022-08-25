@@ -4,6 +4,7 @@
 % aistats2022 as follows:
 %
 \usepackage[accepted]{aistats2022}
+\usepackage{minted}
 %
 % This option will print headings for the title of your paper and
 % headings for the authors names, plus a copyright note at the end of
@@ -331,47 +332,75 @@ neural networks.
 \section{Our Algorithm}
 
 We propose to use conditional normalizing flows to model the value distribution,
-\(Z^\pi\), with a continous estimate. As opposed to quantile previous work on 
+\(Z^\pi\), with a continous estimate. As opposed to previous work on 
 quantile regression methods, which aim to minimize the Wasserstein distance
-to the target distribution, normalizing flows minimize KL-divergence. Our target
-is thus the KL-divergence from the target to the value distribution
-\footnote{Check order later}.
+to the target distribution, normalizing flows minimize the KL-divergence. Our
+target is thus the KL-divergence from the value to the target distribution.
 
 \begin{equation}
-  \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{\hat{\T}
-  Z_{\tilde{\theta}}(\rvx,a)}{Z_{\theta}(\rvx,a)}
+  \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{Z_{\theta}(\rvx,a)}{\hat{\T}
+  Z_{\tilde{\theta}}(\rvx,a)}
 \end{equation}
 
 Using conditional normalizing flows described in Section~\ref{sec:cnf}, we
-define the value distribution model as an elementwise transformation of a
-standard normal distribution conditioned on a low-dimensional representation of
-the state \(\rvx\).
+define the value distribution model as a transformation of a
+standard normal distribution conditioned on the state \(\rvx\).
 
-Similar to other DQN methods, we let \(Z_\theta(\rvx, a)\) be the \(a\)-th
-element of a function \(\tilde{Z}_\theta : \R^{\lvert \X \rvert}
-\rightarrow \R^{\lvert \A \rvert}\). This means that we need a conditional
-normalizing flow \(v_\theta : \R^{\lvert \X \rvert} \times \R^{\lvert \A \rvert}
-\rightarrow \R^{\lvert \A \rvert}\). Given that we have
+% Similar to other DQN methods, we let \(Z_\theta(\rvx, a)\) be the \(a\)-th
+% element of a function \(\tilde{Z}_\theta : \R^{\lvert \X \rvert}
+% \rightarrow \R^{\lvert \A \rvert}\). This means that we need a conditional
+% normalizing flow \(v_\theta : \R^{\lvert \X \rvert} \times \R^{\lvert \A \rvert}
+% \rightarrow \R^{\lvert \A \rvert}\). Given that we have
+
+Starting with a random variable \(S\) with a standard normal distribution
+\(\N(0, I_{\lvert \A \rvert})\), we want a function \(v_\theta = v_{\theta_K}
+\circ \dots \circ v_{\theta_2} \circ v_{\theta_1} \), such that
+\(Z_\theta(\rvx, a) = v_\theta(S; \rvx)_a\). To learn \(v_\theta\) we note that
+we can take the inverse transformation \(v^{-1}_\theta\) of the value
+distribution to recover a random variable with the standard normal distribution,
+i.e. \(S = v^{-1}_\theta(Z_\theta; \rvx)\). This further means that
 
 \begin{equation}
-  \T \tilde{Z}_\theta(\rvx)_a \defeq R(\rvx, a) + \max_{a^\prime \in \A}
-  \tilde{Z}_\theta(\rvx^\prime)_{a^\prime}
+  S^\prime \eqdist v^{-1}_\theta \left(\T v_\theta(S; \rvx); \rvx^\prime \right).
 \end{equation}
 
-\noindent
-we can see that any learning signal would only come for a single action. This
-means that we need an elementwise flow so that we can learn each dimension
-independently. Given elementwise conditional normalizing flow \(v_\theta\), we
-define the loss function as
+We can use this 
 
-\begin{multline}
-  \mathcal{L}_{\rvx, a}(\theta) \defeq \log p(v_\theta^{-1} (\rvx, v_{\tilde{
-  \theta}} (\rvx^\prime, \vepsilon))_a; 0, 1) \\- \log
-  \left\lvert \frac{\partial v^{-1}_{\theta}(\rvx, v_{\tilde{
-  \theta}} (\rvx^\prime, \vepsilon))_a}{\partial v_{\tilde{
-  \theta}} (\rvx^\prime, \vepsilon)_a} \right\rvert; \quad
-  \vepsilon \sim \N(0, I_{\lvert \A \rvert})
-\end{multline}
+\begin{minted}[mathescape,
+  linenos,
+  numbersep=5pt,
+  gobble=2,
+  frame=lines,
+  framesep=2mm]{csharp}
+string title = "This is a Unicode π in the sky"
+/*
+Defined as $\pi=\lim_{n\to\infty}\frac{P_n}{d}$ where $P$ is the perimeter
+of an $n$-sided regular polygon circumscribing a
+circle of diameter $d$.
+*/
+const double pi = 3.1415926535
+\end{minted}
+
+
+% \begin{equation}
+%   \T \tilde{Z}_\theta(\rvx)_a \defeq R(\rvx, a) + \max_{a^\prime \in \A}
+%   \tilde{Z}_\theta(\rvx^\prime)_{a^\prime}
+% \end{equation}
+
+% \noindent
+% we can see that any learning signal would only come for a single action. This
+% means that we need an elementwise flow so that we can learn each dimension
+% independently. Given elementwise conditional normalizing flow \(v_\theta\), we
+% define the loss function as
+
+% \begin{multline}
+%   \mathcal{L}_{\rvx, a}(\theta) \defeq \log p(v_\theta^{-1} (\rvx, v_{\tilde{
+%   \theta}} (\rvx^\prime, \vepsilon))_a; 0, 1) \\- \log
+%   \left\lvert \frac{\partial v^{-1}_{\theta}(\rvx, v_{\tilde{
+%   \theta}} (\rvx^\prime, \vepsilon))_a}{\partial v_{\tilde{
+%   \theta}} (\rvx^\prime, \vepsilon)_a} \right\rvert; \quad
+%   \vepsilon \sim \N(0, I_{\lvert \A \rvert})
+% \end{multline}
 
 The most popular normalizing flows right now are buildt for large dimensional
 spaces such as images. This includes coupling and autoregressive flows. Planar

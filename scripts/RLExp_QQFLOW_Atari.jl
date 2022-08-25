@@ -157,7 +157,7 @@ function RL.Experiment(
                 rng=rng
             ),
             controller = InsertSampleRatioController(
-                ratio=1 / get_config(lg, "update_freq"),
+                ratio=1 // get_config(lg, "update_freq"),
                 threshold=get_config(lg, "min_replay_history"),
             ),
         ),
