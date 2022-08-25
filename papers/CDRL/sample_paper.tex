@@ -366,24 +366,29 @@ i.e. \(S = v^{-1}_\theta(Z_\theta; \rvx)\). This further means that
   S^\prime \eqdist v^{-1}_\theta \left(\T v_\theta(S; \rvx); \rvx^\prime \right).
 \end{equation}
 
-We can use this
+We can use this 
 
 \begin{algorithm}
   \caption{Flow-RL Loss}\label{alg:LTM}
-  \textbf{Require:} \(N, v, v^{-1}\)\\
+  \textbf{Require:} \(N, v, v^{-1}, \theta, \tilde{\theta}\)\\
   \textbf{input} \(\rvx, a, r, \rvx^\prime, \gamma\)\\
-  \hspace*{1em} {\color{gray} \# }\\
+  \hspace*{1em} {\color{gray} \# Take \(N\) samples from the value distribution.}\\
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
   \hspace*{2em} \(\epsilon_i \sim \N \left(0, I_{\lvert \A \rvert} \right)\)\\
   \hspace*{2em} \textbf{for} \(a^\prime \in \A\)\\
   \hspace*{3em} \(Z_{\tilde{\theta}}(\rvx^\prime, a^\prime)_i \gets v_{\tilde{\theta}}(\epsilon_i; \rvx^\prime)_{a^\prime}\)\\
   \hspace*{2em} \textbf{end}\\
   \hspace*{1em} \textbf{end}\\
+  \\\hspace*{1em} {\color{gray} \# Compute greedy next action.}\\
   \hspace*{1em} \(a^* \gets \argmax_{a^\prime} \frac{1}{N} \sum_{i=1}^N Z_{\tilde{\theta}}(\rvx^\prime, a^\prime)_i\)\\
+  \\\hspace*{1em} {\color{gray} \# Calculate loss terms for each sample.}\\
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
+  \hspace*{2em} {\color{gray} \# Apply the distributional Bellman operator.}\\
   \hspace*{2em} \(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i \gets r + \gamma Z_{\tilde{\theta}}(\rvx^\prime, a^*)_i\)\\
+  \hspace*{2em} {\color{gray} \# Calculate log-probability under \(\N(0,1)\).}\\
   \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1} 
   \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)^2\)\\
+  \hspace*{2em} {\color{gray} \# Calculate log-derivative of \(v^{-1}_\theta\).}\\
   \hspace*{2em} \(\rho_i \gets \log \left\lvert \frac{\partial v_{\theta}^{-1} \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)}{\hat{Z}_{\tilde{\theta}}(\rvx, a)_i} \right\rvert\)\\
   \hspace*{1em} \textbf{end}\\
   \textbf{output} \(\frac{1}{N}\sum_{i=1}^N \delta_i - \rho_i\)

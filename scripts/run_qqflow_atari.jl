@@ -24,4 +24,4 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     include("RLExp_QQFLOW_Atari.jl")
 end
 
-run(E`RLExp_QQFLOW_Atari(game=riverraid)`)
+run(E`RLExp_QQFLOW_Atari(game=alien)`)

@@ -202,7 +202,7 @@ function RL.Experiment(
             beg = rand((1 + N_FRAMES):size(s,3))
             s = s[:,:,(beg - N_FRAMES):(beg - 1)]
             s = Flux.unsqueeze(s, 4) |> gpu
-            samples = agent.policy.learner.B_approximator(s, 500)[1] |> cpu
+            samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
             p = plot()
             for action in 1:size(samples, 1)
                 density!(samples[action, 1, :], c=action, label="action $(action)")
