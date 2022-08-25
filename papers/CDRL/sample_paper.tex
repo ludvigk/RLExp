@@ -6,11 +6,7 @@
 \usepackage[accepted]{aistats2022}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
-\algblock{Input}{EndInput}
-\algnotext{EndInput}
-\algblock{Output}{EndOutput}
-\algnotext{EndOutput}
-\newcommand{\Desc}[2]{\State \makebox[2em][l]{#1}#2}
+\usepackage{xcolor}
 %
 % This option will print headings for the title of your paper and
 % headings for the authors names, plus a copyright note at the end of
@@ -373,25 +369,24 @@ i.e. \(S = v^{-1}_\theta(Z_\theta; \rvx)\). This further means that
 We can use this
 
 \begin{algorithm}
-  \caption{An algorithm with caption}\label{alg:cap}
-  \begin{algorithmic}
-  \Require $n \geq 0$
-  \Input
-    1
-  \EndInput
-  \State $S \sim \N(0,I_{\lvert \A \rvert})$
-  \State $z \gets v^(S; )$
-  \State $N \gets n$
-  \While{$N \neq 0$}
-  \If{$N$ is even}
-      \State $X \gets X \times X$
-      \State $N \gets \frac{N}{2}$  \Comment{This is a comment}
-  \ElsIf{$N$ is odd}
-      \State $y \gets y \times X$
-      \State $N \gets N - 1$
-  \EndIf
-  \EndWhile
-  \end{algorithmic}
+  \caption{Flow-RL Loss}\label{alg:LTM}
+  \textbf{Require:} \(N, v, v^{-1}\)\\
+  \textbf{input} \(\rvx, a, r, \rvx^\prime, \gamma\)\\
+  \hspace*{1em} {\color{gray} \# }\\
+  \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
+  \hspace*{2em} \(\epsilon_i \sim \N \left(0, I_{\lvert \A \rvert} \right)\)\\
+  \hspace*{2em} \textbf{for} \(a^\prime \in \A\)\\
+  \hspace*{3em} \(Z_{\tilde{\theta}}(\rvx^\prime, a^\prime)_i \gets v_{\tilde{\theta}}(\epsilon_i; \rvx^\prime)_{a^\prime}\)\\
+  \hspace*{2em} \textbf{end}\\
+  \hspace*{1em} \textbf{end}\\
+  \hspace*{1em} \(a^* \gets \argmax_{a^\prime} \frac{1}{N} \sum_{i=1}^N Z_{\tilde{\theta}}(\rvx^\prime, a^\prime)_i\)\\
+  \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
+  \hspace*{2em} \(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i \gets r + \gamma Z_{\tilde{\theta}}(\rvx^\prime, a^*)_i\)\\
+  \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1} 
+  \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)^2\)\\
+  \hspace*{2em} \(\rho_i \gets \log \left\lvert \frac{\partial v_{\theta}^{-1} \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)}{\hat{Z}_{\tilde{\theta}}(\rvx, a)_i} \right\rvert\)\\
+  \hspace*{1em} \textbf{end}\\
+  \textbf{output} \(\frac{1}{N}\sum_{i=1}^N \delta_i - \rho_i\)
 \end{algorithm}
 
 % \begin{equation}
