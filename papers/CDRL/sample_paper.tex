@@ -4,7 +4,13 @@
 % aistats2022 as follows:
 %
 \usepackage[accepted]{aistats2022}
-\usepackage{minted}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\algblock{Input}{EndInput}
+\algnotext{EndInput}
+\algblock{Output}{EndOutput}
+\algnotext{EndOutput}
+\newcommand{\Desc}[2]{\State \makebox[2em][l]{#1}#2}
 %
 % This option will print headings for the title of your paper and
 % headings for the authors names, plus a copyright note at the end of
@@ -364,23 +370,29 @@ i.e. \(S = v^{-1}_\theta(Z_\theta; \rvx)\). This further means that
   S^\prime \eqdist v^{-1}_\theta \left(\T v_\theta(S; \rvx); \rvx^\prime \right).
 \end{equation}
 
-We can use this 
+We can use this
 
-\begin{minted}[mathescape,
-  linenos,
-  numbersep=5pt,
-  gobble=2,
-  frame=lines,
-  framesep=2mm]{csharp}
-string title = "This is a Unicode π in the sky"
-/*
-Defined as $\pi=\lim_{n\to\infty}\frac{P_n}{d}$ where $P$ is the perimeter
-of an $n$-sided regular polygon circumscribing a
-circle of diameter $d$.
-*/
-const double pi = 3.1415926535
-\end{minted}
-
+\begin{algorithm}
+  \caption{An algorithm with caption}\label{alg:cap}
+  \begin{algorithmic}
+  \Require $n \geq 0$
+  \Input
+    1
+  \EndInput
+  \State $S \sim \N(0,I_{\lvert \A \rvert})$
+  \State $z \gets v^(S; )$
+  \State $N \gets n$
+  \While{$N \neq 0$}
+  \If{$N$ is even}
+      \State $X \gets X \times X$
+      \State $N \gets \frac{N}{2}$  \Comment{This is a comment}
+  \ElsIf{$N$ is odd}
+      \State $y \gets y \times X$
+      \State $N \gets N - 1$
+  \EndIf
+  \EndWhile
+  \end{algorithmic}
+\end{algorithm}
 
 % \begin{equation}
 %   \T \tilde{Z}_\theta(\rvx)_a \defeq R(\rvx, a) + \max_{a^\prime \in \A}
