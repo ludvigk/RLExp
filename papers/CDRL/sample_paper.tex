@@ -357,16 +357,19 @@ standard normal distribution conditioned on the state \(\rvx\).
 Starting with a random variable \(S\) with a standard normal distribution
 \(\N(0, I_{\lvert \A \rvert})\), we want a function \(v_\theta = v_{\theta_K}
 \circ \dots \circ v_{\theta_2} \circ v_{\theta_1} \), such that
-\(Z_\theta(\rvx, a) = v_\theta(S; \rvx)_a\). To learn \(v_\theta\) we note that
+\(Z_\theta(\rvx, a) = v_\theta(S; \rvx^\prime)_a\). To learn \(v_\theta\) we note that
 we can take the inverse transformation \(v^{-1}_\theta\) of the value
 distribution to recover a random variable with the standard normal distribution,
 i.e. \(S = v^{-1}_\theta(Z_\theta; \rvx)\). This further means that
 
 \begin{equation}
-  S^\prime \eqdist v^{-1}_\theta \left(\T v_\theta(S; \rvx); \rvx^\prime \right).
+  S^\prime \eqdist v^{-1}_\theta \left(\T v_\theta(S; \rvx^\prime); \rvx \right).
 \end{equation}
 
-We can use this 
+Because the inverse transformation of the value distribution given its state is
+standard normal, we can learn the parameters \(\theta\) using the
+change-of-variables formula from Equation~\ref{eq:change_var_form1}.
+Algorithm~\ref{alg:LTM} shows how to calculate the loss for this scheme.
 
 \begin{algorithm}
   \caption{Flow-RL Loss}\label{alg:LTM}
@@ -385,7 +388,7 @@ We can use this
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
   \hspace*{2em} {\color{gray} \# Apply the distributional Bellman operator.}\\
   \hspace*{2em} \(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i \gets r + \gamma Z_{\tilde{\theta}}(\rvx^\prime, a^*)_i\)\\
-  \hspace*{2em} {\color{gray} \# Calculate log-probability under \(\N(0,1)\).}\\
+  \hspace*{2em} {\color{gray} \# Calculate log-likelihood under \(\N(0,1)\).}\\
   \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1} 
   \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)^2\)\\
   \hspace*{2em} {\color{gray} \# Calculate log-derivative of \(v^{-1}_\theta\).}\\

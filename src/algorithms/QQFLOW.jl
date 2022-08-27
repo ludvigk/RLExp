@@ -331,22 +331,22 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         loss = (loss + extra_loss) / batch_size
 
-        # ignore_derivatives() do
-        #     lp["loss"] = loss
-        #     lp["nll"] = sum(nll) / (batch_size * n_samples_target)
-        #     lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
-        #     lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
-        #     lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
-        #     lp["mu"] = sum(μ) / length(μ)
-        #     # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
-        #     lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
-        #     lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
-        #     lp["max_pred"] = maximum(preds)
-        #     lp["min_pred"] = minimum(preds)
-        #     for i = 1:n_actions
-        #         lp["Q$i"] = sum(target_distribution[i,:]) / batch_size
-        #     end
-        # end
+        ignore_derivatives() do
+            lp["loss"] = loss
+            lp["extra_loss"] = extra_loss
+            # lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
+            # lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
+            # lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
+            lp["mu"] = mean(μ)
+            # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
+            lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
+            lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
+            lp["max_pred"] = maximum(preds)
+            lp["min_pred"] = minimum(preds)
+            # for i = 1:n_actions
+            #     lp["Q$i"] = sum(target_distribution[i,:]) / batch_size
+            # end
+        end
 
         return loss
     end
