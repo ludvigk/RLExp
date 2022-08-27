@@ -53,7 +53,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
-        "flow_depth" => 4,
+        "flow_depth" => 16,
         "terminal_on_life_loss" => true,
         "n_steps" => 200_000_000,
     )
@@ -107,8 +107,8 @@ function RL.Experiment(
         CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
         CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
         x -> reshape(x, :, size(x)[end]),
-        Dense(11 * 11 * 64, 1024, relu, init=initc),
-        Dense(1024, 1 + (3 * flow_depth) * N_ACTIONS, init=initc),
+        Dense(11 * 11 * 64, 512, relu, init=initc),
+        Dense(512, 1 + (3 * flow_depth) * N_ACTIONS, init=initc),
     ) |> gpu
 
 
