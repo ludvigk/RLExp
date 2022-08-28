@@ -53,7 +53,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
-        "flow_depth" => 16,
+        "flow_depth" => 4,
         "terminal_on_life_loss" => true,
         "n_steps" => 200_000_000,
     )
@@ -97,7 +97,7 @@ function RL.Experiment(
     
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(0.00001, (0.9, 0.999), 0.00015)
+    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
     # lr = get_config(lg, "lr")
     # clip_norm = get_config(lg, "clip_norm")
 
