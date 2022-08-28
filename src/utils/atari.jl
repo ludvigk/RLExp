@@ -28,7 +28,7 @@ function atari_env_factory(
     n_frames,
     max_episode_steps=100_000;
     seed=nothing,
-    repeat_action_probability=0.0,
+    repeat_action_probability=0.25,
     n_replica=nothing,
     terminal_on_life_loss=false,
 )
