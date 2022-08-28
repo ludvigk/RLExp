@@ -55,7 +55,7 @@ function RL.Experiment(
         "seed" => 1,
         "flow_depth" => 4,
         "terminal_on_life_loss" => true,
-        "adam_epsilon" => 1e-5,
+        "adam_epsilon" => 1e-6,
         "n_steps" => 200_000_000,
     )
 
