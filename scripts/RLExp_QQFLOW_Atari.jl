@@ -45,7 +45,7 @@ function RL.Experiment(
         "target_update_freq" => 8_000,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
-        "opt" => "ADAM",
+        "opt" => "CenteredRMSProp",
         "gamma" => 0.99,
         "update_horizon" => 3,
         "batch_size" => 32,
@@ -98,7 +98,8 @@ function RL.Experiment(
     
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
+    # opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
+    opt = CenteredRMSProp(config["lr"], 0.0, config["adam_epsilon"])
     # lr = get_config(lg, "lr")
     # clip_norm = get_config(lg, "clip_norm")
 

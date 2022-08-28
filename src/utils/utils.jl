@@ -20,7 +20,7 @@ mutable struct CenteredRMSProp
     state::IdDict
 end
 
-CenteredRMSProp(η = 0.001, ρ = 0.90) = CenteredRMSProp(η, ρ, IdDict())
+CenteredRMSProp(η = 0.001, ρ = 0.0, ϵ=1f-6) = CenteredRMSProp(η, ρ, IdDict())
 
 function Flux.Optimise.apply!(o::CenteredRMSProp, x, Δ)
     η, ρ = o.eta, o.rho
