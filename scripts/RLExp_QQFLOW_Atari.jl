@@ -42,7 +42,7 @@ function RL.Experiment(
         "lr" => 0.0000625,
         "clip_norm" => 10,
         "update_freq" => 4,
-        "target_update_freq" => 20_000,
+        "target_update_freq" => 1_000,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
         "opt" => "ADAM",
