@@ -55,6 +55,7 @@ function RL.Experiment(
         "seed" => 1,
         "flow_depth" => 4,
         "terminal_on_life_loss" => true,
+        "adam_epsilon" => 1e-4,
         "n_steps" => 200_000_000,
     )
 
@@ -97,7 +98,7 @@ function RL.Experiment(
     
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
+    opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
     # lr = get_config(lg, "lr")
     # clip_norm = get_config(lg, "clip_norm")
 
