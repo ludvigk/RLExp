@@ -162,7 +162,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ) 
-    
+
     z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
     # μcpu = cpu(μ)
     # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
@@ -173,14 +173,14 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # z = gpu(z)
 
     # lz = Zygote.@ignore fill!(similar(z), 0f0)
-    
+
     # μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
-    
-    @inbounds for i=1:(3na):(size(ξ,1) - 3na)
-        b = @view ξ[i:(i + na - 1), :]
-        c = @view ξ[(i+na):(i + 2na - 1), :]
-        d = @view ξ[(i+2na):(i + 3na - 1), :]
+
+    @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
+        b = @view ξ[i:(i+na-1), :]
+        c = @view ξ[(i+na):(i+2na-1), :]
+        d = @view ξ[(i+2na):(i+3na-1), :]
         z = v3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
@@ -196,17 +196,17 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ)
 
-    lz = @ignore_derivatives fill!(similar(z), 0f0)
+    lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     # μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
-    
+
     # z = z .- ignore_derivatives(μ)
     # z = (z .- μ) ./ σ
-    @inbounds for i=(size(ξ,1) - 3na):(-3na):1
-        b = ξ[i:(i + na - 1), :, :]
-        c = ξ[(i+na):(i + 2na - 1), :, :]
-        d = ξ[(i+2na):(i + 3na - 1), :, :]
+    @inbounds for i = (size(ξ, 1)-3na):(-3na):1
+        b = ξ[i:(i+na-1), :, :]
+        c = ξ[(i+na):(i+2na-1), :, :]
+        d = ξ[(i+2na):(i+3na-1), :, :]
         lz_ = dv3.(z, b, c, d)
         z = v3.(z, b, c, d)
         lz = lz .+ lz_
@@ -225,6 +225,8 @@ mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     is_enable_double_DQN::Bool
     training::Bool
     logging_params
+    states::DenseCuArray{Float32,2}
+    next_states::DenseCuArray{Float32,2}
 end
 
 function QQFLOWLearner(;
@@ -236,6 +238,7 @@ function QQFLOWLearner(;
     n_samples_target::Int=30,
     is_enable_double_DQN::Bool=false,
     training::Bool=true,
+    batch_size=32,
     rng=Random.GLOBAL_RNG
 ) where {A}
     return QQFLOWLearner(
@@ -249,6 +252,8 @@ function QQFLOWLearner(;
         is_enable_double_DQN,
         training,
         DefaultDict(0.0),
+        CUDA.DenseCuArray{Float32,2}(n_actions, batch_size),
+        CUDA.DenseCuArray{Float32,2}(n_actions, batch_size),
     )
 end
 
@@ -274,14 +279,18 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     γ = learner.γ
     update_horizon = learner.update_horizon
     lp = learner.logging_params
-    
+
     D = device(Z)
     states = DenseCuArray(batch.state)
+    copyto!(learner.states, batch.state)
     # states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
-    next_states = DenseCuArray(batch.next_state)
+    # next_states = DenseCuArray(batch.next_state)
+    copyto!(learner.next_states, batch.next_state)
     # next_states = send_to_device(D, collect(batch.next_state))
+    states = learner.states
+    next_states = learner.next_states
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
@@ -317,7 +326,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         preds, sldj, μ, σ = Z(target_distribution, states, n_actions)
 
         nll = preds[actions, :] .^ 2 ./ 2
-        
+
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
         # linear = abs_error .- quadratic

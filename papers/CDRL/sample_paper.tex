@@ -29,11 +29,11 @@
 
 \twocolumn[
 
-\aistatstitle{Normalizing Flows for Continous Distributional Reinforcement Learning}
+  \aistatstitle{Normalizing Flows for Continous Distributional Reinforcement Learning}
 
-\aistatsauthor{ Ludvig Killingberg}
+  \aistatsauthor{ Ludvig Killingberg}
 
-\aistatsaddress{ Norwegian University of Science and Technology } ]
+  \aistatsaddress{ Norwegian University of Science and Technology } ]
 
 % \begin{abstract}
 %   The Abstract paragraph should be indented 0.25 inch (1.5 picas) on
@@ -81,14 +81,14 @@
 As an agent interacts with an environment, the environment and the agent's
 policy interjects randomness into the return. Q-learning algorithms aim to
 capture the mean of the (discounted) cumulative reward from interracting
-with the environment. Distributional reinforcement learning (RL) in contrast 
+with the environment. Distributional reinforcement learning (RL) in contrast
 considers the randomness in the reward and aims to capture the following random
 variable. In contrast to Q-learning algorithms, distributional reinforcement
 learning algorithms aim to model distribution of the discounted cumulative
 reward.
 
 The difference in distributional reinforcement learning algorithms is mainly in
-how the distribution is modeled. 
+how the distribution is modeled.
 
 \section{Background}
 
@@ -118,7 +118,7 @@ optimality operator~\citep{bellman57}
 
 \begin{equation}
   \T Q^*(x, a) \defeq \E{}{R(x, a)} + \gamma \E{P}{\max_{a^\prime \in \A}
-  Q^*(x^\prime, a^\prime)}.
+    Q^*(x^\prime, a^\prime)}.
 \end{equation}
 
 To approximate \(Q^*\), now usually modeled with a neural network \(Q_\theta\),
@@ -127,7 +127,7 @@ squared temporal difference (TD) error
 
 \begin{equation}
   \delta^2_t = \left[ r_t + \gamma \max_{a^\prime \in \A}
-  Q_\theta(x_t, a^\prime) - Q_\theta(x_t, a_t) \right]^2
+    Q_\theta(x_t, a^\prime) - Q_\theta(x_t, a_t) \right]^2
 \end{equation}
 
 for samples \((x_t, a_t, r_t, x_{t+1})\) in trajectory \(T\), observed as the
@@ -137,7 +137,7 @@ over \(Q_\theta\).
 \subsection{Distributional Reinforcement Learning}
 
 Rather than reducing the optimization problem to the expected return,
-distributional reinforcement learning considers the full distribution of the 
+distributional reinforcement learning considers the full distribution of the
 random variable \(Z^\pi\). Similar to the Bellman operator for the scalar
 \(Q^\pi(x,a)\), we have a distributional Bellman operator
 
@@ -190,15 +190,15 @@ posterior using the KL-divergence means solving the optimization problem,
 Unfortunately, this is still a hard optimization problem. We can, however,
 manipulate the KL-term to make the optimization problem tractable.
 \begin{align*}
-  &\KL{q(\vtheta)}{p(\vtheta \vert \data)} =
-  \E{q(\vtheta)}{\log \frac{q(\vtheta)}{p(\vtheta \vert \data)}}\\
-  &= \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta \vert \data)}\\
-  &= \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log
-  \frac{p(\vtheta, \data)}{p(\data)}}\\
-  &= \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta, \data)} +
-  \E{q(\vtheta)}{\log p(\data)}\\
-  &= \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta, \data)} +
-  \log p(\data)\\
+   & \KL{q(\vtheta)}{p(\vtheta \vert \data)} =
+  \E{q(\vtheta)}{\log \frac{q(\vtheta)}{p(\vtheta \vert \data)}}                     \\
+   & = \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta \vert \data)} \\
+   & = \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log
+  \frac{p(\vtheta, \data)}{p(\data)}}                                                \\
+   & = \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta, \data)} +
+  \E{q(\vtheta)}{\log p(\data)}                                                      \\
+   & = \E{q(\vtheta)}{\log q(\vtheta)} - \E{q(\vtheta)}{\log p(\vtheta, \data)} +
+  \log p(\data)                                                                      \\
 \end{align*}
 This shows that minimizing the KL-divergence is the same as maximizing the
 evidence lower bound (\textbf{ELBO}),
@@ -218,7 +218,7 @@ inference. Assuming factorization in the distributional family,
   \Qfamily =
   \left\{ q(\vtheta) \middle\vert \prod_{\theta_i \in \vtheta}{q(\theta_i)} \right\},
 \end{equation}
-is a strong restriction. It is unlikely that \(p(\vtheta \vert \data)\) will 
+is a strong restriction. It is unlikely that \(p(\vtheta \vert \data)\) will
 factorize, and thus not be close to any \(q \in \Qfamily\). The nature of the
 reverse KL-divergence will mean that the approximate posterior always
 underestimates the variance of the true posterior.
@@ -235,10 +235,10 @@ a continous, differentiable and invertible function from \(S\) to
 \(T \in \R^n\), if we let \(\rvZ^\prime = v(\rvZ)\), then the probability
 function \(q(\rvz^\prime)\) of \(\rvZ^\prime\) is given by
 \begin{align}
-  q(\rvz^\prime) &= q(\rvz) \left\lvert \det \left( \frac{\partial \rvz}{
-    \partial \rvz^\prime} \right) \right\rvert \nonumber\\
-  &= q(v^{-1}(\rvz^\prime)) \left\lvert \det \left( \frac{\partial}{\partial
-  \rvz^\prime} v^{-1}(\rvz^\prime) \right) \right\rvert
+  q(\rvz^\prime) & = q(\rvz) \left\lvert \det \left( \frac{\partial \rvz}{
+  \partial \rvz^\prime} \right) \right\rvert \nonumber                                       \\
+                 & = q(v^{-1}(\rvz^\prime)) \left\lvert \det \left( \frac{\partial}{\partial
+    \rvz^\prime} v^{-1}(\rvz^\prime) \right) \right\rvert
   \label{eq:change_var_form1}
   % &= q(v^{-1}(\rvz^\prime)) \left\lvert \det \left( \frac{\partial}{\partial
   % \rvz} v(\rvz) \right) \right\rvert^{-1}
@@ -246,7 +246,7 @@ function \(q(\rvz^\prime)\) of \(\rvZ^\prime\) is given by
 \end{align}
 
 Normalizing flows takes advantage of this change of variables formula and create
-a family of parameterized invertible transformation \(V\) with an easy to 
+a family of parameterized invertible transformation \(V\) with an easy to
 compute jacobian. These transformations can be chained together to (usually)
 create an arbitrarily complex transformation.
 \begin{equation}
@@ -284,7 +284,7 @@ vector \(\hat{\rvu}\) that satisfies \(\rvw^\top \hat{\rvu} \leq -1\).
 \end{equation*}
 \begin{equation}
   \hat{\rvu}(\rvu, \rvw) = \rvu + \left[m(\rvw^\top \rvu) -
-  \rvw^\top \rvu \right] \frac{\rvw}{\lVert\rvw\rVert^2}
+    \rvw^\top \rvu \right] \frac{\rvw}{\lVert\rvw\rVert^2}
 \end{equation}
 
 \subsection{Conditional Normalizing Flows} \label{sec:cnf}
@@ -298,10 +298,10 @@ differentiable function \(v : S \times U \rightarrow T\), bijective in \(S\) and
 \(\rvz^\prime = v(\rvz, \rvx)\), can be expressed as
 
 \begin{align}
-  q(\rvz^\prime \vert \rvx) &= q(\rvz \vert \rvx) \left\lvert \det
+  q(\rvz^\prime \vert \rvx) & = q(\rvz \vert \rvx) \left\lvert \det
   \left( \frac{\partial \rvz}{\partial \rvz^\prime} \right) \right\rvert
-  \nonumber\\
-  &= q(v^{-1}(\rvz^\prime, \rvx)) \left\lvert \det \left( \frac{\partial}
+  \nonumber                                                                                          \\
+                            & = q(v^{-1}(\rvz^\prime, \rvx)) \left\lvert \det \left( \frac{\partial}
   {\partial \rvz^\prime} v^{-1}(\rvz^\prime, \rvx) \right) \right\rvert.
   \label{eq:cond_change_var_form1}
   % &= q(v^{-1}(\rvz^\prime; \rvx)) \left\lvert \det \left( \frac{\partial}
@@ -324,7 +324,7 @@ conditional, and the model has a conditional argument \(\rvx\).
 \end{equation*}
 \paragraph{Conditional Coupling}
 \begin{equation*}
-  \rvz^\prime_0 = 
+  \rvz^\prime_0 =
   s(\rvz_1, \rvx) \cdot \rvz_0 + t(\rvz_1, \rvx); \qquad \rvz^\prime_1 = \rvz_1
 \end{equation*}
 
@@ -334,14 +334,14 @@ neural networks.
 \section{Our Algorithm}
 
 We propose to use conditional normalizing flows to model the value distribution,
-\(Z^\pi\), with a continous estimate. As opposed to previous work on 
+\(Z^\pi\), with a continous estimate. As opposed to previous work on
 quantile regression methods, which aim to minimize the Wasserstein distance
 to the target distribution, normalizing flows minimize the KL-divergence. Our
 target is thus the KL-divergence from the value to the target distribution.
 
 \begin{equation}
   \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{Z_{\theta}(\rvx,a)}{\hat{\T}
-  Z_{\tilde{\theta}}(\rvx,a)}
+    Z_{\tilde{\theta}}(\rvx,a)}
 \end{equation}
 
 Using conditional normalizing flows described in Section~\ref{sec:cnf}, we
@@ -377,7 +377,7 @@ Algorithm~\ref{alg:LTM} shows how to calculate the loss for this scheme.
   \textbf{input} \(\rvx, a, r, \rvx^\prime, \gamma\)\\
   \hspace*{1em} {\color{gray} \# Take \(N\) samples from the value distribution.}\\
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
-  \hspace*{2em} \(\epsilon_i \sim \N \left(0, I_{\lvert \A \rvert} \right)\)\\
+  \hspace*{2em} \(\epsilon_i \sim \N \left(0, 1 \right)\)\\
   \hspace*{2em} \textbf{for} \(a^\prime \in \A\)\\
   \hspace*{3em} \(Z_{\tilde{\theta}}(\rvx^\prime, a^\prime)_i \gets v_{\tilde{\theta}}(\epsilon_i; \rvx^\prime)_{a^\prime}\)\\
   \hspace*{2em} \textbf{end}\\
@@ -388,8 +388,8 @@ Algorithm~\ref{alg:LTM} shows how to calculate the loss for this scheme.
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
   \hspace*{2em} {\color{gray} \# Apply the distributional Bellman operator.}\\
   \hspace*{2em} \(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i \gets r + \gamma Z_{\tilde{\theta}}(\rvx^\prime, a^*)_i\)\\
-  \hspace*{2em} {\color{gray} \# Calculate log-likelihood under \(\N(0,1)\).}\\
-  \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1} 
+  \hspace*{2em} {\color{gray} \# Calculate negative log-likelihood loss term.}\\
+  \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1}
   \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)^2\)\\
   \hspace*{2em} {\color{gray} \# Calculate log-derivative of \(v^{-1}_\theta\).}\\
   \hspace*{2em} \(\rho_i \gets \log \left\lvert \frac{\partial v_{\theta}^{-1} \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)}{\hat{Z}_{\tilde{\theta}}(\rvx, a)_i} \right\rvert\)\\
@@ -426,43 +426,14 @@ gradient of the log absolute determinant would be zero. This would mean it can
 not learn appropriate transformations. Instead we define our own flow.
 
 Equation~\ref{eq:luddeflow} shows the definitiona of the forward transformation
-\(v_{w, b, c, d}\), with 4 free parameters \(w, b, c, d\). Unlike the planar
-flow, this function is invertible and differentiable given any values for these
-parameters. Equation~\ref{eq:luddeflow_inv} and
-Equation~\ref{eq:luddeflow_grad} show the closed form gradient.
-
-% \begin{equation}
-%   Z_\theta(\rvx,a) = v_\theta^{-1}(z, \rvx^\prime)_a
-% \end{equation}
-% \begin{equation*}
-%   z \sim \N(0, I); \quad \rvx^\prime = h(\rvx)
-% \end{equation*}
-
-% \begin{equation*}
-%   s(x) = \log(1 + \exp(x))
-% \end{equation*}
-% \begin{equation}
-%   v_{w, b, c, d}(z) = \sign(z + c) \left[ s(\lvert w(z + c) \rvert + b) 
-%   - s(b) \right] + d \label{eq:luddeflow}
-% \end{equation}
-
-% \begin{equation*}
-%   s^{-1}(x) = \log(\exp(x) - 1); \quad x > 0
-% \end{equation*}
-% \begin{equation}
-%   v^{-1}_{w, b, c, d}(z^\prime) = \frac{\sign(z^\prime - d)}{w}
-%   [ s^{-1}(\lvert z^\prime - d \rvert + s(b)) - b] - c \label{eq:luddeflow_inv}
-% \end{equation}
-
-% \begin{equation}
-%   \frac{\partial v^{-1}_{w,b,c,d}}{\partial z^\prime} = \frac{(e^b + 1) 
-%   e^{\lvert z^\prime - d \rvert}}{w (e^b + 1)e^{\lvert z^\prime - d \rvert} - w}
-%   \label{eq:luddeflow_inv_grad}
-% \end{equation}
+\(v(\cdot; b, c, d)\), with 3 free parameters \(b, c, d\). Unlike the planar
+flow, this function has a closed form inverse and is differentiable given any values for these
+parameters, hence no reparameterization is necessary. Equation~\ref{eq:luddeflow_inv} and
+Equation~\ref{eq:luddeflow_grad} show the closed form inverse and gradient respectively.
 
 \begin{equation}
   v(z; b, c, d) = \sign(z - c) \log \left( e^{\lvert x - c \rvert}
-   + e^{b} - 1 \right) + d \label{eq:luddeflow}
+  + e^{b} - 1 \right) + d \label{eq:luddeflow}
 \end{equation}
 
 \begin{equation}
@@ -476,26 +447,25 @@ Equation~\ref{eq:luddeflow_grad} show the closed form gradient.
 \end{equation}
 
 Figure~\ref{fig:luddeflow} shows the effect of the free parameters. A simple
-description is \(w\) changes the slope of the function, \(b\) changes the
-\emph{linearity} of the function (as \(b\) goes to infinity, \(v\) approaches a
-linear function), \(c\) shifts the horizontally, and \(d\) shifts the function
-vertically.
+description is that \(b\) changes the
+\emph{linearity} of the function (\(v\) is linear when \(b = 0\), an expansive
+mapping when \(b < 0\) and a contraction when \(b > 0\)), \(c\) shifts \(v\) horizontally, and \(d\) shifts \(v\) vertically.
 
 \begin{figure}[ht]
   \vspace{.3in}
   % \centerline{\fbox{This figure intentionally left non-blank}}
-  \includegraphics[width=\columnwidth]{luddeflow.png}
+  \includegraphics[width=\columnwidth]{new_flow.pdf}
   \vspace{.3in}
-  \caption{Illustration of the effect the free parameters have on the function).
+  \caption{Illustration of the effect the free parameters have on the function.
   }\label{fig:luddeflow}
 \end{figure}
 
 \begin{figure}[ht]
-\vspace{.3in}
-% \centerline{\fbox{This figure intentionally left non-blank}}
-\includegraphics[width=\columnwidth]{qdistr_6100.png}
-\vspace{.3in}
-\caption{Learned \(Z^\pi\)-distribution during an episode in Breakout.}
+  \vspace{.3in}
+  % \centerline{\fbox{This figure intentionally left non-blank}}
+  \includegraphics[width=\columnwidth]{qdistr_6100.png}
+  \vspace{.3in}
+  \caption{Learned \(Z^\pi\)-distribution during an episode in Breakout.}
 \end{figure}
 
 % \paragraph{Fourth Level Heading}
@@ -592,7 +562,7 @@ vertically.
 % \begin{enumerate}
 %     \item Download \texttt{aistats2022.sty}, \texttt{fancyhdr.sty}, and \texttt{sample\_paper.tex} provided in our starter pack. 
 %     Please, do not modify the style files as this might result in a formatting violation.
-    
+
 %     \item Use \texttt{sample\_paper.tex} as a starting point.
 %     \item Begin your document with
 %     \begin{flushleft}
