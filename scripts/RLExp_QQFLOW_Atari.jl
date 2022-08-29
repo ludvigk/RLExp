@@ -47,7 +47,7 @@ function RL.Experiment(
         "n_samples_target" => 100,
         "opt" => "ADAM",
         "gamma" => 0.99,
-        "update_horizon" => 1,
+        "update_horizon" => 3,
         "batch_size" => 32,
         "min_replay_history" => 100,
         "is_enable_double_DQN" => true,
@@ -55,7 +55,7 @@ function RL.Experiment(
         "seed" => 1,
         "flow_depth" => 4,
         "terminal_on_life_loss" => true,
-        "adam_epsilon" => 1e-4,
+        "adam_epsilon" => 1e-5,
         "n_steps" => 200_000_000,
     )
 
