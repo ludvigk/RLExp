@@ -69,22 +69,22 @@ function dv3(x, b, c, d)
     log(excu / s)
 end
 
-@adjoint function v3(x, b, c, d)
-    xc = x .- c
-    axc = abs(xc)
-    u = max(axc, b)
-    sxc = sign(xc)
-    excu = exp(axc - u)
-    exbu = exp(b - u)
-    exu = exp(-u)
-    s = excu + exbu - exu
-    r = u + log(s) - b
-    out = sxc * r + d
-    Δb = sxc * (exbu / s - 1)
-    Δx = excu / s
-    Δc = -Δx
-    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
-end
+# @adjoint function v3(x, b, c, d)
+#     xc = x .- c
+#     axc = abs(xc)
+#     u = max(axc, b)
+#     sxc = sign(xc)
+#     excu = exp(axc - u)
+#     exbu = exp(b - u)
+#     exu = exp(-u)
+#     s = excu + exbu - exu
+#     r = u + log(s) - b
+#     out = sxc * r + d
+#     Δb = sxc * (exbu / s - 1)
+#     Δx = excu / s
+#     Δc = -Δx
+#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
+# end
 
 # function ChainRulesCore.rrule(::typeof(v3), x, b, c, d)
 #     xc = x - c
@@ -102,24 +102,24 @@ end
 #     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, cc)
 # end
 
-@adjoint function dv3(x, b, c, d)
-    xc = x .- c
-    sxc = sign.(xc)
-    axc = abs.(xc)
-    u = max(axc, b)
-    excu = exp(axc - u)
-    excuu = exp(axc - 2u)
-    exbu = exp(b - u)
-    excbu = exp(axc + b - 2u)
-    exu = exp(-u)
-    s = excu + exbu - exu
-    out = log(excu / s)
-    s2 = s ^ 2
-    Δx = sxc * (excbu - excuu) / s2
-    Δb = -excbu / s2
-    Δc = -Δx
-    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
-end
+# @adjoint function dv3(x, b, c, d)
+#     xc = x .- c
+#     sxc = sign.(xc)
+#     axc = abs.(xc)
+#     u = max(axc, b)
+#     excu = exp(axc - u)
+#     excuu = exp(axc - 2u)
+#     exbu = exp(b - u)
+#     excbu = exp(axc + b - 2u)
+#     exu = exp(-u)
+#     s = excu + exbu - exu
+#     out = log(excu / s)
+#     s2 = s ^ 2
+#     Δx = sxc * (excbu - excuu) / s2
+#     Δb = -excbu / s2
+#     Δc = -Δx
+#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
+# end
 
 # function ChainRulesCore.rrule(::typeof(dv3), x, b, c, d)
 #     xc = x - c
@@ -159,7 +159,7 @@ end
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
     i = size(ξ, 1)
-    μ = @inbounds ξ[i:i,:]
+    # μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ) 
     
@@ -174,7 +174,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
 
     # lz = Zygote.@ignore fill!(similar(z), 0f0)
     
-    μ = reshape(μ, size(μ)..., 1)
+    # μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
     
     @inbounds for i=1:(3na):(size(ξ,1) - 3na)
@@ -184,7 +184,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
         z = v3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
-    z = μ .+ z
+    # z = μ .+ z
     # z = μ .+ z .* σ
     z, nothing
 end
@@ -192,16 +192,16 @@ end
 function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     ξ = m.net(state)
     i = size(ξ, 1)
-    μ = @inbounds ξ[i:i,:]
+    # μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ)
 
     lz = @ignore_derivatives fill!(similar(z), 0f0)
 
-    μ = reshape(μ, size(μ)..., 1)
+    # μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
     
-    z = z .- ignore_derivatives(μ)
+    # z = z .- ignore_derivatives(μ)
     # z = (z .- μ) ./ σ
     @inbounds for i=(size(ξ,1) - 3na):(-3na):1
         b = ξ[i:(i + na - 1), :, :]
@@ -323,13 +323,13 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # linear = abs_error .- quadratic
         # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
 
-        m = sum(target_distribution, dims=3) ./ n_samples_target
-        extra_loss = Flux.huber_loss(μ, m) ./ 10
+        # m = sum(target_distribution, dims=3) ./ n_samples_target
+        # extra_loss = (μ .- m) .^ 2 ./ 10
         # extra_loss = sum((μ .- m) .^ 2)
         sldj = sldj[actions, :]
         loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
-        loss = (loss + extra_loss) / batch_size
+        loss = (loss) / batch_size
 
         ignore_derivatives() do
             lp["loss"] = loss
