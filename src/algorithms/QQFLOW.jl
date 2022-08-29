@@ -211,7 +211,7 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
         z = v3.(z, b, c, d)
         lz = lz .+ lz_
     end
-    z, lz, μ, nothing
+    z, lz, nothing, nothing
 end
 
 mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
@@ -333,11 +333,11 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
         ignore_derivatives() do
             lp["loss"] = loss
-            lp["extra_loss"] = extra_loss
+            # lp["extra_loss"] = extra_loss
             # lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
             # lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
             # lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
-            lp["mu"] = mean(μ)
+            # lp["mu"] = mean(μ)
             # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
             lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
             lp["min_weight"] = minimum(minimum.(Flux.params(Z)))

@@ -139,12 +139,16 @@ function RL.Experiment(
                 batch_size=config["batch_size"],
                 rng=rng
             ),
-            controller = AsyncInsertSampleRatioController(
-                1 ./ get_config(lg, "update_freq"),
-                get_config(lg, "min_replay_history");
-                ch_in_sz = 10,
-                ch_out_sz = 10,
+            controller = InsertSampleRatioController(
+                ratio=config["update_freq"],
+                threshold=config["min_replay_history"],
             ),
+            # controller = AsyncInsertSampleRatioController(
+            #     1 ./ get_config(lg, "update_freq"),
+            #     get_config(lg, "min_replay_history");
+            #     ch_in_sz = 10,
+            #     ch_out_sz = 10,
+            # ),
         )
     )
     """
