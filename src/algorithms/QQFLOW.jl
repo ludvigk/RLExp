@@ -252,8 +252,8 @@ function QQFLOWLearner(;
         is_enable_double_DQN,
         training,
         DefaultDict(0.0),
-        CUDA.DenseCuArray{Float32,2}(undef, n_actions, batch_size),
-        CUDA.DenseCuArray{Float32,2}(undef, n_actions, batch_size),
+        Array{Float32,2}(undef, n_actions, batch_size),
+        Array{Float32,2}(undef, n_actions, batch_size),
     )
 end
 
@@ -283,14 +283,14 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     D = device(Z)
     states = DenseCuArray(batch.state)
     copyto!(learner.states, batch.state)
+    states = send_to_device(D, learner.states)
     # states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
     # next_states = DenseCuArray(batch.next_state)
     copyto!(learner.next_states, batch.next_state)
+    next_states = send_to_device(D, learner.next_states)
     # next_states = send_to_device(D, collect(batch.next_state))
-    states = learner.states
-    next_states = learner.next_states
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
