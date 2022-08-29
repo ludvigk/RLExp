@@ -252,8 +252,8 @@ function QQFLOWLearner(;
         is_enable_double_DQN,
         training,
         DefaultDict(0.0),
-        CUDA.DenseCuArray{Float32,2}(n_actions, batch_size),
-        CUDA.DenseCuArray{Float32,2}(n_actions, batch_size),
+        CUDA.DenseCuArray{Float32,2}(undef, n_actions, batch_size),
+        CUDA.DenseCuArray{Float32,2}(undef, n_actions, batch_size),
     )
 end
 
