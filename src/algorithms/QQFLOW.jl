@@ -163,7 +163,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ) 
     
-    z = @ignore_derivatives randn!(similar(μ, size(μ)..., num_samples))
+    z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
     # μcpu = cpu(μ)
     # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
     # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
