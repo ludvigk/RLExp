@@ -225,8 +225,8 @@ mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     is_enable_double_DQN::Bool
     training::Bool
     logging_params
-    states::DenseCuArray{Float32,2}
-    next_states::DenseCuArray{Float32,2}
+    states::Array{Float32,2}
+    next_states::Array{Float32,2}
 end
 
 function QQFLOWLearner(;
