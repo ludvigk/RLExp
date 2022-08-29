@@ -69,22 +69,22 @@ function dv3(x, b, c, d)
     log(excu / s)
 end
 
-# @adjoint function v3(x, b, c, d)
-#     xc = x .- c
-#     axc = abs(xc)
-#     u = max(axc, b)
-#     sxc = sign(xc)
-#     excu = exp(axc - u)
-#     exbu = exp(b - u)
-#     exu = exp(-u)
-#     s = excu + exbu - exu
-#     r = u + log(s) - b
-#     out = sxc * r + d
-#     Δb = sxc * (exbu / s - 1)
-#     Δx = excu / s
-#     Δc = -Δx
-#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
-# end
+@adjoint function v3(x, b, c, d)
+    xc = x .- c
+    axc = abs(xc)
+    u = max(axc, b)
+    sxc = sign(xc)
+    excu = exp(axc - u)
+    exbu = exp(b - u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    r = u + log(s) - b
+    out = sxc * r + d
+    Δb = sxc * (exbu / s - 1)
+    Δx = excu / s
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
+end
 
 # function ChainRulesCore.rrule(::typeof(v3), x, b, c, d)
 #     xc = x - c
@@ -102,24 +102,24 @@ end
 #     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, cc)
 # end
 
-# @adjoint function dv3(x, b, c, d)
-#     xc = x .- c
-#     sxc = sign.(xc)
-#     axc = abs.(xc)
-#     u = max(axc, b)
-#     excu = exp(axc - u)
-#     excuu = exp(axc - 2u)
-#     exbu = exp(b - u)
-#     excbu = exp(axc + b - 2u)
-#     exu = exp(-u)
-#     s = excu + exbu - exu
-#     out = log(excu / s)
-#     s2 = s ^ 2
-#     Δx = sxc * (excbu - excuu) / s2
-#     Δb = -excbu / s2
-#     Δc = -Δx
-#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
-# end
+@adjoint function dv3(x, b, c, d)
+    xc = x .- c
+    sxc = sign.(xc)
+    axc = abs.(xc)
+    u = max(axc, b)
+    excu = exp(axc - u)
+    excuu = exp(axc - 2u)
+    exbu = exp(b - u)
+    excbu = exp(axc + b - 2u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    out = log(excu / s)
+    s2 = s ^ 2
+    Δx = sxc * (excbu - excuu) / s2
+    Δb = -excbu / s2
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
+end
 
 # function ChainRulesCore.rrule(::typeof(dv3), x, b, c, d)
 #     xc = x - c
