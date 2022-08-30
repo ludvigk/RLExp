@@ -129,7 +129,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
         lz_ = dv3⁻¹.(z, b, c, d)
         lz = lz .+ lz_
     end
-    zp = zp - lz
+    zp = zp #- lz
     z, zp
 end
 
@@ -248,7 +248,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
     end
     next_q = @inbounds q_values[selected_actions, :]
-    zp = @inbounds zp[selected_actions, :]
+    zp = @inbounds zp[selected_actions, :] ./ γ .^ update_horizon
 
     target_distribution =
         Flux.unsqueeze(rewards, 2) .+
@@ -261,7 +261,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
 
-        nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
+        nll = preds[actions, :] .^ 2 ./ 2 #.- sldj[actions, :]
         loss = Flux.huber_loss(nll, zp) / (batch_size * n_samples_target)
 
         # abs_error = abs.(TD_error)
