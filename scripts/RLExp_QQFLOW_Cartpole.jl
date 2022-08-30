@@ -45,7 +45,7 @@ function RL.Experiment(
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
-        "batch_size" => 128,
+        "batch_size" => 32,
         "min_replay_history" => 100,
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
@@ -89,7 +89,7 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(config["lr"], (0.9, 0.999), 0.0000015)
+    opt = AdaMax(config["lr"], (0.9, 0.999), 1e-8)
     approximator = Approximator(
         model=TwinNetwork(
             FlowNet(;

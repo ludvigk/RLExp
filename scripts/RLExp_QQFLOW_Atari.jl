@@ -55,7 +55,7 @@ function RL.Experiment(
         "seed" => 1,
         "flow_depth" => 8,
         "terminal_on_life_loss" => true,
-        "adam_epsilon" => 1e-6,
+        "adam_epsilon" => 1e-8,
         "n_steps" => 200_000_000,
     )
 
@@ -86,7 +86,7 @@ function RL.Experiment(
         STATE_SIZE,
         N_FRAMES;
         seed=isnothing(seed) ? nothing : hash(seed + 1),
-        terminal_on_life_loss = terminal_on_life_loss,
+        terminal_on_life_loss=terminal_on_life_loss
     )
     N_ACTIONS = length(action_space(env))
 
@@ -95,10 +95,10 @@ function RL.Experiment(
     """
     initc = Flux.glorot_uniform(rng)
     # initc = Flux.kaiming_normal(rng)
-    
+
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
+    opt = AdaMax(config["lr"], (0.9, 0.999), config["adam_epsilon"])
     # opt = CenteredRMSProp(config["lr"], 0.0, config["adam_epsilon"])
     # lr = get_config(lg, "lr")
     # clip_norm = get_config(lg, "clip_norm")
@@ -121,7 +121,7 @@ function RL.Experiment(
             ),
             sync_freq=get_config(lg, "target_update_freq"),
         );
-        optimiser=opt,
+        optimiser=opt
     )
 
     """
@@ -138,27 +138,27 @@ function RL.Experiment(
                 n_samples_target=get_config(lg, "n_samples_target"),
                 is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
             ),
-            explorer=EpsilonGreedyExplorer(                                                                                                                                                                                                             
-                ϵ_init = 1.0,
-                ϵ_stable = 0.01,
-                decay_steps = 1_000_000,
-                kind = :linear,
+            explorer=EpsilonGreedyExplorer(
+                ϵ_init=1.0,
+                ϵ_stable=0.01,
+                decay_steps=1_000_000,
+                kind=:linear,
                 rng=rng,
             ),
         ),
         trajectory=Trajectory(
-            container = CircularArraySARTTraces(
+            container=CircularArraySARTTraces(
                 capacity=get_config(lg, "traj_capacity"),
                 state=Float32 => STATE_SIZE,
-            ),                                                                                                                                                                                                              
+            ),
             sampler=NStepBatchSampler{SS′ART}(
                 n=get_config(lg, "update_horizon"),
                 γ=get_config(lg, "gamma"),
                 batch_size=get_config(lg, "batch_size"),
-                stack_size = N_FRAMES,
+                stack_size=N_FRAMES,
                 rng=rng
             ),
-            controller = InsertSampleRatioController(
+            controller=InsertSampleRatioController(
                 ratio=1 // get_config(lg, "update_freq"),
                 threshold=get_config(lg, "min_replay_history"),
             ),
@@ -186,7 +186,7 @@ function RL.Experiment(
                 p = agent.policy.learner.logging_params
                 L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                 Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
-                min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"],p["max_pred"]
+                min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
                 @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
             end
         catch
@@ -201,8 +201,8 @@ function RL.Experiment(
         end
         try
             s = agent.trajectory[:state]
-            beg = rand((1 + N_FRAMES):size(s,3))
-            s = s[:,:,(beg - N_FRAMES):(beg - 1)]
+            beg = rand((1+N_FRAMES):size(s, 3))
+            s = s[:, :, (beg-N_FRAMES):(beg-1)]
             s = Flux.unsqueeze(s, 4) |> gpu
             samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
             p = plot()
@@ -220,7 +220,7 @@ function RL.Experiment(
         # jldsave(save_dir * "/model_latest.jld2"; agent)
         @info "evaluating agent at $t step..."
         p = agent.policy
-        p = @set p.explorer = EpsilonGreedyExplorer(0.001; rng = rng)
+        p = @set p.explorer = EpsilonGreedyExplorer(0.001; rng=rng)
         tot_reward = TotalOriginalRewardPerEpisode()
         n_steps = StepsPerEpisode()
         h = tot_reward + n_steps
@@ -239,7 +239,7 @@ function RL.Experiment(
         p_every_step = DoEveryNStep() do tt, agent, env
             push!(screens, get_screen(env))
         end
-        p_every_ep = DoEveryNEpisode(;stage=PostEpisodeStage()) do tt, agent, env
+        p_every_ep = DoEveryNEpisode(; stage=PostEpisodeStage()) do tt, agent, env
             Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
             Wandb.log(lg, Dict(
                     "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
@@ -274,7 +274,7 @@ function RL.Experiment(
         end
     end
     hook = step_per_episode + reward_per_episode + every_n_step + every_n_ep +
-        eval_hook + CloseLogger(lg)
+           eval_hook + CloseLogger(lg)
     # hook = EmptyHook()
     stop_condition = StopAfterStep(get_config(lg, "n_steps"), is_show_progress=true)
 

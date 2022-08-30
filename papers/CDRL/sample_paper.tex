@@ -340,8 +340,8 @@ to the target distribution, normalizing flows minimize the KL-divergence. Our
 target is thus the KL-divergence from the value to the target distribution.
 
 \begin{equation}
-  \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{Z_{\theta}(\rvx,a)}{\hat{\T}
-    Z_{\tilde{\theta}}(\rvx,a)}
+  \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{\hat{\T}
+    Z_{\tilde{\theta}}(\rvx,a)}{Z_{\theta}(\rvx,a)}
 \end{equation}
 
 Using conditional normalizing flows described in Section~\ref{sec:cnf}, we
