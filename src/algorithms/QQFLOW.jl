@@ -117,20 +117,19 @@ end
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
-    z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
-    zp = z
+    z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
+    zp = z .^ 2 ./ 2
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
-        b = ξ[i:(i+na-1), :]
-        c = ξ[(i+na):(i+2na-1), :]
-        d = ξ[(i+2na):(i+3na-1), :]
+        b = @view ξ[i:(i+na-1), :]
+        c = @view ξ[(i+na):(i+2na-1), :]
+        d = @view ξ[(i+2na):(i+3na-1), :]
         z = v3⁻¹.(z, b, c, d)
         lz_ = dv3⁻¹.(z, b, c, d)
         lz = lz .+ lz_
     end
-    zp = zp #- lz
-    z, zp
+    z, lz, zp
 end
 
 function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
@@ -231,9 +230,9 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     actions = CartesianIndex.(batch.action, 1:batch_size)
 
     if learner.is_enable_double_DQN
-        q_values, zp = Z(next_states, n_samples_target, n_actions)
+        q_values = Z(next_states, n_samples_target, n_actions)[1]
     else
-        q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
+        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
@@ -245,10 +244,9 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     if learner.is_enable_double_DQN
-        q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
+        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     end
     next_q = @inbounds q_values[selected_actions, :]
-    # zp = zp ./ γ .^ update_horizon
 
     target_distribution =
         Flux.unsqueeze(rewards, 2) .+
@@ -261,9 +259,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
 
-        nll = (preds[actions, :] .^ 2 / 2 .- sldj[actions, :])
-        # loss = Flux.huber_loss(nll, zp[1, :, :] .^ 2 ./ 2) 
-
+        nll = preds[actions, :] .^ 2 ./ 2
 
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
@@ -273,10 +269,10 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # m = sum(target_distribution, dims=3) ./ n_samples_target
         # extra_loss = (μ .- m) .^ 2 ./ 10
         # extra_loss = sum((μ .- m) .^ 2)
-        # sldj = sldj[actions, :]
-        # loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
+        sldj = sldj[actions, :]
+        loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
-        loss = sum(nll) / (batch_size * n_samples_target)
+        loss = (loss) / batch_size
 
         ignore_derivatives() do
             lp["loss"] = loss
