@@ -118,7 +118,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
     z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
-    zp = z[1, :, :] .^ 2 ./ 2
+    zp = z[1, :, :]
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
