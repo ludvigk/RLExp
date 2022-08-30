@@ -31,7 +31,7 @@ function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:QQFLOW},
     ::Val{:Cartpole};
-    seed=123,
+    seed=123
 )
     """
     SET UP LOGGING
@@ -47,7 +47,7 @@ function RL.Experiment(
         "update_horizon" => 1,
         "batch_size" => 128,
         "min_replay_history" => 100,
-        "is_enable_double_DQN" => true,
+        "is_enable_double_DQN" => false,
         "traj_capacity" => 100_000,
         "seed" => 2,
         "flow_depth" => 8,
@@ -90,15 +90,15 @@ function RL.Experiment(
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
     opt = ADAM(config["lr"], (0.9, 0.999), 0.0000015)
-    approximator=Approximator(
+    approximator = Approximator(
         model=TwinNetwork(
             FlowNet(;
                 net=Chain(
                     Dense(ns, 512, relu; init=init),
                     Dense(512, 512, relu; init=init),
                     Dense(512, 3flow_depth * na; init=init),
-                    ),
-                ),
+                )
+            ),
             ;
             sync_freq=config["target_update_freq"]
         ),
@@ -127,7 +127,7 @@ function RL.Experiment(
             ),
         ),
         trajectory=Trajectory(
-            container = CircularArraySARTTraces(
+            container=CircularArraySARTTraces(
                 capacity=config["traj_capacity"],
                 state=Float32 => (ns,),
             ),
@@ -137,7 +137,7 @@ function RL.Experiment(
                 batch_size=config["batch_size"],
                 rng=rng
             ),
-            controller = InsertSampleRatioController(
+            controller=InsertSampleRatioController(
                 ratio=config["update_freq"],
                 threshold=config["min_replay_history"],
             ),
@@ -174,7 +174,7 @@ function RL.Experiment(
             stop("Program most likely terminated through WandB interface.")
         end
     end
-    every_ep = DoEveryNEpisode(;stage=PostEpisodeStage()) do t, agent, env
+    every_ep = DoEveryNEpisode(; stage=PostEpisodeStage()) do t, agent, env
         try
             with_logger(lg) do
                 @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
@@ -188,7 +188,7 @@ function RL.Experiment(
     every_n_step = DoEveryNStep(n=200) do t, agent, env
         @info "evaluating agent at $t step..."
         p = agent.policy
-        total_reward = TotalRewardPerEpisode() 
+        total_reward = TotalRewardPerEpisode()
         steps = StepsPerEpisode()
         s = @elapsed run(
             p,
@@ -216,15 +216,15 @@ function RL.Experiment(
             env = CartPoleEnv(; T=Float32)
             s = Flux.unsqueeze(env.state, 2) |> gpu
             samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
-            p = plot(;size=(600,400))
+            p = plot(; size=(600, 400))
             for action in 1:size(samples, 1)
                 density!(samples[action, 1, :], c=action, label="action $(action)")
                 vline!([mean(samples[action, 1, :])], c=action, label=false)
             end
             Plots.savefig(p, save_dir * "/qdistr_$(t).png")
             Wandb.log(lg, Dict(
-                "evaluating" => Wandb.Image(joinpath(save_dir, "qdistr_$(t).png"))
-            ); step=lg.global_step)
+                    "evaluating" => Wandb.Image(joinpath(save_dir, "qdistr_$(t).png"))
+                ); step=lg.global_step)
         catch
             close(lg)
             @error "Failed to save plot. Probably NaN values."
@@ -238,7 +238,7 @@ function RL.Experiment(
     end
 
     hook = step_per_episode + reward_per_episode + every_step + every_ep +
-        every_n_step + every_n_ep + CloseLogger(lg)
+           every_n_step + every_n_ep + CloseLogger(lg)
     # hook = EmptyHook()
     stop_condition = StopAfterStep(config["num_steps"], is_show_progress=true)
 
