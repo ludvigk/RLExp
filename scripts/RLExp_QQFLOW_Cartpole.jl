@@ -40,8 +40,8 @@ function RL.Experiment(
         "lr" => 5e-5,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 100,
-        "n_samples_target" => 100,
+        "n_samples_act" => 1000,
+        "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -50,7 +50,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 4,
+        "flow_depth" => 8,
         "num_steps" => 5_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -89,16 +89,14 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
-    lr = config["lr"]
-
+    opt = ADAM(config["lr"], (0.9, 0.999), 0.0000015)
     approximator=Approximator(
         model=TwinNetwork(
             FlowNet(;
                 net=Chain(
-                    Dense(ns, 1024, relu; init=init),
-                    Dense(1024, 1024, relu; init=init),
-                    Dense(1024, 1 + 3flow_depth * na; init=init),
+                    Dense(ns, 512, relu; init=init),
+                    Dense(512, 512, relu; init=init),
+                    Dense(512, 3flow_depth * na; init=init),
                     ),
                 ),
             ;

@@ -163,7 +163,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ) 
     
-    z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
+    z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
     # μcpu = cpu(μ)
     # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
     # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
@@ -177,7 +177,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # μ = reshape(μ, size(μ)..., 1)
     # σ = reshape(σ, size(σ)..., 1)
     
-    @inbounds for i=1:(3na):(size(ξ,1) - 3na)
+    @inbounds for i=1:(3na):(size(ξ,1) - 3na + 1)
         b = @view ξ[i:(i + na - 1), :]
         c = @view ξ[(i+na):(i + 2na - 1), :]
         d = @view ξ[(i+2na):(i + 3na - 1), :]
@@ -203,7 +203,7 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     
     # z = z .- ignore_derivatives(μ)
     # z = (z .- μ) ./ σ
-    @inbounds for i=(size(ξ,1) - 3na):(-3na):1
+    @inbounds for i=(size(ξ,1) - 3na + 1):(-3na):1
         b = ξ[i:(i + na - 1), :, :]
         c = ξ[(i+na):(i + 2na - 1), :, :]
         d = ξ[(i+2na):(i + 3na - 1), :, :]
@@ -211,7 +211,7 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
         z = v3.(z, b, c, d)
         lz = lz .+ lz_
     end
-    z, lz, nothing, nothing
+    z, lz
 end
 
 mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
@@ -276,12 +276,12 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     lp = learner.logging_params
     
     D = device(Z)
-    states = DenseCuArray(batch.state)
-    # states = send_to_device(D, collect(batch.state))
+    # states = DenseCuArray(batch.state)
+    states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
-    next_states = DenseCuArray(batch.next_state)
-    # next_states = send_to_device(D, collect(batch.next_state))
+    # next_states = DenseCuArray(batch.next_state)
+    next_states = send_to_device(D, collect(batch.next_state))
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
@@ -314,7 +314,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     # target_distribution = reshape(target_distribution, size(target_distribution))
 
     gs = gradient(Flux.params(Z)) do
-        preds, sldj, μ, σ = Z(target_distribution, states, n_actions)
+        preds, sldj = Z(target_distribution, states, n_actions)
 
         nll = preds[actions, :] .^ 2 ./ 2
         
