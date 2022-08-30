@@ -24,4 +24,4 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     include("RLExp_QQFLOW_Cartpole.jl")
 end
 
-run(E`RLExp_QQFLOW_Cartpole()`)
+run(E`RLExp_QQFLOW_Cartpole`)
