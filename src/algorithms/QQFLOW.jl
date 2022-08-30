@@ -261,8 +261,8 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
 
-        nll = preds[actions, :] .- sldj[actions, :]
-        loss = Flux.huber_loss(nll, zp) / (batch_size * n_samples_target)
+        nll = preds[actions, :] .^ 2 / 2 .- sldj[actions, :]
+        loss = Flux.huber_loss(nll, zp .^ 2 ./ 2) / (batch_size * n_samples_target)
 
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
