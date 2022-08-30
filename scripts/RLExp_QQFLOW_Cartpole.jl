@@ -89,7 +89,8 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = AdamW(config["lr"], (0.9, 0.999), 1e-8)
+    # opt = Adam(config["lr"], (0.9, 0.999), 1e-8)
+    opt = OAdam(config["lr"])
     approximator = Approximator(
         model=TwinNetwork(
             FlowNet(;
