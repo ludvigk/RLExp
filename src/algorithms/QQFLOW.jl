@@ -117,7 +117,7 @@ end
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
-    z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
+    z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
     zp = z .^ 2 ./ 2
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
@@ -248,7 +248,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
     end
     next_q = @inbounds q_values[selected_actions, :]
-    zp = @inbounds zp[selected_actions, :] ./ γ .^ update_horizon
+    zp = zp ./ γ .^ update_horizon
 
     target_distribution =
         Flux.unsqueeze(rewards, 2) .+
