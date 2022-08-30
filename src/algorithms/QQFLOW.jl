@@ -248,6 +248,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
     end
     next_q = @inbounds q_values[selected_actions, :]
+    zp = @inbounds zp[selected_actions, :]
 
     target_distribution =
         Flux.unsqueeze(rewards, 2) .+
