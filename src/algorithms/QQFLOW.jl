@@ -118,7 +118,7 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
     z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
-    zp = z[1, :, :]
+    zp = z
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
@@ -261,7 +261,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
 
-        nll = preds[actions, :] #.- sldj[actions, :]
+        nll = preds[actions, :] .- sldj[actions, :]
         loss = Flux.huber_loss(nll, zp) / (batch_size * n_samples_target)
 
         # abs_error = abs.(TD_error)
