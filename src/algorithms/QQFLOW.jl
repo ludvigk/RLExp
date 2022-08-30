@@ -178,9 +178,9 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     # σ = reshape(σ, size(σ)..., 1)
     
     @inbounds for i=1:(3na):(size(ξ,1) - 3na + 1)
-        b = @view ξ[i:(i + na - 1), :]
-        c = @view ξ[(i+na):(i + 2na - 1), :]
-        d = @view ξ[(i+2na):(i + 3na - 1), :]
+        b = ξ[i:(i + na - 1), :]
+        c = ξ[(i+na):(i + 2na - 1), :]
+        d = ξ[(i+2na):(i + 3na - 1), :]
         z = v3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
