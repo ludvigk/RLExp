@@ -69,86 +69,44 @@ function dv3(x, b, c, d)
     log(excu / s)
 end
 
-# @adjoint function v3(x, b, c, d)
-#     xc = x .- c
-#     axc = abs(xc)
-#     u = max(axc, b)
-#     sxc = sign(xc)
-#     excu = exp(axc - u)
-#     exbu = exp(b - u)
-#     exu = exp(-u)
-#     s = excu + exbu - exu
-#     r = u + log(s) - b
-#     out = sxc * r + d
-#     Δb = sxc * (exbu / s - 1)
-#     Δx = excu / s
-#     Δc = -Δx
-#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
-# end
+@adjoint function v3(x, b, c, d)
+    xc = x .- c
+    axc = abs(xc)
+    u = max(axc, b)
+    sxc = sign(xc)
+    excu = exp(axc - u)
+    exbu = exp(b - u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    r = u + log(s) - b
+    out = sxc * r + d
+    Δb = sxc * (exbu / s - 1)
+    Δx = excu / s
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, cc)
+end
 
-# function ChainRulesCore.rrule(::typeof(v3), x, b, c, d)
-#     xc = x - c
-#     axc = abs(xc)
-#     u = max(axc, b)
-#     excu = myexp(axc - u)
-#     exbu = myexp(b - u)
-#     exu = myexp(-u)
-#     s = excu + exbu - exu
-#     r = u + log(s) - b
-#     out = sxcu * r + d
-#     Δb = sxc * (exbu / s - 1)
-#     Δx = excu / s
-#     Δc = -Δx
-#     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, cc)
-# end
-
-# @adjoint function dv3(x, b, c, d)
-#     xc = x .- c
-#     sxc = sign.(xc)
-#     axc = abs.(xc)
-#     u = max(axc, b)
-#     excu = exp(axc - u)
-#     excuu = exp(axc - 2u)
-#     exbu = exp(b - u)
-#     excbu = exp(axc + b - 2u)
-#     exu = exp(-u)
-#     s = excu + exbu - exu
-#     out = log(excu / s)
-#     s2 = s ^ 2
-#     Δx = sxc * (excbu - excuu) / s2
-#     Δb = -excbu / s2
-#     Δc = -Δx
-#     out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
-# end
-
-# function ChainRulesCore.rrule(::typeof(dv3), x, b, c, d)
-#     xc = x - c
-#     axc = abs(xc)
-#     u = max(axc, b)
-#     excu = myexp(axc - u)
-#     exbu = myexp(b - u)
-#     exu = myexp(-u)
-#     s = excu + exbu - exu
-#     log(excu / s)
-#     s2 = s ^ 2
-#     Δx = -sxc * excu * (exbu - 1) / s2
-#     Δb = -myexp(axc + b - u) / s2
-#     Δc = -Δx
-#     out, cc -> (nothing, cc * Δx, cc * Δb, cc * Δc, nothing)
-# end
+@adjoint function dv3(x, b, c, d)
+    xc = x .- c
+    sxc = sign.(xc)
+    axc = abs.(xc)
+    u = max(axc, b)
+    excu = exp(axc - u)
+    excuu = exp(axc - 2u)
+    exbu = exp(b - u)
+    excbu = exp(axc + b - 2u)
+    exu = exp(-u)
+    s = excu + exbu - exu
+    out = log(excu / s)
+    s2 = s^2
+    Δx = sxc * (excbu - excuu) / s2
+    Δb = -excbu / s2
+    Δc = -Δx
+    out, cc -> (cc .* Δx, cc .* Δb, cc .* Δc, nothing)
+end
 
 v3⁻¹(x, b, c, d) = v3(x, -b, d, c)
 dv3⁻¹(x, b, c, d) = dv3(x, -b, d, c)
-
-# function v2⁻¹(x, b, c, d)
-#     xc = x .- c
-#     axc = abs.(xc)
-#     u = max.(axc, b)
-#     s = exp.(axc .- u) .+ exp.(b .- u) .- exp.(-u)
-#     r = u .+ log.(s) .- b
-#     out = sign.(xc) .* r .+ d
-#     out, 0f0
-# end
 
 Base.@kwdef struct FlowNet{P}
     net::P
@@ -158,51 +116,28 @@ end
 
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
-    i = size(ξ, 1)
-    # μ = @inbounds ξ[i:i,:]
-    # ρ = @inbounds ξ[(na+1):(2na),:]
-    # σ = Flux.softplus.(ρ) 
 
     z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
-    # μcpu = cpu(μ)
-    # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
-    # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
-    # lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
-    # sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
-    # z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
-    # z = gpu(z)
-
-    # lz = Zygote.@ignore fill!(similar(z), 0f0)
-
-    # μ = reshape(μ, size(μ)..., 1)
-    # σ = reshape(σ, size(σ)..., 1)
+    zp = z .^ 2 ./ 2
+    lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
         b = @view ξ[i:(i+na-1), :]
         c = @view ξ[(i+na):(i+2na-1), :]
         d = @view ξ[(i+2na):(i+3na-1), :]
         z = v3⁻¹.(z, b, c, d)
-        # lz = lz .+ lz_
+        lz_ = dv3⁻¹.(z, b, c, d)
+        lz = lz .+ lz_
     end
-    # z = μ .+ z
-    # z = μ .+ z .* σ
-    z, nothing
+    zp = zp - lz
+    z, zp
 end
 
 function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     ξ = m.net(state)
-    i = size(ξ, 1)
-    # μ = @inbounds ξ[i:i,:]
-    # ρ = @inbounds ξ[(na+1):(2na),:]
-    # σ = Flux.softplus.(ρ)
 
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
-    # μ = reshape(μ, size(μ)..., 1)
-    # σ = reshape(σ, size(σ)..., 1)
-
-    # z = z .- ignore_derivatives(μ)
-    # z = (z .- μ) ./ σ
     @inbounds for i = (size(ξ, 1)-3na):(-3na):1
         b = ξ[i:(i+na-1), :, :]
         c = ξ[(i+na):(i+2na-1), :, :]
@@ -211,7 +146,7 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
         z = v3.(z, b, c, d)
         lz = lz .+ lz_
     end
-    z, lz, μ, nothing
+    z, lz
 end
 
 mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
@@ -282,23 +217,23 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     D = device(Z)
     states = DenseCuArray(batch.state)
-    copyto!(learner.states, batch.state)
-    states = send_to_device(D, learner.states)
+    # copyto!(learner.states, batch.state)
+    # states = send_to_device(D, learner.states)
     # states = send_to_device(D, collect(batch.state))
     rewards = send_to_device(D, batch.reward)
     terminals = send_to_device(D, batch.terminal)
-    # next_states = DenseCuArray(batch.next_state)
-    copyto!(learner.next_states, batch.next_state)
-    next_states = send_to_device(D, learner.next_states)
+    next_states = DenseCuArray(batch.next_state)
+    # copyto!(learner.next_states, batch.next_state)
+    # next_states = send_to_device(D, learner.next_states)
     # next_states = send_to_device(D, collect(batch.next_state))
 
     batch_size = length(terminals)
     actions = CartesianIndex.(batch.action, 1:batch_size)
 
     if learner.is_enable_double_DQN
-        q_values = Z(next_states, n_samples_target, n_actions)[1]
+        q_values, zp = Z(next_states, n_samples_target, n_actions)
     else
-        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
+        q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
     end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
@@ -310,7 +245,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     if learner.is_enable_double_DQN
-        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
+        q_values, zp = Zₜ(next_states, n_samples_target, n_actions)
     end
     next_q = @inbounds q_values[selected_actions, :]
 
@@ -323,9 +258,10 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     # target_distribution = reshape(target_distribution, size(target_distribution))
 
     gs = gradient(Flux.params(Z)) do
-        preds, sldj, μ, σ = Z(target_distribution, states, n_actions)
+        preds, sldj = Z(target_distribution, states, n_actions)
 
-        nll = preds[actions, :] .^ 2 ./ 2
+        nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
+        loss = Flux.huber_loss(nll, zp) / (batch_size * n_samples_target)
 
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
@@ -335,18 +271,18 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # m = sum(target_distribution, dims=3) ./ n_samples_target
         # extra_loss = (μ .- m) .^ 2 ./ 10
         # extra_loss = sum((μ .- m) .^ 2)
-        sldj = sldj[actions, :]
-        loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
+        # sldj = sldj[actions, :]
+        # loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
-        loss = (loss) / batch_size
+        # loss = (loss) / batch_size
 
         ignore_derivatives() do
             lp["loss"] = loss
-            lp["extra_loss"] = extra_loss
+            # lp["extra_loss"] = extra_loss
             # lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
             # lp["Qₜ"] = sum(target_distribution) / length(target_distribution)
             # lp["QA"] = sum(selected_actions)[1] / length(selected_actions)
-            lp["mu"] = mean(μ)
+            # lp["mu"] = mean(μ)
             # lp["sigma"] = sum(σ[actions,:]) / length(σ[actions,:])
             lp["max_weight"] = maximum(maximum.(Flux.params(Z)))
             lp["min_weight"] = minimum(minimum.(Flux.params(Z)))

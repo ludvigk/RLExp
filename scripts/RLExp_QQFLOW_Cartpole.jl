@@ -45,12 +45,12 @@ function RL.Experiment(
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
-        "batch_size" => 32,
+        "batch_size" => 128,
         "min_replay_history" => 100,
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 4,
+        "flow_depth" => 8,
         "num_steps" => 5_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -89,16 +89,14 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = ADAM(0.0000625, (0.9, 0.999), 0.00015)
-    lr = config["lr"]
-
+    opt = ADAM(config["lr"], (0.9, 0.999), 0.0000015)
     approximator=Approximator(
         model=TwinNetwork(
             FlowNet(;
                 net=Chain(
-                    Dense(ns, 1024, relu; init=init),
-                    Dense(1024, 1024, relu; init=init),
-                    Dense(1024, 1 + 3flow_depth * na; init=init),
+                    Dense(ns, 512, relu; init=init),
+                    Dense(512, 512, relu; init=init),
+                    Dense(512, 3flow_depth * na; init=init),
                     ),
                 ),
             ;
@@ -139,12 +137,16 @@ function RL.Experiment(
                 batch_size=config["batch_size"],
                 rng=rng
             ),
-            controller = AsyncInsertSampleRatioController(
-                1 ./ get_config(lg, "update_freq"),
-                get_config(lg, "min_replay_history");
-                ch_in_sz = 10,
-                ch_out_sz = 10,
+            controller = InsertSampleRatioController(
+                ratio=config["update_freq"],
+                threshold=config["min_replay_history"],
             ),
+            # controller = AsyncInsertSampleRatioController(
+            #     1 ./ get_config(lg, "update_freq"),
+            #     get_config(lg, "min_replay_history");
+            #     ch_in_sz = 10,
+            #     ch_out_sz = 10,
+            # ),
         )
     )
     """
