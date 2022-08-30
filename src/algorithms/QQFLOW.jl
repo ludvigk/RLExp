@@ -118,13 +118,13 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
     z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
-    zp = z .^ 2 ./ 2
+    zp = z[1, :, :] .^ 2 ./ 2
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
-        b = @view ξ[i:(i+na-1), :]
-        c = @view ξ[(i+na):(i+2na-1), :]
-        d = @view ξ[(i+2na):(i+3na-1), :]
+        b = ξ[i:(i+na-1), :]
+        c = ξ[(i+na):(i+2na-1), :]
+        d = ξ[(i+2na):(i+3na-1), :]
         z = v3⁻¹.(z, b, c, d)
         lz_ = dv3⁻¹.(z, b, c, d)
         lz = lz .+ lz_
