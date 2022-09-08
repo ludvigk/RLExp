@@ -274,7 +274,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         # loss = (loss) / batch_size
 
-        loss = target_distribution[actions, :] - preds[actions, :]
+        loss = mean(target_distribution[actions, :] - preds[actions, :])
 
         ignore_derivatives() do
             lp["loss"] = loss
