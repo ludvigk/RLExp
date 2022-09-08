@@ -190,9 +190,9 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     z, pz
 end
 
-function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
+function (m::FlowNet)(z::AbstractArray{Float32}, state::AbstractArray{Float32}, na::Int)
     ξ = m.net(state)
-    i = size(ξ, 1)
+    # i = size(ξ, 1)
     # μ = @inbounds ξ[i:i,:]
     # ρ = @inbounds ξ[(na+1):(2na),:]
     # σ = Flux.softplus.(ρ)
@@ -290,6 +290,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     if learner.is_enable_double_DQN
         q_values, pz = Z(next_states, n_samples_target, n_actions)
     else
+        # q_values, pz = Z(next_states, n_samples_target, n_actions)
         q_values, pz = Zₜ(next_states, n_samples_target, n_actions)
     end
 
@@ -318,9 +319,9 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         preds, sldj = Z(target_distribution, states, n_actions)
 
         nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
-        
 
-        loss = Flux.huber_loss(nll, nll2) / (n_samples_target * batch_size)
+        # loss = Flux.huber_loss(nll, nll2)
+        loss = mean(nll)
 
         ignore_derivatives() do
             lp["loss"] = loss

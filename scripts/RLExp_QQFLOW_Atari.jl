@@ -39,21 +39,21 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 0.0000625,
+        "lr" => 0.0001,
         "clip_norm" => 10,
-        "update_freq" => 4,
-        "target_update_freq" => 8_000,
-        "n_samples_act" => 100,
-        "n_samples_target" => 100,
+        "update_freq" => 8,
+        "target_update_freq" => 500,
+        "n_samples_act" => 1000,
+        "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
-        "update_horizon" => 3,
+        "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
-        "flow_depth" => 8,
+        "flow_depth" => 6,
         "terminal_on_life_loss" => false,
         "adam_epsilon" => 1e-6,
         "n_steps" => 200_000_000,
@@ -99,6 +99,7 @@ function RL.Experiment(
     flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
     # opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
+    # opt = ADAM(config["lr"])
     opt = AdaBelief(config["lr"])
     # opt = CenteredRMSProp(config["lr"], 0.0, config["adam_epsilon"])
     # lr = get_config(lg, "lr")

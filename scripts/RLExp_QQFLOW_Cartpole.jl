@@ -40,8 +40,8 @@ function RL.Experiment(
         "lr" => 5e-5,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 100,
-        "n_samples_target" => 100,
+        "n_samples_act" => 1000,
+        "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -50,8 +50,8 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 8,
-        "num_steps" => 5_000,
+        "flow_depth" => 6,
+        "num_steps" => 20_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
     )
@@ -75,7 +75,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = CartPoleEnv(; T=Float32)
+    env = CartPoleEnv(; T=Float32, max_steps=500)
     ns, na = length(state(env)), length(action_space(env))
 
     """
@@ -89,8 +89,8 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    # opt = AdaBelief(config["lr"])
-    opt = ADAM(config["lr"])
+    opt = AdaBelief(config["lr"])
+    # opt = ADAM(config["lr"])
     approximator=Approximator(
         model=TwinNetwork(
             FlowNet(;
@@ -101,7 +101,7 @@ function RL.Experiment(
                     ),
                 ),
             ;
-            sync_freq=config["target_update_freq"]
+            sync_freq=config["target_update_freq"],
         ),
         optimiser=opt,
     ) |> gpu
@@ -193,7 +193,7 @@ function RL.Experiment(
         steps = StepsPerEpisode()
         s = @elapsed run(
             p,
-            CartPoleEnv(; T=Float32),
+            CartPoleEnv(; T=Float32, max_steps=500),
             StopAfterEpisode(100; is_show_progress=false),
             total_reward + steps,
         )
@@ -214,7 +214,7 @@ function RL.Experiment(
 
         # @info "Saving agent at step $t to $save_dir"
         try
-            env = CartPoleEnv(; T=Float32)
+            env = CartPoleEnv(; T=Float32, max_steps=500)
             s = Flux.unsqueeze(env.state, 2) |> gpu
             samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
             p = plot(;size=(600,400))
