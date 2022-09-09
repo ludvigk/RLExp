@@ -118,18 +118,18 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
 
     z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
-    zp = z .^ 2 ./ 2
-    lz = @ignore_derivatives fill!(similar(z), 0.0f0)
+    # zp = z .^ 2 ./ 2
+    # lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
     @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
         b = ξ[i:(i+na-1), :]
         c = ξ[(i+na):(i+2na-1), :]
         d = ξ[(i+2na):(i+3na-1), :]
         z = v3⁻¹.(z, b, c, d)
-        lz_ = dv3⁻¹.(z, b, c, d)
-        lz = lz .+ lz_
+        # lz_ = dv3⁻¹.(z, b, c, d)
+        # lz = lz .+ lz_
     end
-    z, lz, zp
+    z, z
 end
 
 function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
@@ -232,7 +232,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     if learner.is_enable_double_DQN
         q_values = Z(next_states, n_samples_target, n_actions)[1]
     else
-        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
+        q_values, pz = Zₜ(next_states, n_samples_target, n_actions)[1]
     end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
@@ -244,7 +244,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     if learner.is_enable_double_DQN
-        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
+        q_values, pz = Zₜ(next_states, n_samples_target, n_actions)
     end
     next_q = @inbounds q_values[selected_actions, :]
 
