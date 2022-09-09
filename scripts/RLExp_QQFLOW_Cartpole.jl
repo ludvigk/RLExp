@@ -16,6 +16,8 @@ using StatsPlots
 using Wandb
 using Zygote
 
+device = gpu
+
 applychain(::Tuple{}, x, n; kwargs...) = x
 function applychain(fs::Tuple, x, n; kwargs...)
     if isa(first(fs), NoisyDense) || isa(first(fs), Split)
@@ -104,7 +106,7 @@ function RL.Experiment(
             sync_freq=config["target_update_freq"]
         ),
         optimiser=opt,
-    ) |> gpu
+    ) |> device
 
     """
     CREATE AGENT
@@ -215,7 +217,7 @@ function RL.Experiment(
         # @info "Saving agent at step $t to $save_dir"
         try
             env = CartPoleEnv(; T=Float32)
-            s = Flux.unsqueeze(env.state, 2) |> gpu
+            s = Flux.unsqueeze(env.state, 2) |> device
             samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
             p = plot(; size=(600, 400))
             for action in 1:size(samples, 1)

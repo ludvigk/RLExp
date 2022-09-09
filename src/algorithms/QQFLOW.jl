@@ -243,23 +243,25 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     end
 
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
+    if learner.is_enable_double_DQN
+        q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
+    end
+    next_q = @inbounds q_values[selected_actions, :]
 
+    target_distribution =
+        Flux.unsqueeze(rewards, 2) .+
+        Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
+    target_distribution = Flux.unsqueeze(target_distribution, 1)
+    next_q = Flux.unsqueeze(next_q, 1)
     # target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
     #                              n_actions, 1, 1)
     # target_distribution = reshape(target_distribution, size(target_distribution))
 
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
-        if learner.is_enable_double_DQN
-            q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
-        end
-        next_q = @inbounds q_values[selected_actions, :]
+        predz, _ = Z(next_q, next_states, n_actions)
 
-        target_distribution =
-            Flux.unsqueeze(rewards, 2) .+
-            Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
-        target_distribution = Flux.unsqueeze(target_distribution, 1)
-        # nll = preds[actions, :] .^ 2 ./ 2
+        nll = preds[actions, :] .^ 2 ./ 2
 
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
@@ -274,7 +276,9 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         # loss = (loss) / batch_size
 
-        loss = mean(target_distribution[actions, :] - preds[actions, :])
+        td = abs.(preds - predz)
+        m_norm = maximum(td, dims=ndims(td))
+        loss = mean(sqrt.(m_norm) * sqrt.(td))
 
         ignore_derivatives() do
             lp["loss"] = loss
