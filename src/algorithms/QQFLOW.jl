@@ -278,7 +278,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
         td = abs.(preds - predz)
         m_norm = maximum(td, dims=ndims(td))
-        loss = mean(sqrt.(m_norm) * sqrt.(td))
+        loss = mean(sqrt.(m_norm) .* sqrt.(td))
 
         ignore_derivatives() do
             lp["loss"] = loss
