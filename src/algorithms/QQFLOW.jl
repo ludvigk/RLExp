@@ -252,7 +252,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         Flux.unsqueeze(rewards, 2) .+
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
     target_distribution = Flux.unsqueeze(target_distribution, 1)
-    next_q = Flux.unsqueeze(next_q, 1)
+    sup_q = Flux.unsqueeze(Z(states, n_samples_target, n_actions)[1], 1)
     # target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
     #                              n_actions, 1, 1)
     # target_distribution = reshape(target_distribution, size(target_distribution))
