@@ -259,7 +259,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
 
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
-        predz, _ = Z(next_q, states, n_actions)
+        predz, _ = Z(sup_q, states, n_actions)
 
         nll = preds[actions, :] .^ 2 ./ 2
 
