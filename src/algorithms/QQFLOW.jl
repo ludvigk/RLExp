@@ -18,7 +18,7 @@ using Zygote: @adjoint
 import Base.sortperm
 using Base.Sort: Algorithm, DEFAULT_UNSTABLE
 using Base: Ordering, Forward, ord, Perm, copymutable
-import base.invperm
+import Base.invperm
 
 # const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
 function invperm(a::AbstractArray)
