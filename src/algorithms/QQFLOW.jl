@@ -148,6 +148,10 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     z, lz
 end
 
+function wass_dist(base_samples, dist_samples, num_proj)
+    sort(base_samples, dims=2) - sort(dist_samples, dims=2)
+end
+
 mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     approximator::A
     n_actions::Int
@@ -253,15 +257,16 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
     target_distribution = Flux.unsqueeze(target_distribution, 1)
     sup_q = Flux.unsqueeze(Z(states, n_samples_target, n_actions)[1], 1)
+    sup_q = Flux.unsqueeze(sup_q, 1)
     # target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
     #                              n_actions, 1, 1)
     # target_distribution = reshape(target_distribution, size(target_distribution))
 
     gs = gradient(Flux.params(Z)) do
         preds, sldj = Z(target_distribution, states, n_actions)
-        predz, _ = Z(sup_q, states, n_actions)
+        # predz, _ = Z(sup_q, states, n_actions)
 
-        nll = preds[actions, :] .^ 2 ./ 2
+        # nll = preds[actions, :] .^ 2 ./ 2
 
         # abs_error = abs.(TD_error)
         # quadratic = min.(abs_error, 1)
@@ -275,10 +280,10 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         # loss = (loss) / batch_size
-
-        td = abs.(preds[actions, :] - predz[actions, :])
-        m_norm = maximum(td, dims=ndims(td))
-        loss = mean(sqrt.(m_norm) .* sqrt.(td))
+        loss = mean(sort(pz[actions, :], dims=2) - sort(preds[actions, :], dims=2))
+        # td = abs.(preds[actions, :] - predz[actions, :])
+        # m_norm = maximum(td, dims=ndims(td))
+        # loss = mean(sqrt.(m_norm) .* sqrt.(td))
 
         ignore_derivatives() do
             lp["loss"] = loss
