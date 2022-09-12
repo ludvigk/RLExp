@@ -280,6 +280,8 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         # loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
         # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
         # loss = (loss) / batch_size
+        pz = cpu(pz)
+        preds = cpu(preds)
         loss = mean(sort(pz[actions, :], dims=2) - sort(preds[actions, :], dims=2))
         # td = abs.(preds[actions, :] - predz[actions, :])
         # m_norm = maximum(td, dims=ndims(td))
