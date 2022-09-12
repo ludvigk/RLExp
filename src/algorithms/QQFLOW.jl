@@ -17,33 +17,10 @@ using Base.Broadcast: broadcasted
 using Zygote: @adjoint
 
 # const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
-
-myexp(x) = exp(x)
-
-Zygote.@adjoint function broadcasted(::typeof(myexp), x)
-    myexp.(x), ȳ -> (nothing, ȳ .* exp.(x))
+Zygote.@adjoint function sort(x)
+    p = sortperm(x)
+    x[p], x̄ -> (x̄[invperm(p)],)
 end
-
-mylog(x) = mylog(x)
-
-Zygote.@adjoint function broadcasted(::typeof(mylog), x)
-    mylog.(x), ȳ -> (nothing, ȳ .* inv.(x))
-end
-
-function v2(x, b, c, d)
-    xc = x .- c
-    axc = abs.(xc)
-    u = max.(axc, b)
-    excu = myexp.(axc .- u)
-    exbu = myexp.(b .- u)
-    exu = myexp.(-u)
-    s = excu .+ exbu .- exu
-    r = u .+ log.(s) .- b
-    out = sign.(xc) .* r .+ d
-    out, log.(excu ./ s)
-end
-
-v2⁻¹(x, b, c, d) = v2(x, -b, d, c)
 
 function v3(x, b, c, d)
     xc = x - c
