@@ -56,7 +56,7 @@ function sortperm(A::AbstractArray;
 end
 
 
-Zygote.@adjoint function sort(x; dims=1)
+Zygote.@adjoint function sort(x::AbstractMatrix; dims=2)
     p = sortperm(x, dims=dims)
     x[p], x̄ -> (x̄[invperm(p)],)
 end
