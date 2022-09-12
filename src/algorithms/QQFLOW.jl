@@ -15,10 +15,49 @@ import Statistics.mean
 using Functors: @functor
 using Base.Broadcast: broadcasted
 using Zygote: @adjoint
+import Base.sortperm
+using Base.Sort: Algorithm, DEFAULT_UNSTABLE
+using Base: Ordering, Forward, ord, Perm, copymutable
+import base.invperm
 
 # const erfratio = Float32(sqrt(2π) * erf(1/sqrt(2)) / (sqrt(2π) * erf(1/sqrt(2)) + 2exp(-1/2)))
-Zygote.@adjoint function sort(x)
-    p = sortperm(x)
+function invperm(a::AbstractArray)
+    b = zero(a) # similar vector of zeros
+    n = length(a)
+    @inbounds for (i, j) in enumerate(a)
+        ((1 <= j <= n) && b[j] == 0) ||
+            throw(ArgumentError("argument is not a permutation"))
+        b[j] = i
+    end
+    b
+end
+
+function sortperm(A::AbstractArray;
+    alg::Algorithm=DEFAULT_UNSTABLE,
+    lt=isless,
+    by=identity,
+    rev::Union{Bool,Nothing}=nothing,
+    order::Ordering=Forward,
+    dims...) #to optionally specify dims argument
+    ordr = ord(lt, by, rev, order)
+    if ordr === Forward && isa(A, Vector) && eltype(A) <: Integer
+        n = length(A)
+        if n > 1
+            min, max = extrema(A)
+            (diff, o1) = sub_with_overflow(max, min)
+            (rangelen, o2) = add_with_overflow(diff, oneunit(diff))
+            if !o1 && !o2 && rangelen < div(n, 2)
+                return sortperm_int_range(A, rangelen, min)
+            end
+        end
+    end
+    ix = copymutable(LinearIndices(A))
+    sort!(ix; alg, order=Perm(ordr, vec(A)), dims...)
+end
+
+
+Zygote.@adjoint function sort(x; dims=1)
+    p = sortperm(x, dims=dims)
     x[p], x̄ -> (x̄[invperm(p)],)
 end
 
