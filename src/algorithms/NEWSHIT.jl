@@ -66,7 +66,7 @@ function compute_backward(x, params, na; eps=1.0f-5)
     log_scale = reshape(log_scale, :, na, size(log_scale, 2), 1)
 
     clamp!(x, eps, 1 - eps)
-    z = mixture_inv_cdf(z, weights, loc, log_scale)
+    z = mixture_inv_cdf(x, weights, loc, log_scale)
 end
 
 Base.@kwdef struct FlowNet{P}
