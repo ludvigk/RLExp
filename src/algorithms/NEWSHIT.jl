@@ -70,7 +70,7 @@ function compute_backward(x, params, na; eps=1.0f-5)
 end
 
 Base.@kwdef struct FlowNet{P}
-    net::Pø
+    net::P
 end
 
 @functor FlowNet (net,)
