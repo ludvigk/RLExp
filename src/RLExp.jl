@@ -32,5 +32,6 @@ include("utils/acrobot.jl")
 include("utils/utils.jl")
 include("utils/custom_grads.jl")
 include("algorithms/QQFLOW.jl")
+include("algorithms/NEWSHIT.jl")
 
 end

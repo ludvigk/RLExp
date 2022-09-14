@@ -1,4 +1,4 @@
-export QQFLOWLearner, FlowNet
+export NEWSHITLearner, FlowNet
 import ReinforcementLearning.RLBase
 
 using DataStructures: DefaultDict
@@ -97,7 +97,7 @@ function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
     z, lz
 end
 
-mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
+mutable struct NEWSHITLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     approximator::A
     n_actions::Int
     n_samples_act::Int
@@ -112,7 +112,7 @@ mutable struct QQFLOWLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     next_states::Array{Float32,2}
 end
 
-function QQFLOWLearner(;
+function NEWSHITLearner(;
     approximator::A,
     n_actions::Int,
     γ::Real=0.99f0,
@@ -124,7 +124,7 @@ function QQFLOWLearner(;
     batch_size=32,
     rng=Random.GLOBAL_RNG
 ) where {A}
-    return QQFLOWLearner(
+    return NEWSHITLearner(
         approximator,
         n_actions,
         n_samples_act,
@@ -140,20 +140,20 @@ function QQFLOWLearner(;
     )
 end
 
-Flux.@functor QQFLOWLearner (approximator,)
+Flux.@functor NEWSHITLearner (approximator,)
 
-function (L::QQFLOWLearner)(s::AbstractArray)
-    q = L.approximator(s, L.n_samples_act, L.n_actions)[1]
+function (L::NEWSHITLearner)(s::AbstractArray)
+    q = L.approximator(s, L.n_samples_act, L.n_actions)
     q = dropdims(mean(q, dims=3), dims=3)
 end
 
-function (learner::QQFLOWLearner)(env::AbstractEnv)
+function (learner::NEWSHITLearner)(env::AbstractEnv)
     s = send_to_device(device(learner.approximator), state(env))
     s = Flux.unsqueeze(s, ndims(s) + 1)
     s |> learner |> vec |> send_to_host
 end
 
-function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
+function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     A = learner.approximator
     Z = A.model.source
     Zₜ = A.model.target
