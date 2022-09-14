@@ -38,7 +38,7 @@ function compute_forward(x, params, na)
 end
 
 function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0f-10)
-    z = zero(x)
+    z = zero(x) |> gpu
     max_scales = sum(exp.(log_scales), dims=1)
     t = ones(eltype(x), size(x)) |> gpu
     lb = minimum(means .- 20 .* max_scales, dims=1)
