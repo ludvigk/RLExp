@@ -144,7 +144,7 @@ Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
     q = L.approximator(s, L.n_samples_act, L.n_actions)
-    q = dropdims(mean(q, dims=3), dims=3)
+    q = dropdims(sum(q, dims=3), dims=3)
 end
 
 function (learner::NEWSHITLearner)(env::AbstractEnv)
@@ -187,7 +187,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
         q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
-    mean_q = dropdims(mean(quantₜ, dims=3), dims=3)
+    mean_q = dropdims(sum(quantₜ, dims=3), dims=3) ./ size(quantₜ, 3)
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     # if learner.is_enable_double_DQN
     #     q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
@@ -208,7 +208,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         ξ = Z(quantₜ_samples, states, n_actions)
         F = compute_forward(quantₜ_samples, ξ, n_actions)
 
-        loss = mean(abs.(F - target_F))
+        loss = sum(abs.(F - target_F)) ./ length(F)
 
         ignore_derivatives() do
             lp["loss"] = loss
