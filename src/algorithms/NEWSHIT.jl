@@ -143,7 +143,7 @@ end
 Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
-    ξ = L.approximator(next_states)
+    ξ = L.approximator(s)
     quant_samples = rand(n_actions, batch_size, n_samples_target) # try other methods
     q = compute_backward(quantₜ_samples, ξ, n_actions)
 
