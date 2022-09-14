@@ -51,7 +51,7 @@ function RL.Experiment(
         "traj_capacity" => 100_000,
         "seed" => 2,
         "flow_depth" => 6,
-        "num_steps" => 20_000,
+        "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
     )

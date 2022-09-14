@@ -311,18 +311,26 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         Flux.unsqueeze(rewards, 2) .+
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
     target_distribution = Flux.unsqueeze(target_distribution, 1)
+    next_q = Flux.unsqueeze(next_q, 1)
+    # n_q, _ = Zₜ(states, n_samples_target, n_actions)
+    # n_q, _ = Zₜ(states, n_samples_target, n_actions)
     # target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
     #                              n_actions, 1, 1)
     # target_distribution = reshape(target_distribution, size(target_distribution))
     nll2 = pz[1,:,:] .^ 2 ./ 2
+    pz = randn(size(pz, 2), size(pz, 3)) |> cpu
+
     gs = gradient(Flux.params(Z)) do
+        # predz, _ = Z(next_q, next_states, n_actions)
         preds, sldj = Z(target_distribution, states, n_actions)
-
-        nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
-
+        # predz, _ = Z(next_q, next_states, n_actions)
+        p = preds[actions, :] |> cpu
+        loss = Flux.huber_loss(sort(p, dims=2), sort(pz, dims=2))
+        # nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
+        
         # loss = Flux.huber_loss(nll, nll2)
-        loss = mean(nll)
-
+        # loss = mean(nll)
+        # loss = - mean(predz[actions, :]) + mean(preds[actions, :])
         ignore_derivatives() do
             lp["loss"] = loss
             # lp["extra_loss"] = extra_loss
@@ -343,4 +351,7 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         return loss
     end
     optimise!(A, gs)
+    # for p in Flux.params(Z)
+    #     clamp!(p, -0.01, 0.01)
+    # end
 end
