@@ -144,8 +144,8 @@ Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
-    quant_samples = rand(n_actions, batch_size, n_samples_target) # try other methods
-    q = compute_backward(quantₜ_samples, ξ, n_actions)
+    quant_samples = rand(L.n_actions, 1, L.n_samples_act) # try other methods
+    q = compute_backward(quant_samples, ξ, L.n_actions)
 
     q = dropdims(sum(q, dims=3), dims=3)
 end
