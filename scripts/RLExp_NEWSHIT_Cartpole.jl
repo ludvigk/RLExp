@@ -42,8 +42,8 @@ function RL.Experiment(
         "lr" => 5e-5,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 1000,
-        "n_samples_target" => 1000,
+        "n_samples_act" => 20,
+        "n_samples_target" => 20,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -52,7 +52,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 6,
+        "flow_depth" => 20,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -217,7 +217,7 @@ function RL.Experiment(
         # @info "Saving agent at step $t to $save_dir"
         try
             env = CartPoleEnv(; T=Float32, max_steps=500)
-            s = Flux.unsqueeze(env.state, 2) |> gpu
+            s = Flux.unsqueeze(env.state, 2) |> device
             samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
             p = plot(; size=(600, 400))
             for action in 1:size(samples, 1)

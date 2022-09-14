@@ -132,12 +132,27 @@ end
 
 function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
     ξ = m.net(state)
+    i = size(ξ, 1)
+    # μ = @inbounds ξ[i:i,:]
+    # ρ = @inbounds ξ[(na+1):(2na),:]
+    # σ = Flux.softplus.(ρ) 
 
-    z = @ignore_derivatives randn!(similar(ξ, na, size(ξ, 2), num_samples))
-    # zp = z .^ 2 ./ 2
-    # lz = @ignore_derivatives fill!(similar(z), 0.0f0)
+    z = @ignore_derivatives randn!(similar(ξ, 1, size(ξ, 2), num_samples))
+    pz = z
+    # μcpu = cpu(μ)
+    # r = Zygote.@ignore rand!(similar(μcpu, size(μ)..., num_samples))
+    # tn = Zygote.@ignore rand!(TruncatedNormal(0,1,-1,1), similar(μcpu, size(μ)..., num_samples))
+    # lap = Zygote.@ignore rand!(Exponential(), similar(μcpu, size(μ)..., num_samples))
+    # sig = Zygote.@ignore sign.(rand!(similar(μcpu, size(μ)..., num_samples)) .- 0.5)
+    # z = Zygote.@ignore (r .< erfratio) .* tn .+ (r .> erfratio) .* (lap .+ 1) .* sig
+    # z = gpu(z)
 
-    @inbounds for i = 1:(3na):(size(ξ, 1)-3na)
+    # lz = Zygote.@ignore fill!(similar(z), 0f0)
+
+    # μ = reshape(μ, size(μ)..., 1)
+    # σ = reshape(σ, size(σ)..., 1)
+
+    @inbounds for i = 1:(3na):(size(ξ, 1)-3na+1)
         b = ξ[i:(i+na-1), :]
         c = ξ[(i+na):(i+2na-1), :]
         d = ξ[(i+2na):(i+3na-1), :]
@@ -145,15 +160,26 @@ function (m::FlowNet)(state::AbstractArray, num_samples::Int, na::Int)
         # lz_ = dv3⁻¹.(z, b, c, d)
         # lz = lz .+ lz_
     end
-    z, z
+    # z = μ .+ z
+    # z = μ .+ z .* σ
+    z, pz
 end
 
-function (m::FlowNet)(z::AbstractArray, state::AbstractArray, na::Int)
+function (m::FlowNet)(z::AbstractArray{Float32}, state::AbstractArray{Float32}, na::Int)
     ξ = m.net(state)
+    # i = size(ξ, 1)
+    # μ = @inbounds ξ[i:i,:]
+    # ρ = @inbounds ξ[(na+1):(2na),:]
+    # σ = Flux.softplus.(ρ)
 
     lz = @ignore_derivatives fill!(similar(z), 0.0f0)
 
-    @inbounds for i = (size(ξ, 1)-3na):(-3na):1
+    # μ = reshape(μ, size(μ)..., 1)
+    # σ = reshape(σ, size(σ)..., 1)
+
+    # z = z .- ignore_derivatives(μ)
+    # z = (z .- μ) ./ σ
+    @inbounds for i = (size(ξ, 1)-3na+1):(-3na):1
         b = ξ[i:(i+na-1), :, :]
         c = ξ[(i+na):(i+2na-1), :, :]
         d = ξ[(i+2na):(i+3na-1), :, :]
@@ -250,9 +276,10 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
     actions = CartesianIndex.(batch.action, 1:batch_size)
 
     if learner.is_enable_double_DQN
-        q_values = Z(next_states, n_samples_target, n_actions)[1]
+        q_values, pz = Z(next_states, n_samples_target, n_actions)
     else
-        q_values, pz = Zₜ(next_states, n_samples_target, n_actions)[1]
+        # q_values, pz = Z(next_states, n_samples_target, n_actions)
+        q_values, pz = Zₜ(next_states, n_samples_target, n_actions)
     end
 
     mean_q = dropdims(mean(q_values, dims=3), dims=3)
@@ -272,40 +299,26 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         Flux.unsqueeze(rewards, 2) .+
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* next_q
     target_distribution = Flux.unsqueeze(target_distribution, 1)
-    sup_q = Flux.unsqueeze(Z(states, n_samples_target, n_actions)[1], 1)
-    # sup_q = Flux.unsqueeze(sup_q, 1)
+    next_q = Flux.unsqueeze(next_q, 1)
+    # n_q, _ = Zₜ(states, n_samples_target, n_actions)
+    # n_q, _ = Zₜ(states, n_samples_target, n_actions)
     # target_distribution = repeat(Flux.unsqueeze(target_distribution, 1),
     #                              n_actions, 1, 1)
     # target_distribution = reshape(target_distribution, size(target_distribution))
+    nll2 = pz[1, :, :] .^ 2 ./ 2
+    pz = randn(size(pz, 2), size(pz, 3)) |> cpu
 
     gs = gradient(Flux.params(Z)) do
+        # predz, _ = Z(next_q, next_states, n_actions)
         preds, sldj = Z(target_distribution, states, n_actions)
-        predz, _ = Z(sup_q, states, n_actions)
+        # predz, _ = Z(next_q, next_states, n_actions)
+        p = preds[actions, :] |> cpu
+        loss = Flux.huber_loss(sort(p, dims=2), sort(pz, dims=2))
+        # nll = preds[actions, :] .^ 2 ./ 2 .- sldj[actions, :]
 
-        # nll = preds[actions, :] .^ 2 ./ 2
-
-        # abs_error = abs.(TD_error)
-        # quadratic = min.(abs_error, 1)
-        # linear = abs_error .- quadratic
-        # nll = 0.5f0 .* quadratic .* quadratic .+ 1 .* linear
-
-        # m = sum(target_distribution, dims=3) ./ n_samples_target
-        # extra_loss = (μ .- m) .^ 2 ./ 10
-        # extra_loss = sum((μ .- m) .^ 2)
-        # sldj = sldj[actions, :]
-        # loss = sum(nll .- sldj) / n_samples_target #+ sum(log.(σ[actions, :]))
-        # loss = (sum(nll) - sum(sldj)) / n_samples_target + extra_loss
-        # loss = (loss) / batch_size
-        pz = cpu(predz)
-        preds = cpu(preds)
-        t = sort(pz[actions, :], dims=2)
-        p = sort(preds[actions, :], dims=2)
-        @show size(t), size(p)
-        loss = mean((t - p) .^ 2)
-        # td = abs.(preds[actions, :] - predz[actions, :])
-        # m_norm = maximum(td, dims=ndims(td))
-        # loss = mean(sqrt.(m_norm) .* sqrt.(td))
-
+        # loss = Flux.huber_loss(nll, nll2)
+        # loss = mean(nll)
+        # loss = - mean(predz[actions, :]) + mean(preds[actions, :])
         ignore_derivatives() do
             lp["loss"] = loss
             # lp["extra_loss"] = extra_loss
@@ -326,5 +339,4 @@ function RLBase.optimise!(learner::QQFLOWLearner, batch::NamedTuple)
         return loss
     end
     optimise!(A, gs)
-
 end

@@ -339,10 +339,15 @@ quantile regression methods, which aim to minimize the Wasserstein distance
 to the target distribution, normalizing flows minimize the KL-divergence. Our
 target is thus the KL-divergence from the value to the target distribution.
 
-\begin{equation}
-  \mathcal{L}_{\rvx,a}(\theta) \defeq \KL{\hat{\T}
-    Z_{\tilde{\theta}}(\rvx,a)}{Z_{\theta}(\rvx,a)}
-\end{equation}
+\begin{align}
+  \mathcal{L}_{\rvx,a}(\theta) & \defeq \KL{\hat{\T}
+  Z_{\tilde{\theta}}(\rvx,a)}{Z_{\theta}(\rvx,a)}                                                                       \\
+                               & = \E{\hat{\T} Z_{\tilde{\theta}}(\rvx,a)}{\log \hat{\T}
+  Z_{\tilde{\theta}}(\rvx,a) - \log Z_{\theta}(\rvx,a)}\nonumber                                                        \\
+                               & = \E{\hat{\T} Z_{\tilde{\theta}}(\rvx,a)}{- \log Z_{\theta}(\rvx,a)} + const.\nonumber \\
+                               & \propto -\E{v_\theta^{-1}(\hat{\T} Z_{\tilde{\theta}}(\rvx,a))}{
+    \log v^{-1}_\theta \left( \hat{\T} Z_{\tilde{\theta}}(\rvx,a) \right) + \log \left\lvert J_{v_\theta^{-1}}(\rvx, a) \right\rvert}\nonumber
+\end{align}
 
 Using conditional normalizing flows described in Section~\ref{sec:cnf}, we
 define the value distribution model as a transformation of a
@@ -388,13 +393,13 @@ Algorithm~\ref{alg:LTM} shows how to calculate the loss for this scheme.
   \hspace*{1em} \textbf{for} \(i = 1 \dots N\)\\
   \hspace*{2em} {\color{gray} \# Apply the distributional Bellman operator.}\\
   \hspace*{2em} \(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i \gets r + \gamma Z_{\tilde{\theta}}(\rvx^\prime, a^*)_i\)\\
-  \hspace*{2em} {\color{gray} \# Calculate negative log-likelihood loss term.}\\
+  \hspace*{2em} {\color{gray} \# Calculate negative log-likelihood.}\\
   \hspace*{2em} \(\delta_i \gets \frac{1}{2} v_{\theta}^{-1}
   \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)^2\)\\
   \hspace*{2em} {\color{gray} \# Calculate log-derivative of \(v^{-1}_\theta\).}\\
   \hspace*{2em} \(\rho_i \gets \log \left\lvert \frac{\partial v_{\theta}^{-1} \left(\hat{Z}_{\tilde{\theta}}(\rvx, a)_i; \rvx \right)}{\hat{Z}_{\tilde{\theta}}(\rvx, a)_i} \right\rvert\)\\
   \hspace*{1em} \textbf{end}\\
-  \textbf{output} \(\frac{1}{N}\sum_{i=1}^N \delta_i - \rho_i\)
+  \textbf{output} \(\frac{1}{N}\sum_{i=1}^N huberloss(\delta_i - \rho_i, \epsilon_i)\)
 \end{algorithm}
 
 % \begin{equation}
@@ -418,18 +423,51 @@ Algorithm~\ref{alg:LTM} shows how to calculate the loss for this scheme.
 % \end{multline}
 
 The most popular normalizing flows right now are buildt for large dimensional
-spaces such as images. This includes coupling and autoregressive flows. Planar
-flow is very easy to turn elementwise, but unfortunately does not have a closed
-form inverse for most functions of \(h\). Although it does have one for
-piecewise linear funcitons, those do not have second derivative, hence the
-gradient of the log absolute determinant would be zero. This would mean it can
-not learn appropriate transformations. Instead we define our own flow.
+spaces such as images. This includes coupling and autoregressive flows. These
+will not work for our method, since \(Z_\theta(\rvx, a)\) is a univariate
+distribution. Planar flow is also not a good option since it does not have a
+closed form inverse
+% Planar
+% flow is very easy to turn elementwise, but unfortunately does not have a closed
+% form inverse for most functions of \(h\). Although it does have one for
+% piecewise linear funcitons, those do not have second derivative, hence the
+% gradient of the log absolute determinant would be zero. This would mean it can
+% not learn appropriate transformations. Instead we define our own flow.
 
 Equation~\ref{eq:luddeflow} shows the definitiona of the forward transformation
-\(v(\cdot; b, c, d)\), with 3 free parameters \(b, c, d\). Unlike the planar
-flow, this function has a closed form inverse and is differentiable given any values for these
-parameters, hence no reparameterization is necessary. Equation~\ref{eq:luddeflow_inv} and
-Equation~\ref{eq:luddeflow_grad} show the closed form inverse and gradient respectively.
+\(v(z; b, c, d)\), with 3 free parameters \(b, c, d\). Unlike the planar
+flow, this function is invertible and differentiable given any values for these
+parameters. Equation~\ref{eq:luddeflow_inv} and
+Equation~\ref{eq:luddeflow_grad} show the closed form gradient.
+
+% \begin{equation}
+%   Z_\theta(\rvx,a) = v_\theta^{-1}(z, \rvx^\prime)_a
+% \end{equation}
+% \begin{equation*}
+%   z \sim \N(0, I); \quad \rvx^\prime = h(\rvx)
+% \end{equation*}
+
+% \begin{equation*}
+%   s(x) = \log(1 + \exp(x))
+% \end{equation*}
+% \begin{equation}
+%   v_{w, b, c, d}(z) = \sign(z + c) \left[ s(\lvert w(z + c) \rvert + b) 
+%   - s(b) \right] + d \label{eq:luddeflow}
+% \end{equation}
+
+% \begin{equation*}
+%   s^{-1}(x) = \log(\exp(x) - 1); \quad x > 0
+% \end{equation*}
+% \begin{equation}
+%   v^{-1}_{w, b, c, d}(z^\prime) = \frac{\sign(z^\prime - d)}{w}
+%   [ s^{-1}(\lvert z^\prime - d \rvert + s(b)) - b] - c \label{eq:luddeflow_inv}
+% \end{equation}
+
+% \begin{equation}
+%   \frac{\partial v^{-1}_{w,b,c,d}}{\partial z^\prime} = \frac{(e^b + 1) 
+%   e^{\lvert z^\prime - d \rvert}}{w (e^b + 1)e^{\lvert z^\prime - d \rvert} - w}
+%   \label{eq:luddeflow_inv_grad}
+% \end{equation}
 
 \begin{equation}
   v(z; b, c, d) = \sign(z - c) \log \left( e^{\lvert x - c \rvert}
@@ -448,8 +486,8 @@ Equation~\ref{eq:luddeflow_grad} show the closed form inverse and gradient respe
 
 Figure~\ref{fig:luddeflow} shows the effect of the free parameters. A simple
 description is that \(b\) changes the
-\emph{linearity} of the function (\(v\) is linear when \(b = 0\), an expansive
-mapping when \(b < 0\) and a contraction when \(b > 0\)), \(c\) shifts \(v\) horizontally, and \(d\) shifts \(v\) vertically.
+\emph{linearity} of the function \(c\) shifts the horizontally, and
+\(d\) shifts the function vertically.
 
 \begin{figure}[ht]
   \vspace{.3in}
