@@ -95,13 +95,11 @@ function RL.Experiment(
     # opt = ADAM(config["lr"])
     approximator = Approximator(
         model=TwinNetwork(
-            FlowNet(;
-                net=Chain(
-                    Dense(ns, 512, relu; init=init),
-                    Dense(512, 512, relu; init=init),
-                    Dense(512, 3flow_depth * na; init=init),
-                )
-            ),
+            Chain(
+                Dense(ns, 512, relu; init=init),
+                Dense(512, 512, relu; init=init),
+                Dense(512, 3flow_depth * na; init=init),
+            )
             ;
             sync_freq=config["target_update_freq"]
         ),
