@@ -143,7 +143,10 @@ end
 Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
-    q = L.approximator(s, L.n_samples_act, L.n_actions)
+    ξ = L.approximator(next_states)
+    quant_samples = rand(n_actions, batch_size, n_samples_target) # try other methods
+    q = compute_backward(quantₜ_samples, ξ, n_actions)
+
     q = dropdims(sum(q, dims=3), dims=3)
 end
 
@@ -193,7 +196,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     #     q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     # end
     # next_q = @inbounds q_values[selected_actions, :]
-
+    quantₜ = @inbounds quantₜ[selected_actions, :]
     target_q =
         Flux.unsqueeze(rewards, 2) .+
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ
@@ -208,7 +211,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         ξ = Z(quantₜ_samples, states, n_actions)
         F = compute_forward(quantₜ_samples, ξ, n_actions)
 
-        loss = sum(abs.(F - target_F)) ./ length(F)
+        loss = sum(abs.(F[actions, :] - target_F[actions, :])) ./ length(F[actions, :])
 
         ignore_derivatives() do
             lp["loss"] = loss
