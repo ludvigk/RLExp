@@ -49,12 +49,12 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
     for _ = 1:max_it
         old_z = z
         y = mixture_gauss_cdf(z, prior_logits, means, log_scales)
-        gt = convert(eltype(x), y > x)
+        gt = convert(eltype(x), y .> x)
         lt = 1 .- gt
         z = gt .* (old_z .+ lb) ./ 2 .+ lt .* (old_z .+ ub) ./ 2
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
-        if maximum(abs.(z .- old_z) < eps)
+        if maximum(abs.(z .- old_z)) < eps
             break
         end
     end
