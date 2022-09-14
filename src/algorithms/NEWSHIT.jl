@@ -20,6 +20,7 @@ using Distributions
 
 
 function mixture_gauss_cdf(x, weights, loc, log_scales)
+    x = repeat(Flux.unsqueeze(x, 1), size(weights, 1))
     component_dist = Normal.(loc, exp.(log_scales))
     z_cdf = cdf.(component_dist, x)
     weights = softmax(weights)
