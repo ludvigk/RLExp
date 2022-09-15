@@ -186,7 +186,8 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ_selected
     target_q = Flux.unsqueeze(target_q, 1)
 
-    target_F, w = compute_forward(target_q, ξₜ, n_actions)[selected_actions, :]
+    target_F, w = compute_forward(target_q, ξₜ, n_actions)
+    target_F = target_F[selected_actions, :]
     quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
 
     gs = gradient(Flux.params(Z)) do
