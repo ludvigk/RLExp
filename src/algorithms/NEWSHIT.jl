@@ -26,8 +26,8 @@ function mixture_gauss_cdf(x, weights, loc, log_scales)
     # z_cdf = cdf.(component_dist, x |> cpu) |> gpu
     z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
     weights = softmax(weights)
-    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
-    # return dropdims(sum(z_cdf .* weights, dims=1), dims=1)
+    # return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
+    return dropdims(sum(z_cdf .* weights, dims=1), dims=1)
 end
 
 function compute_forward(x, params, na)
@@ -54,7 +54,8 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
         y = mixture_gauss_cdf(z, prior_logits, means, log_scales)
         gt = convert(typeof(y), y .> x)
         lt = 1 .- gt
-        z = gt .* (old_z .+ lb) ./ 2 .+ lt .* (old_z .+ ub) ./ 2
+        z = (ub + lb) / 2
+        # z = gt .* (old_z .+ lb) ./ 2 .+ lt .* (old_z .+ ub) ./ 2
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
         if maximum(abs.(z .- old_z)) < eps
