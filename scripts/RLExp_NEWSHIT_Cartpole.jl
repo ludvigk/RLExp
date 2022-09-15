@@ -39,11 +39,11 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 5e-5,
+        "lr" => 5e-4,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 1000,
-        "n_samples_target" => 1000,
+        "n_samples_act" => 100,
+        "n_samples_target" => 100,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -52,7 +52,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 50,
+        "flow_depth" => 10,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -96,9 +96,9 @@ function RL.Experiment(
     approximator = Approximator(
         model=TwinNetwork(
             Chain(
-                Dense(ns, 512, relu; init=init),
-                Dense(512, 512, relu; init=init),
-                Dense(512, 3flow_depth * na; init=init),
+                Dense(ns, 128, relu; init=init),
+                Dense(128, 128, relu; init=init),
+                Dense(128, 3flow_depth * na; init=init),
             )
             ;
             sync_freq=config["target_update_freq"]
