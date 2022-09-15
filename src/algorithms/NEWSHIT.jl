@@ -25,9 +25,12 @@ function mixture_gauss_cdf(x, weights, loc, log_scales)
     # component_dist = Normal.(loc |> cpu, exp.(log_scales) |> cpu)
     # z_cdf = cdf.(component_dist, x |> cpu) |> gpu
     z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
+    der = z_cdf .* (1 .- z_cdf) ./ exp.(log_scales)
+    der = dropdims(prod(der, dims=1), dims=1)
+
     weights = softmax(weights)
     # return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
-    return dropdims(sum(z_cdf .* weights, dims=1), dims=1)
+    return dropdims(sum(z_cdf .* weights, dims=1), dims=1), der
 end
 
 function compute_forward(x, params, na)
@@ -37,7 +40,7 @@ function compute_forward(x, params, na)
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
 
-    z = mixture_gauss_cdf(x, weights, loc, log_scale)
+    mixture_gauss_cdf(x, weights, loc, log_scale)
 end
 
 function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0f-10)
@@ -51,7 +54,7 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
 
     for _ = 1:max_it
         old_z = z
-        y = mixture_gauss_cdf(z, prior_logits, means, log_scales)
+        y, _ = mixture_gauss_cdf(z, prior_logits, means, log_scales)
         gt = convert(typeof(y), y .> x)
         lt = 1 .- gt
         z = (ub + lb) / 2
@@ -72,7 +75,7 @@ function compute_backward(x, params, na; eps=1.0f-5)
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
     clamp!(x, eps, 1 - eps)
-    z = mixture_inv_cdf(x, weights, loc, log_scale)
+    mixture_inv_cdf(x, weights, loc, log_scale)
 end
 
 
@@ -125,7 +128,7 @@ function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
     quant_samples = rand(L.n_actions, 1, L.n_samples_act) # try other methods
     quant_samples = quant_samples |> gpu
-    q = compute_backward(quant_samples, ξ, L.n_actions)
+    q, _ = compute_backward(quant_samples, ξ, L.n_actions)
 
     q = dropdims(mean(q, dims=3), dims=3)
 end
@@ -183,14 +186,14 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ_selected
     target_q = Flux.unsqueeze(target_q, 1)
 
-    target_F = compute_forward(target_q, ξₜ, n_actions)[selected_actions, :]
+    target_F, w = compute_forward(target_q, ξₜ, n_actions)[selected_actions, :]
     quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
 
     gs = gradient(Flux.params(Z)) do
         ξ = Z(states)
         # quant = Zygote.@ignore compute_backward(quantₜ_samples, ξ, n_actions)
 
-        F = compute_forward(quantₜ, ξ, n_actions)
+        F, _ = compute_forward(quantₜ, ξ, n_actions)
 
         # loss = Flux.huber_loss(F[actions, :], target_F)
         # @show size(target_F)
@@ -203,7 +206,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(quantₜ_selected)
         # @show mean(F[actions, :])
         # @show mean(target_F)
-        loss = sum(abs.(F[actions, :] - target_F)) ./ length(target_F)
+        loss = sum(abs.(F[actions, :] - target_F) .* w) ./ length(target_F)
 
         ignore_derivatives() do
             lp["loss"] = loss
