@@ -39,11 +39,11 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 1e-5,
+        "lr" => 5e-5,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 50,
-        "n_samples_target" => 50,
+        "n_samples_act" => 20,
+        "n_samples_target" => 20,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -52,7 +52,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 30,
+        "flow_depth" => 10,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
