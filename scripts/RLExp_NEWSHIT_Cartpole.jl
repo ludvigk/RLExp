@@ -39,11 +39,11 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 5e-5,
+        "lr" => 1e-5,
         "update_freq" => 1,
         "target_update_freq" => 100,
-        "n_samples_act" => 20,
-        "n_samples_target" => 20,
+        "n_samples_act" => 50,
+        "n_samples_target" => 50,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -52,7 +52,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 20,
+        "flow_depth" => 30,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -186,7 +186,7 @@ function RL.Experiment(
             stop("Program most likely terminated through WandB interface.")
         end
     end
-    every_n_step = DoEveryNStep(n=200) do t, agent, env
+    every_n_step = DoEveryNStep(n=500) do t, agent, env
         @info "evaluating agent at $t step..."
         p = agent.policy
         total_reward = TotalRewardPerEpisode()
@@ -213,24 +213,24 @@ function RL.Experiment(
         end
 
         # @info "Saving agent at step $t to $save_dir"
-        try
-            env = CartPoleEnv(; T=Float32, max_steps=500)
-            s = Flux.unsqueeze(env.state, 2) |> device
-            samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
-            p = plot(; size=(600, 400))
-            for action in 1:size(samples, 1)
-                density!(samples[action, 1, :], c=action, label="action $(action)")
-                vline!([mean(samples[action, 1, :])], c=action, label=false)
-            end
-            Plots.savefig(p, save_dir * "/qdistr_$(t).png")
-            Wandb.log(lg, Dict(
-                    "evaluating" => Wandb.Image(joinpath(save_dir, "qdistr_$(t).png"))
-                ); step=lg.global_step)
-        catch
-            close(lg)
-            @error "Failed to save plot. Probably NaN values."
-            throw(Error())
-        end
+        # try
+        #     env = CartPoleEnv(; T=Float32, max_steps=500)
+        #     s = Flux.unsqueeze(env.state, 2) |> device
+        #     samples = agent.policy.learner.approximator.model.source(s, 500, na)[1] |> cpu
+        #     p = plot(; size=(600, 400))
+        #     for action in 1:size(samples, 1)
+        #         density!(samples[action, 1, :], c=action, label="action $(action)")
+        #         vline!([mean(samples[action, 1, :])], c=action, label=false)
+        #     end
+        #     Plots.savefig(p, save_dir * "/qdistr_$(t).png")
+        #     Wandb.log(lg, Dict(
+        #             "evaluating" => Wandb.Image(joinpath(save_dir, "qdistr_$(t).png"))
+        #         ); step=lg.global_step)
+        # catch
+        #     close(lg)
+        #     @error "Failed to save plot. Probably NaN values."
+        #     throw(Error())
+        # end
     end
 
     every_n_ep = DoEveryNEpisode(n=5000; stage=PostEpisodeStage()) do t, agent, env
