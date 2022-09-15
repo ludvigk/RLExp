@@ -128,7 +128,7 @@ function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
     quant_samples = rand(L.n_actions, 1, L.n_samples_act) # try other methods
     quant_samples = quant_samples |> gpu
-    q, _ = compute_backward(quant_samples, ξ, L.n_actions)
+    q = compute_backward(quant_samples, ξ, L.n_actions)
 
     q = dropdims(mean(q, dims=3), dims=3)
 end
