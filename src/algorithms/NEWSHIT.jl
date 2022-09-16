@@ -188,7 +188,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
 
     target_F, w = compute_forward(target_q, ξₜ, n_actions)
     target_F = target_F[selected_actions, :]
-    w = w[actions, :]
+    w = w[selected_actions, :]
     quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
 
     gs = gradient(Flux.params(Z)) do
