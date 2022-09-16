@@ -126,7 +126,7 @@ Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
-    quant_samples = rand(L.n_actions, 1, L.n_samples_act) # try other methods
+    quant_samples = rand(1, 1, L.n_samples_act) # try other methods
     quant_samples = quant_samples |> gpu
     q = compute_backward(quant_samples, ξ, L.n_actions)
 
@@ -165,7 +165,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     actions = CartesianIndex.(batch.action, 1:batch_size)
 
     ξₜ = Zₜ(next_states)
-    quantₜ_samples = rand(n_actions, batch_size, n_samples_target) # try other methods
+    quantₜ_samples = rand(1, batch_size, n_samples_target) # try other methods
     quantₜ_samples = send_to_device(D, quantₜ_samples)
     quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
 
