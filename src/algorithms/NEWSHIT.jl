@@ -29,8 +29,8 @@ function mixture_gauss_cdf(x, weights, loc, log_scales)
     der = dropdims(prod(der, dims=1), dims=1)
 
     weights = softmax(weights)
-    # return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
-    return dropdims(sum(z_cdf .* weights, dims=1), dims=1), der
+    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1), der
+    # return dropdims(sum(z_cdf .* weights, dims=1), dims=1), der
 end
 
 function compute_forward(x, params, na)
