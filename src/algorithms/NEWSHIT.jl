@@ -27,10 +27,10 @@ function mixture_gauss_cdf(x, weights, loc, log_scales)
     z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
     der = z_cdf .* (1 .- z_cdf) ./ exp.(log_scales)
 
-    weights = softmax(weights)
-    der = dropdims(sum(der, dims=1), dims=1) ./ size(z_cdf, 1)
+    # weights = softmax(weights)
+    # der = dropdims(sum(der, dims=1), dims=1) ./ size(z_cdf, 1)
 
-    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1), der
+    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
     # return dropdims(sum(z_cdf .* weights, dims=1), dims=1), der
 end
 
@@ -170,7 +170,6 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     quantₜ_samples = send_to_device(D, quantₜ_samples)
     quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
 
-
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
         q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
@@ -187,16 +186,16 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ_selected
     target_q = Flux.unsqueeze(target_q, 1)
 
-    target_F, w = compute_forward(target_q, ξₜ, n_actions)
-    target_F = target_F[selected_actions, :]
-    w = w[selected_actions, :]
-    quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
+    # target_F = compute_forward(target_q, ξₜ, n_actions)
+
+    # target_F = target_F[selected_actions, :]
+    # quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
 
     gs = gradient(Flux.params(Z)) do
         ξ = Z(states)
         # quant = Zygote.@ignore compute_backward(quantₜ_samples, ξ, n_actions)
 
-        F, _ = compute_forward(quantₜ, ξ, n_actions)
+        F = compute_forward(target_q, ξ, n_actions)
 
         # loss = Flux.huber_loss(F[actions, :], target_F)
         # @show size(target_F)
@@ -210,7 +209,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(F[actions, :])
         # @show mean(target_F)
 
-        loss = sum(abs.(F[actions, :] - target_F) ./ (abs.(w) .+ 1.0f-4)) ./ length(target_F)
+        loss = sum(abs.(F[actions, :] - quantₜ_samples)) ./ length(target_F)
 
         ignore_derivatives() do
             lp["loss"] = loss
