@@ -25,7 +25,7 @@ function mixture_gauss_cdf(x, weights, loc, log_scales)
     # component_dist = Normal.(loc |> cpu, exp.(log_scales) |> cpu)
     # z_cdf = cdf.(component_dist, x |> cpu) |> gpu
     z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
-    der = z_cdf .* (1 .- z_cdf) ./ exp.(log_scales)
+    # der = z_cdf .* (1 .- z_cdf) ./ exp.(log_scales)
 
     # weights = softmax(weights)
     # der = dropdims(sum(der, dims=1), dims=1) ./ size(z_cdf, 1)
