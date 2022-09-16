@@ -208,7 +208,8 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(quantₜ_selected)
         # @show mean(F[actions, :])
         # @show mean(target_F)
-        loss = sum(abs.(F[actions, :] - target_F) .* w) ./ length(target_F)
+
+        loss = sum(abs.(F[actions, :] - target_F) ./ (abs.(w) .+ 1f-4)) ./ length(target_F)
 
         ignore_derivatives() do
             lp["loss"] = loss
