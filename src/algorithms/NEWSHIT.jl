@@ -57,8 +57,8 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
         y, _ = mixture_gauss_cdf(z, prior_logits, means, log_scales)
         gt = convert(typeof(y), y .> x)
         lt = 1 .- gt
-        z = (ub + lb) / 2
-        # z = gt .* (old_z .+ lb) ./ 2 .+ lt .* (old_z .+ ub) ./ 2
+        # z = (ub + lb) / 2
+        z = gt .* (old_z .+ lb) ./ 2 .+ lt .* (old_z .+ ub) ./ 2
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
         if maximum(abs.(z .- old_z)) < eps
@@ -188,7 +188,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
 
     target_F, w = compute_forward(target_q, ξₜ, n_actions)
     target_F = target_F[selected_actions, :]
-    w = w[selected_actions, :]
+    w = w[actions, :]
     quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
 
     gs = gradient(Flux.params(Z)) do
@@ -209,7 +209,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(F[actions, :])
         # @show mean(target_F)
 
-        loss = sum(abs.(F[actions, :] - target_F) ./ (abs.(w) .+ 1f-4)) ./ length(target_F)
+        loss = sum(abs.(F[actions, :] - target_F) ./ (abs.(w) .+ 1.0f-4)) ./ length(target_F)
 
         ignore_derivatives() do
             lp["loss"] = loss
