@@ -19,32 +19,22 @@ using Flux: chunk
 using Distributions
 
 
-function mixture_gauss_cdf(x, weights, loc, log_scales)
+function mixture_gauss_cdf(x, loc, log_scales)
     x = Flux.unsqueeze(x, 1)
-    # x = repeat(Flux.unsqueeze(x, 1), size(weights, 1))
-    # component_dist = Normal.(loc |> cpu, exp.(log_scales) |> cpu)
-    # z_cdf = cdf.(component_dist, x |> cpu) |> gpu
     z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
-    # der = z_cdf .* (1 .- z_cdf) ./ exp.(log_scales)
-
-    # weights = softmax(weights)
-    # der = dropdims(sum(der, dims=1), dims=1) ./ size(z_cdf, 1)
-
     return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
-    # return dropdims(sum(z_cdf .* weights, dims=1), dims=1), der
 end
 
 function compute_forward(x, params, na)
-    weights, loc, log_scale = chunk(params, 3, dims=1)
+    loc, log_scale = chunk(params, 2, dims=1)
 
-    weights = reshape(weights, :, na, size(weights, 2))
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
 
-    mixture_gauss_cdf(x, weights, loc, log_scale)
+    mixture_gauss_cdf(x, loc, log_scale)
 end
 
-function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0f-10)
+function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
     z = zero(x) |> gpu
     max_scales = sum(exp.(log_scales), dims=1)
     t = ones(eltype(x), size(x)) |> gpu
@@ -55,7 +45,7 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
 
     for _ = 1:max_it
         old_z = z
-        y = mixture_gauss_cdf(z, prior_logits, means, log_scales)
+        y = mixture_gauss_cdf(z, means, log_scales)
         gt = convert(typeof(y), y .> x)
         lt = 1 .- gt
         # z = (ub + lb) / 2
@@ -63,6 +53,7 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
         if maximum(abs.(z .- old_z)) < eps
+            @show abs.(z .- old_z)
             break
         end
     end
@@ -70,13 +61,12 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
 end
 
 function compute_backward(x, params, na; eps=1.0f-5)
-    weights, loc, log_scale = chunk(params, 3, dims=1)
+    loc, log_scale = chunk(params, 2, dims=1)
 
-    weights = reshape(weights, :, na, size(weights, 2))
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
     clamp!(x, eps, 1 - eps)
-    mixture_inv_cdf(x, weights, loc, log_scale)
+    mixture_inv_cdf(x, loc, log_scale)
 end
 
 
