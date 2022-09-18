@@ -55,7 +55,7 @@ function mixture_inv_cdf(x, prior_logits, means, log_scales; max_it=100, eps=1.0
 
     for _ = 1:max_it
         old_z = z
-        y, _ = mixture_gauss_cdf(z, prior_logits, means, log_scales)
+        y = mixture_gauss_cdf(z, prior_logits, means, log_scales)
         gt = convert(typeof(y), y .> x)
         lt = 1 .- gt
         # z = (ub + lb) / 2
