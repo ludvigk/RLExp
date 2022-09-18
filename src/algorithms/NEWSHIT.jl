@@ -56,6 +56,8 @@ function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
             # @show y
             # @show old_z
             @show i
+            @show maximum(ub)
+            @show minimum(lb)
             @show maximum(abs.(z .- old_z))
             # @show x
             @assert !any(isnan.(z))
