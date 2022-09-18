@@ -199,8 +199,8 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(F[actions, :])
         # @show mean(target_F)
 
-        loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
-
+        # loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
+        loss = Flux.huber_loss(F[actions, :], quantₜ_samples)
         ignore_derivatives() do
             lp["loss"] = loss
             # lp["extra_loss"] = extra_loss
