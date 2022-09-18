@@ -21,7 +21,7 @@ using Distributions
 
 function mixture_gauss_cdf(x, loc, log_scales)
     x = Flux.unsqueeze(x, 1)
-    z_cdf = sigmoid.((x .- loc) ./ exp.(log_scales))
+    z_cdf = sigmoid.((x .- loc) ./ softplus.(log_scales))
     return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
 end
 
@@ -36,7 +36,7 @@ end
 
 function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
     z = zero(x) |> gpu
-    max_scales = sum(exp.(log_scales), dims=1)
+    max_scales = sum(softplus.(log_scales), dims=1)
     t = ones(eltype(x), size(x)) |> gpu
     lb = dropdims(minimum(means .- 20 .* max_scales, dims=1), dims=1)
     lb = lb .* t
