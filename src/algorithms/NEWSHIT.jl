@@ -53,10 +53,11 @@ function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
         if maximum(abs.(z .- old_z)) < eps
-            @show y
-            @show old_z
+            # @show y
+            # @show old_z
             @show i
-            @show x
+            @show maximum(abs.(z .- old_z))
+            # @show x
             @assert !any(isnan.(z))
             break
         end
