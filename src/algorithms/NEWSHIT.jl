@@ -43,7 +43,7 @@ function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
     ub = dropdims(maximum(means .+ 20 .* max_scales, dims=1), dims=1)
     ub = ub .* t
 
-    for _ = 1:max_it
+    for i = 1:max_it
         old_z = z
         y = mixture_gauss_cdf(z, means, log_scales)
         gt = convert(typeof(y), y .> x)
@@ -53,7 +53,7 @@ function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
         lb = gt .* lb .+ lt .* old_z
         ub = gt .* old_z .+ lt .* ub
         if maximum(abs.(z .- old_z)) < eps
-            @show abs.(z .- old_z)
+            @show i
             break
         end
     end

@@ -40,7 +40,7 @@ function RL.Experiment(
     """
     config = Dict(
         "lr" => 5e-5,
-        "update_freq" => 1000,
+        "update_freq" => 100,
         "target_update_freq" => 1,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
@@ -52,7 +52,7 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 50,
+        "flow_depth" => 20,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
@@ -83,11 +83,11 @@ function RL.Experiment(
     """
     CREATE MODEL
     """
-    # init = Flux.glorot_uniform()
+    init = Flux.glorot_uniform()
     # inil = (args...) -> init(args...) ./ 100
     # init = Flux.glorot_normal()
     # init = Flux.kaiming_normal()
-    init = Flux.kaiming_uniform()
+    # init = Flux.kaiming_uniform()
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
