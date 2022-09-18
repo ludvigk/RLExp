@@ -83,11 +83,11 @@ function RL.Experiment(
     """
     CREATE MODEL
     """
-    init = Flux.glorot_uniform()
+    # init = Flux.glorot_uniform()
     # inil = (args...) -> init(args...) ./ 100
     # init = Flux.glorot_normal()
     # init = Flux.kaiming_normal()
-    # init = Flux.kaiming_uniform()
+    init = Flux.kaiming_uniform()
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
