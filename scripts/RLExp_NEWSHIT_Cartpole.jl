@@ -41,7 +41,7 @@ function RL.Experiment(
     config = Dict(
         "lr" => 5e-5,
         "update_freq" => 1,
-        "target_update_freq" => 100,
+        "target_update_freq" => 1,
         "n_samples_act" => 100,
         "n_samples_target" => 100,
         "opt" => "ADAM",
