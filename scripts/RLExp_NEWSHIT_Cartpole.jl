@@ -91,8 +91,8 @@ function RL.Experiment(
 
     flow_depth = config["flow_depth"]
     # opt = eval(Meta.parse(get_config(lg, "opt")))
-    opt = AdaBelief(config["lr"])
-    # opt = ADAM(config["lr"])
+    # opt = AdaBelief(config["lr"])
+    opt = ADAM(config["lr"])
     approximator = Approximator(
         model=TwinNetwork(
             Chain(
