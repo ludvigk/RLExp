@@ -21,6 +21,38 @@ using Distributions
 using Plots
 
 
+struct QuantileNet
+    state_head
+    state_model
+    quantile_model
+end
+
+struct PDense
+    weight
+    bias
+    σ
+end
+
+function (d::PDense)(ϵ)
+    w = softplus.(d.weight)
+    b = d.bias
+    return d.σ.(w * x .+ b)
+end
+
+function (m::QuantileNet)(s, ϵ; forward=true)
+    s_ = m.state_head(s)
+    p = Vector{Array{Float32}}(undef, length(m.state_model))
+    for layer in state_model
+        s_ = layer(s_)
+        push!(buf, s_)
+    end
+    ϵ_ = ϵ
+    for (i, layer) in enumerate(m.quantile_model)
+        ϵ_ = layer(ϵ_) .+ p[i]
+    end
+    return ϵ_
+end
+
 function mixture_gauss_cdf(x, loc, log_scales)
     x = Flux.unsqueeze(x, 1)
     z_cdf = sigmoid.((x .- loc) ./ softplus.(log_scales))
