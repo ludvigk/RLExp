@@ -18,15 +18,19 @@ using Zygote: @adjoint
 using Flux: chunk
 using Distributions
 
+using Plots
+
 
 function mixture_gauss_cdf(x, loc, log_scales)
     x = Flux.unsqueeze(x, 1)
     z_cdf = sigmoid.((x .- loc) ./ softplus.(log_scales))
+    # z_cdf = (1 .+ tanh.((x .- loc) ./ softplus.(log_scales))) ./ 2
     return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
 end
 
 function compute_forward(x, params, na)
     loc, log_scale = chunk(params, 2, dims=1)
+    # log_scale = zero(loc) .- 2
 
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
@@ -35,9 +39,9 @@ function compute_forward(x, params, na)
 end
 
 function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
-    z = zero(x) |> gpu
+    z = CUDA.zero(x)  #TODO: Speed
     max_scales = sum(softplus.(log_scales), dims=1)
-    t = ones(eltype(x), size(x)) |> gpu
+    t = CUDA.ones(eltype(x), size(x))  #TODO: Speed
     lb = dropdims(minimum(means .- 20 .* max_scales, dims=1), dims=1)
     lb = lb .* t
     ub = dropdims(maximum(means .+ 20 .* max_scales, dims=1), dims=1)
@@ -55,10 +59,23 @@ function mixture_inv_cdf(x, means, log_scales; max_it=100, eps=1.0f-10)
         if maximum(abs.(z .- old_z)) < eps
             # @show y
             # @show old_z
-            @show i
-            @show maximum(ub)
-            @show minimum(lb)
-            @show maximum(abs.(z .- old_z))
+            # @show i
+            # @show maximum(ub)
+            # @show minimum(lb)
+            # @show maximum(log_scales)
+            # @show minimum(log_scales)
+            # @show maximum(means)
+            # @show minimum(means)
+            # p = scatter(x[1,1,:] |> cpu, z[1,1,:] |> cpu, xlims=(0,1))
+            # ord = sortperm(means[:,1,1])
+            # p = scatter(1:size(means, 1), (means[ord,1,1]))
+            # p = scatter!(1:size(means, 1), (log_scales[ord,1,1]))
+            # display(p)
+            # @show i
+            # p1 = scatter(y[1,1,:])
+            # p2 = scatter(z[1,1,:])
+            # display(plot(p1, p2))
+            # @show maximum(abs.(z .- old_z))
             # @show x
             @assert !any(isnan.(z))
             break
@@ -69,6 +86,7 @@ end
 
 function compute_backward(x, params, na; eps=1.0f-5)
     loc, log_scale = chunk(params, 2, dims=1)
+    # log_scale = zero(loc) .- 2
 
     loc = reshape(loc, :, na, size(loc, 2))
     log_scale = reshape(log_scale, :, na, size(log_scale, 2))
@@ -124,15 +142,20 @@ Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
-    quant_samples = rand(1, 1, L.n_samples_act) # try other methods
-    quant_samples = quant_samples |> gpu
+    quant_samples = reshape(collect(0.01:0.01:0.99), 1, 1, :) # try other methods
+    # quant_samples = rand(1, 1, L.n_samples_act) # try other methods
+    quant_samples = quant_samples |> gpu  #TODO: Speed
     q = compute_backward(quant_samples, ξ, L.n_actions)
 
     q = dropdims(mean(q, dims=3), dims=3)
 end
 
 function (learner::NEWSHITLearner)(env::AbstractEnv)
-    s = send_to_device(device(learner.approximator), state(env))
+    if state(env) isa Int
+        s = send_to_device(device(learner.approximator), [state(env)])
+    else
+        s = send_to_device(device(learner.approximator), state(env))
+    end
     s = Flux.unsqueeze(s, ndims(s) + 1)
     s |> learner |> vec |> send_to_host
 end
@@ -163,13 +186,14 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     actions = CartesianIndex.(batch.action, 1:batch_size)
 
     ξₜ = Zₜ(next_states)
-    quantₜ_samples = rand(1, batch_size, n_samples_target) # try other methods
+    quantₜ_samples = repeat(reshape(collect(0.05:0.01:0.95), 1, 1, :), 1, batch_size, 1) # try other methods
+    # quantₜ_samples = rand(1, batch_size, n_samples_target) # try other methods
     quantₜ_samples = send_to_device(D, quantₜ_samples)
     quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
-        q_values .+= ifelse.(l′, 0.0f0, typemin(Float32))
+        quantₜ .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
     mean_q = dropdims(mean(quantₜ, dims=3), dims=3)
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
@@ -178,6 +202,11 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     # end
     # next_q = @inbounds q_values[selected_actions, :]
     quantₜ_selected = @inbounds quantₜ[selected_actions, :]
+    @show size(terminals)
+    @show size(Flux.unsqueeze(rewards, 2))
+    @show size(Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2))
+    @show size(quantₜ_selected)
+
     target_q =
         Flux.unsqueeze(rewards, 2) .+
         Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ_selected
@@ -193,7 +222,19 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # quant = Zygote.@ignore compute_backward(quantₜ_samples, ξ, n_actions)
 
         F = compute_forward(target_q, ξ, n_actions)
+        # if all((F .- mean(F)) .≈ 0)
+        #     println(rewards)
+        #     println(selected_actions)
+        #     println(terminals)
+        # end
 
+        ignore_derivatives() do
+            p1 = scatter(F[actions, :][1,:])
+            p2 = scatter(target_q[1,1,:])
+            p3 = scatter(F[actions, :][1,:] .- quantₜ_samples[1,1,:])
+            p4 = scatter(quantₜ_selected[1,:])
+            display(plot(p1, p2, p3, p4; legend=false))
+        end
         # loss = Flux.huber_loss(F[actions, :], target_F)
         # @show size(target_F)
         # @show size(F[actions, :])
@@ -207,9 +248,12 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(target_F)
 
         # loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
-        loss = Flux.huber_loss(F[actions, :], dropdims(quantₜ_samples, dims=1))
+        loss = Flux.huber_loss(F[actions, :], dropdims(quantₜ_samples, dims=1); δ = 0.05)
         ignore_derivatives() do
             lp["loss"] = loss
+            lp["F"] = mean(F)
+            lp["maxF"] = maximum(F)
+            lp["minF"] = minimum(F)
             # lp["extra_loss"] = extra_loss
             # lp["sldj"] = sum(sldj) / (batch_size * n_samples_target)
             # lp["QA"] = sum(selected_actions)[1] / length(selected_actions)

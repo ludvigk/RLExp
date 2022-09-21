@@ -32,18 +32,18 @@ end
 function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:NEWSHIT},
-    ::Val{:Cartpole};
+    ::Val{:Walk};
     seed=123
 )
     """
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 1e-5,
+        "lr" => 5e-5,
         "update_freq" => 100,
         "target_update_freq" => 100,
-        "n_samples_act" => 1000,
-        "n_samples_target" => 1000,
+        "n_samples_act" => 100,
+        "n_samples_target" => 100,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
@@ -52,17 +52,17 @@ function RL.Experiment(
         "is_enable_double_DQN" => true,
         "traj_capacity" => 100_000,
         "seed" => 2,
-        "flow_depth" => 50,
+        "flow_depth" => 5,
         "num_steps" => 50_000,
         "epsilon_decay_steps" => 500,
         "epsilon_stable" => 0.01,
     )
 
     lg = WandbLogger(project="BE",
-        name="NEWSHIT_CartPole",
+        name="NEWSHIT_Walk",
         config=config,
     )
-    save_dir = datadir("sims", "NEWSHIT", "CartPole", "$(now())")
+    save_dir = datadir("sims", "NEWSHIT", "Walk", "$(now())")
     mkpath(save_dir)
 
     """
@@ -77,7 +77,7 @@ function RL.Experiment(
     """
     SET UP ENVIRONMENT
     """
-    env = CartPoleEnv(; T=Float32, max_steps=500)
+    env = RandomWalk1D(;rewards=-1. => 1.0, N=7, start_pos=(7+1) ÷ 2, actions=[-1,1])
     ns, na = length(state(env)), length(action_space(env))
 
     """
@@ -97,9 +97,9 @@ function RL.Experiment(
     approximator = Approximator(
         model=TwinNetwork(
             Chain(
-                Dense(ns, 512, leakyrelu; init=init),
-                Dense(512, 512, leakyrelu; init=init),
-                Dense(512, 2flow_depth * na; init=init),
+                Dense(ns, 256, leakyrelu; init=init),
+                Dense(256, 256, leakyrelu; init=init),
+                Dense(256, 2flow_depth * na; init=init),
             )
             ;
             sync_freq=config["target_update_freq"]
@@ -194,7 +194,7 @@ function RL.Experiment(
         steps = StepsPerEpisode()
         s = @elapsed run(
             p,
-            CartPoleEnv(; T=Float32, max_steps=500),
+            RandomWalk1D(;rewards=-1. => 1.0, N=7, start_pos=(7+1) ÷ 2, actions=[-1,1]),
             StopAfterEpisode(100; is_show_progress=false),
             total_reward + steps,
         )
