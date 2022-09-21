@@ -142,7 +142,7 @@ Flux.@functor NEWSHITLearner (approximator,)
 
 function (L::NEWSHITLearner)(s::AbstractArray)
     ξ = L.approximator(s)
-    quant_samples = reshape(collect(0.01:0.01:0.99), 1, 1, :) # try other methods
+    quant_samples = reshape(collect(0.05:0.01:0.95), 1, 1, :) # try other methods
     # quant_samples = rand(1, 1, L.n_samples_act) # try other methods
     quant_samples = quant_samples |> gpu  #TODO: Speed
     q = compute_backward(quant_samples, ξ, L.n_actions)
@@ -202,10 +202,10 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     # end
     # next_q = @inbounds q_values[selected_actions, :]
     quantₜ_selected = @inbounds quantₜ[selected_actions, :]
-    @show size(terminals)
-    @show size(Flux.unsqueeze(rewards, 2))
-    @show size(Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2))
-    @show size(quantₜ_selected)
+    # @show size(terminals)
+    # @show size(Flux.unsqueeze(rewards, 2))
+    # @show size(Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2))
+    # @show size(quantₜ_selected)
 
     target_q =
         Flux.unsqueeze(rewards, 2) .+
@@ -222,19 +222,14 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # quant = Zygote.@ignore compute_backward(quantₜ_samples, ξ, n_actions)
 
         F = compute_forward(target_q, ξ, n_actions)
-        # if all((F .- mean(F)) .≈ 0)
-        #     println(rewards)
-        #     println(selected_actions)
-        #     println(terminals)
-        # end
 
-        ignore_derivatives() do
-            p1 = scatter(F[actions, :][1,:])
-            p2 = scatter(target_q[1,1,:])
-            p3 = scatter(F[actions, :][1,:] .- quantₜ_samples[1,1,:])
-            p4 = scatter(quantₜ_selected[1,:])
-            display(plot(p1, p2, p3, p4; legend=false))
-        end
+        # ignore_derivatives() do
+        #     p1 = scatter(F[actions, :][1,:])
+        #     p2 = scatter(target_q[1,1,:])
+        #     p3 = scatter(F[actions, :][1,:] .- quantₜ_samples[1,1,:])
+        #     p4 = scatter(quantₜ_selected[1,:])
+        #     display(plot(p1, p2, p3, p4; legend=false))
+        # end
         # loss = Flux.huber_loss(F[actions, :], target_F)
         # @show size(target_F)
         # @show size(F[actions, :])
@@ -248,7 +243,8 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
         # @show mean(target_F)
 
         # loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
-        loss = Flux.huber_loss(F[actions, :], dropdims(quantₜ_samples, dims=1); δ = 0.05)
+        loss = Flux.huber_loss(F[actions, :], dropdims(quantₜ_samples, dims=1); δ=0.05)
+        loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
         ignore_derivatives() do
             lp["loss"] = loss
             lp["F"] = mean(F)
@@ -263,6 +259,9 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
             lp["min_weight"] = minimum(minimum.(Flux.params(Z)))
             # lp["max_pred"] = maximum(preds)
             # lp["min_pred"] = minimum(preds)
+            for i = 1:n_actions
+                lp["Q$i"] = sum(target_q[i, :, :]) / (91 * batch_size)
+            end
         end
 
         return loss
