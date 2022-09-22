@@ -194,10 +194,10 @@ function RL.Experiment(
                 CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
                 x -> reshape(x, :, size(x)[end]),
             ),
-            ϕ = MonotonicDense(Nₑₘ => 11 * 11 * 64, relu; init = init),
+            ϕ = Dense(Nₑₘ => 11 * 11 * 64, relu; init = init),
             header = Chain(
-                MonotonicDense(11 * 11 * 64 => 512, tanh; init = init),
-                MonotonicDense(512 => N_ACTIONS; init = init),
+                Dense(11 * 11 * 64 => 512, tanh; init = init),
+                Dense(512 => N_ACTIONS; init = init),
             ),
         ) |> gpu
 
