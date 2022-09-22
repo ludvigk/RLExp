@@ -4,7 +4,7 @@
 #SBATCH --mem=64GB
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --output=job_output_QQFLOW_Atari.out
+#SBATCH --output=job_output_IQNPP_Atari.out
 #SBATCH --tasks-per-node=12
 #SBATCH --time=7-00:00:00
 #SBATCH --mail-user=ludvig.killingberg@ntnu.no

@@ -24,4 +24,4 @@ addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--c
     include("RLExp_IQN_Atari.jl")
 end
 
-run(E`RLExp_IQNPP_Atari`)
+run(E`RLExp_IQNPP_Atari(game=pong)`)
