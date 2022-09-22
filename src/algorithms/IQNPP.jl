@@ -6,6 +6,7 @@ using Random: AbstractRNG, GLOBAL_RNG
 using StatsBase: mean
 using Zygote: gradient
 using ChainRulesCore: ignore_derivatives
+using RLExp
 
 """
     ImplicitQuantileNet(;ψ, ϕ, header)
@@ -20,13 +21,13 @@ feature ↱  ⨀   ↰ transformed embedding
        s        τ
 ```
 """
-Base.@kwdef struct ImplicitQuantileNet{A,B,C}
+Base.@kwdef struct ImplicitQuantileNetPP{A,B,C}
     ψ::A
     ϕ::B
     header::C
 end
 
-@functor ImplicitQuantileNet
+@functor ImplicitQuantileNetPP
 
 function (net::ImplicitQuantileNetPP)(s, emb)
     features = net.ψ(s)  # (n_feature, batch_size)
@@ -48,6 +49,7 @@ Base.@kwdef mutable struct IQNPPLearner{A<:Approximator{<:TwinNetwork}} <: Abstr
     device_rng::AbstractRNG = rng
     # for logging
     loss::Float32 = 0.0f0
+    logging_params = DefaultDict(0.0)
 end
 
 @functor IQNPPLearner (approximator, device_rng)
@@ -58,6 +60,7 @@ embed(x, Nₑₘ) = cos.(Float32(π) .* (1:Nₑₘ) .* reshape(x, 1, :))
 function (learner::IQNPPLearner)(s::AbstractArray)
     batch_size = size(s)[end]
     τ = rand(learner.device_rng, Float32, learner.K, batch_size)
+
     τₑₘ = embed(τ, learner.Nₑₘ)
     quantiles = learner.approximator(s, τₑₘ)
     dropdims(mean(quantiles; dims=2); dims=2)
@@ -66,7 +69,7 @@ end
 function (L::IQNPPLearner)(env::AbstractEnv)
     s = env |> state |> send_to_device(L)
     q = s |> unsqueeze(dims=ndims(s) + 1) |> L |> vec
-    q
+    q |> send_to_host
 end
 
 function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
@@ -77,8 +80,15 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     N′ = learner.N′
     Nₑₘ = learner.Nₑₘ
     κ = learner.κ
+    D = device(Z)
+    # s, s′, a, r, t = map(x -> batch[x], SS′ART)
+    s = send_to_device(D, collect(batch.state))
+    r = send_to_device(D, batch.reward)
+    t = send_to_device(D, batch.terminal)
+    s′ = send_to_device(D, collect(batch.next_state))
+    a = send_to_device(D, batch.action)
 
-    s, s′, a, r, t = map(x -> batch[x], SS′ART)
+
     batch_size = length(t)
     τ′ = rand(learner.device_rng, Float32, N′, batch_size)  # TODO: support β distribution
     τₑₘ′ = embed(τ′, Nₑₘ)

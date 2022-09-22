@@ -8,6 +8,7 @@ export stop, CenteredRMSProp
 export AcrobotEnv, GymEnv
 export QQFlow
 export FlowNet
+export IQNPPLearner
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -33,5 +34,6 @@ include("utils/utils.jl")
 include("utils/custom_grads.jl")
 include("algorithms/QQFLOW.jl")
 include("algorithms/NEWSHIT.jl")
+include("algorithms/IQNPP.jl")
 
 end
