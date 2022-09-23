@@ -38,18 +38,18 @@ function _create_bias(weights::AbstractArray, bias::AbstractArray, dims::Integer
     bias
 end
 
-struct PDense{F, M<:AbstractMatrix, B}
+struct PDense{F,M<:AbstractMatrix,B}
     weight::M
     bias::B
     σ::F
-    function PDense(W::M, bias = true, σ::F = identity) where {M<:AbstractMatrix, F}
-        b = _create_bias(W, bias, size(W,1))
+    function PDense(W::M, bias=true, σ::F=identity) where {M<:AbstractMatrix,F}
+        b = _create_bias(W, bias, size(W, 1))
         new{F,M,typeof(b)}(W, b, σ)
     end
 end
-  
-function PDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
-                init = glorot_uniform, bias = true)
+
+function PDense((in, out)::Pair{<:Integer,<:Integer}, σ=identity;
+    init=glorot_uniform, bias=true)
     PDense(init(out, in), bias, σ)
 end
 
@@ -61,7 +61,7 @@ function (a::PDense)(x)
     return σ.(w * x .+ a.bias)
 end
 
-struct MonotonicDense{F, M<:AbstractMatrix, B, I}
+struct MonotonicDense{F,M<:AbstractMatrix,B,I}
     convexity::I
     weight::M
     bias::B
@@ -71,12 +71,12 @@ end
 Flux.@functor MonotonicDense
 
 
-function MonotonicDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
-    init = glorot_uniform, bias = true, ϵ=0.5)
+function MonotonicDense((in, out)::Pair{<:Integer,<:Integer}, σ=identity;
+    init=glorot_uniform, bias=true, ϵ=0.5)
     n_ones = Int(round(out * ϵ))
     n_zeros = out - n_ones
     convexity = vcat(ones(Float32, n_ones), zeros(Float32, n_zeros))
-MonotonicDense(convexity, init(out, in), bias, σ)
+    MonotonicDense(convexity, init(out, in), bias, σ)
 end
 
 function (a::MonotonicDense)(x)
@@ -187,17 +187,17 @@ function RL.Experiment(
 
     create_model() =
         ImplicitQuantileNet(
-            ψ = Chain(
+            ψ=Chain(
                 x -> x ./ 255,
-                CrossCor((8, 8), N_FRAMES => 32, relu; stride = 4, pad = 2, init = init),
-                CrossCor((4, 4), 32 => 64, relu; stride = 2, pad = 2, init = init),
-                CrossCor((3, 3), 64 => 64, relu; stride = 1, pad = 1, init = init),
+                CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=init),
+                CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=init),
+                CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=init),
                 x -> reshape(x, :, size(x)[end]),
             ),
-            ϕ = Dense(Nₑₘ => 11 * 11 * 64, relu; init = init),
-            header = Chain(
-                Dense(11 * 11 * 64 => 512, tanh; init = init),
-                Dense(512 => N_ACTIONS; init = init),
+            ϕ=Dense(Nₑₘ => 11 * 11 * 64, relu; init=init),
+            header=Chain(
+                Dense(11 * 11 * 64 => 512, relu; init=init),
+                Dense(512 => N_ACTIONS; init=init),
             ),
         ) |> gpu
 
@@ -215,14 +215,14 @@ function RL.Experiment(
                     ),
                     optimiser=ADAM(0.00005),
                 ),
-                κ = 1.0f0,
-                N = 64,
-                N′ = 64,
-                Nₑₘ = Nₑₘ,
-                K = 32,
-                γ = 0.99f0,
-                rng = rng,
-                device_rng = device_rng,
+                κ=1.0f0,
+                N=64,
+                N′=64,
+                Nₑₘ=Nₑₘ,
+                K=32,
+                γ=0.99f0,
+                rng=rng,
+                device_rng=device_rng,
             ),
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
