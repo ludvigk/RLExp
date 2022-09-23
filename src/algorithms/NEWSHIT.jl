@@ -21,43 +21,13 @@ using Distributions
 using Plots
 
 
-struct QuantileNet
-    state_head
-    state_model
-    quantile_model
-end
-
-struct PDense
-    weight
-    bias
-    σ
-end
-
-function (d::PDense)(ϵ)
-    w = softplus.(d.weight)
-    b = d.bias
-    return d.σ.(w * x .+ b)
-end
-
-function (m::QuantileNet)(s, ϵ; forward=true)
-    s_ = m.state_head(s)
-    p = Vector{Array{Float32}}(undef, length(m.state_model))
-    for layer in state_model
-        s_ = layer(s_)
-        push!(buf, s_)
-    end
-    ϵ_ = ϵ
-    for (i, layer) in enumerate(m.quantile_model)
-        ϵ_ = layer(ϵ_) .+ p[i]
-    end
-    return ϵ_
-end
-
 function mixture_gauss_cdf(x, loc, log_scales)
     x = Flux.unsqueeze(x, 1)
-    z_cdf = sigmoid.((x .- loc) ./ softplus.(log_scales))
+    scales = softplus.(log_scales)
+    z_cdf = sigmoid.((x .- loc) ./ scales)
     # z_cdf = (1 .+ tanh.((x .- loc) ./ softplus.(log_scales))) ./ 2
-    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1)
+    z_pdf = z_cdf .* (1 .- z_cdf) ./ scales
+    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1), z_pdf
 end
 
 function compute_forward(x, params, na)
@@ -219,64 +189,39 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
 
     ξₜ = Zₜ(next_states)
     quantₜ_samples = repeat(reshape(collect(0.05:0.01:0.95), 1, 1, :), 1, batch_size, 1) # try other methods
+    support = repeat(reshape(collect(0:1:200), 1, 1, :), batch_size, 1)
     # quantₜ_samples = rand(1, batch_size, n_samples_target) # try other methods
-    quantₜ_samples = send_to_device(D, quantₜ_samples)
-    quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
+    support = send_to_device(D, support)
+    # quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
+    z_cdf, z_pdf = compute_forward(support, ξₜ, n_actions)
+    quantₜ = z_pdf .* support
 
     if haskey(batch, :next_legal_actions_mask)
         l′ = send_to_device(D, batch[:next_legal_actions_mask])
         quantₜ .+= ifelse.(l′, 0.0f0, typemin(Float32))
     end
-    mean_q = dropdims(mean(quantₜ, dims=3), dims=3)
+    mean_q = dropdims(sum(quantₜ, dims=3), dims=3)
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
     # if learner.is_enable_double_DQN
     #     q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
     # end
     # next_q = @inbounds q_values[selected_actions, :]
-    quantₜ_selected = @inbounds quantₜ[selected_actions, :]
+    # quantₜ_selected = @inbounds quantₜ[selected_actions, :]
     # @show size(terminals)
     # @show size(Flux.unsqueeze(rewards, 2))
     # @show size(Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2))
     # @show size(quantₜ_selected)
 
-    target_q =
-        Flux.unsqueeze(rewards, 2) .+
-        Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2) .* quantₜ_selected
-    target_q = Flux.unsqueeze(target_q, 1)
-
-    # target_F = compute_forward(target_q, ξₜ, n_actions)
-
-    # target_F = target_F[selected_actions, :]
-    # quantₜ_selected = Flux.unsqueeze(quantₜ_selected, 1)
-
+    support = (support .- rewards) ./ γ
+    target_cdf, _ = compute_forward(support, ξₜ, n_actions)
+    target_cdf = target_cdf[selected_actions]
     gs = gradient(Flux.params(Z)) do
         ξ = Z(states)
         # quant = Zygote.@ignore compute_backward(quantₜ_samples, ξ, n_actions)
 
-        F = compute_forward(target_q, ξ, n_actions)
+        cdf, pdf = compute_forward(support, ξ, n_actions)
 
-        # ignore_derivatives() do
-        #     p1 = scatter(F[actions, :][1,:])
-        #     p2 = scatter(target_q[1,1,:])
-        #     p3 = scatter(F[actions, :][1,:] .- quantₜ_samples[1,1,:])
-        #     p4 = scatter(quantₜ_selected[1,:])
-        #     display(plot(p1, p2, p3, p4; legend=false))
-        # end
-        # loss = Flux.huber_loss(F[actions, :], target_F)
-        # @show size(target_F)
-        # @show size(F[actions, :])
-        # @show size(target_q)
-        # @show size(quantₜ)
-        # @show size(quantₜ_selected)
-        # @show mean(abs.(target_q .- quantₜ_selected))
-        # @show mean((target_q))
-        # @show mean(quantₜ_selected)
-        # @show mean(F[actions, :])
-        # @show mean(target_F)
-
-        # loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
-        loss = Flux.huber_loss(F[actions, :], dropdims(quantₜ_samples, dims=1); δ=0.05)
-        loss = sum(abs.(F[actions, :] .- dropdims(quantₜ_samples, dims=1))) ./ length(quantₜ_samples)
+        loss = sum(abs.(cdf[actions, :] .- target_cdf)) ./ length(quantₜ_samples)
         ignore_derivatives() do
             lp["loss"] = loss
             lp["F"] = mean(F)
