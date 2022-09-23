@@ -108,7 +108,7 @@ function RL.Experiment(
         "gamma" => 0.99,
         "update_horizon" => 3,
         "batch_size" => 32,
-        "min_replay_history" => 50_000,
+        "min_replay_history" => 20_000,
         "is_enable_double_DQN" => true,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
@@ -227,7 +227,7 @@ function RL.Experiment(
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
                 ϵ_stable=0.01,
-                decay_steps=1_000_000,
+                decay_steps=250_000,
                 kind=:linear,
                 rng=rng,
             ),
