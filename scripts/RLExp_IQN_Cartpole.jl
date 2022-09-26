@@ -65,7 +65,7 @@ function RL.Experiment(
     ::Val{:JuliaRL},
     ::Val{:IQN},
     ::Val{:CartPole},
-    ; seed=123
+    ; seed=1
 )
     rng = StableRNG(seed)
     device_rng = rng
@@ -73,7 +73,7 @@ function RL.Experiment(
     env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
     init = glorot_uniform(rng)
-    Nₑₘ = 16
+    Nₑₘ = 32
     n_hidden = 64
     κ = 1.0f0
 
@@ -93,16 +93,16 @@ function RL.Experiment(
                     model=TwinNetwork(
                         ImplicitQuantileNet(
                             ψ=Dense(ns, n_hidden, relu; init=init),
-                            ϕ=MonotonicDense(Nₑₘ => n_hidden, relu; init=init),
-                            header=MonotonicDense(n_hidden => na; init=init),
+                            ϕ=Dense(Nₑₘ => n_hidden, relu; init=init),
+                            header=Dense(n_hidden => na; init=init),
                         ),
                         sync_freq=100
                     ),
-                    optimiser=ADAM(0.001),
+                    optimiser=ADAM(0.002),
                 ),
                 κ=κ,
-                N=8,
-                N′=8,
+                N=16,
+                N′=16,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,

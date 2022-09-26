@@ -9,6 +9,7 @@ export AcrobotEnv, GymEnv
 export QQFlow
 export FlowNet
 export IQNPPLearner
+export SupportProposalNet, FPCRNet, CDFNet, FPCRLearner
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -35,5 +36,6 @@ include("utils/custom_grads.jl")
 include("algorithms/QQFLOW.jl")
 include("algorithms/NEWSHIT.jl")
 include("algorithms/IQNPP.jl")
+include("algorithms/FPCR.jl")
 
 end
