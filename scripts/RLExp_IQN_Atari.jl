@@ -106,16 +106,16 @@ function RL.Experiment(
         "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
-        "update_horizon" => 3,
+        "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 20_000,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 100_000,
+        "traj_capacity" => 1_000_000,
         "seed" => 1,
         "flow_depth" => 6,
-        "terminal_on_life_loss" => false,
+        "terminal_on_life_loss" => true,
         "adam_epsilon" => 1e-6,
-        "n_steps" => 200_000_000,
+        "n_steps" => 50_000_000,
     )
 
     lg = WandbLogger(project="BE",
@@ -213,7 +213,7 @@ function RL.Experiment(
                         create_model(),
                         sync_freq=8_000
                     ),
-                    optimiser=ADAM(0.0001),
+                    optimiser=ADAM(0.00005),
                 ),
                 κ=1.0f0,
                 N=64,
@@ -227,7 +227,7 @@ function RL.Experiment(
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
                 ϵ_stable=0.01,
-                decay_steps=250_000,
+                decay_steps=1_000_000,
                 kind=:linear,
                 rng=rng,
             ),
@@ -273,7 +273,8 @@ function RL.Experiment(
                 L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                 Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
                 min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
-                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
+                lsi = (STEP_LOG_FREQ * 4)
+                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred log_step_increment = lsi
             end
         catch
             close(lg)
@@ -285,21 +286,21 @@ function RL.Experiment(
             @info "training" episode = t log_step_increment = 0
             @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
         end
-        try
-            s = agent.trajectory[:state]
-            beg = rand((1+N_FRAMES):size(s, 3))
-            s = s[:, :, (beg-N_FRAMES):(beg-1)]
-            s = Flux.unsqueeze(s, 4) |> gpu
-            samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
-            p = plot()
-            for action in 1:size(samples, 1)
-                density!(samples[action, 1, :], c=action, label="action $(action)")
-                vline!([mean(samples[action, 1, :])], c=action, label=false)
-            end
-            Plots.savefig(p, save_dir * "/qdistr_$(t).png")
-        catch
-            @warn "Could not save plot"
-        end
+        # try
+        #     s = agent.trajectory[:state]
+        #     beg = rand((1+N_FRAMES):size(s, 3))
+        #     s = s[:, :, (beg-N_FRAMES):(beg-1)]
+        #     s = Flux.unsqueeze(s, 4) |> gpu
+        #     samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
+        #     p = plot()
+        #     for action in 1:size(samples, 1)
+        #         density!(samples[action, 1, :], c=action, label="action $(action)")
+        #         vline!([mean(samples[action, 1, :])], c=action, label=false)
+        #     end
+        #     Plots.savefig(p, save_dir * "/qdistr_$(t).png")
+        # catch
+        #     @warn "Could not save plot"
+        # end
     end
     eval_hook = DoEveryNStep(; n=EVALUATION_FREQ) do t, agent, env
         # @info "Saving agent at step $t to $save_dir"

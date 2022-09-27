@@ -28,9 +28,10 @@ function atari_env_factory(
     n_frames,
     max_episode_steps=100_000;
     seed=nothing,
-    repeat_action_probability=0.25,
+    repeat_action_probability=0.0,
     n_replica=nothing,
     terminal_on_life_loss=false,
+    frame_skip=4
 )
     function init(seed)
         return RewardTransformedEnv(
@@ -46,15 +47,15 @@ function atari_env_factory(
                         max_num_frames_per_episode=n_frames * max_episode_steps,
                         color_averaging=false,
                         full_action_space=false,
-                        seed=seed,
+                        seed=seed
                     );
                     state_mapping=Chain(
                         ResizeImage(state_size...), StackFrames(state_size..., n_frames)
                     ),
-                    state_space_mapping=_ -> Space(fill(0 .. 256, state_size..., n_frames)),
+                    state_space_mapping=_ -> Space(fill(0 .. 256, state_size..., n_frames))
                 ),
             );
-            reward_mapping=r -> clamp(r, -1, 1),
+            reward_mapping=r -> clamp(r, -1, 1)
         )
     end
 
