@@ -211,7 +211,7 @@ function RL.Experiment(
                 approximator=Approximator(
                     model=TwinNetwork(
                         create_model(),
-                        sync_freq=8_000
+                        sync_freq=10_000
                     ),
                     optimiser=ADAM(0.00005, (0.9, 0.999), 0.0003125),
                 ),
