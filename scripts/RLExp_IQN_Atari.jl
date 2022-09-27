@@ -113,7 +113,7 @@ function RL.Experiment(
         "traj_capacity" => 1_000_000,
         "seed" => 1,
         "flow_depth" => 6,
-        "terminal_on_life_loss" => true,
+        "terminal_on_life_loss" => false,
         "adam_epsilon" => 1e-6,
         "n_steps" => 50_000_000,
     )
@@ -256,7 +256,7 @@ function RL.Experiment(
     """
     EVALUATION_FREQ = 250_000
     STEP_LOG_FREQ = 1_000
-    EPISODE_LOG_FREQ = 100
+    EPISODE_LOG_FREQ = 1_000
     MAX_EPISODE_STEPS_EVAL = 27_000
 
     screens = []

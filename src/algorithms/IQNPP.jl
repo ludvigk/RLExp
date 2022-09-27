@@ -79,8 +79,8 @@ function energy_distance(x, y)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2,3)), dims=(2,3))
-    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2,3)), dims=(2,3))
+    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end
@@ -142,7 +142,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
         #     huber_loss ./ κ
         # loss_per_quantile = reshape(sum(raw_loss; dims=1), N, batch_size)
         # loss_per_element = mean(loss_per_quantile; dims=1)  # use as priorities
-        
+
         # @show size(q)
         # @show size(target)
         target = reshape(target, 1, N′, batch_size)
@@ -150,6 +150,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
         loss = mean(energy_distance(q, target))
         ignore_derivatives() do
             learner.loss = loss
+            learner.logging_params["𝐿"] = loss
         end
         loss
     end
