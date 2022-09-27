@@ -101,7 +101,7 @@ function RL.Experiment(
         "lr" => 0.0001,
         "clip_norm" => 10,
         "update_freq" => 4,
-        "target_update_freq" => 8000,
+        "target_update_freq" => 10_000,
         "n_samples_act" => 1000,
         "n_samples_target" => 1000,
         "opt" => "ADAM",
@@ -113,7 +113,7 @@ function RL.Experiment(
         "traj_capacity" => 1_000_000,
         "seed" => 1,
         "flow_depth" => 6,
-        "terminal_on_life_loss" => false,
+        "terminal_on_life_loss" => true,
         "adam_epsilon" => 1e-6,
         "n_steps" => 50_000_000,
     )
@@ -213,7 +213,7 @@ function RL.Experiment(
                         create_model(),
                         sync_freq=8_000
                     ),
-                    optimiser=ADAM(0.00005),
+                    optimiser=ADAM(0.00005, (0.9, 0.999), 0.0003125),
                 ),
                 κ=1.0f0,
                 N=32,
