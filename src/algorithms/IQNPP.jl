@@ -72,6 +72,19 @@ function (L::IQNPPLearner)(env::AbstractEnv)
     q |> send_to_host
 end
 
+function energy_distance(x, y)
+    n = size(x, 2)
+    m = size(y, 2)
+
+    x_ = Flux.unsqueeze(x, dims=2)
+    _x = Flux.unsqueeze(x, dims=3)
+    _y = Flux.unsqueeze(y, dims=3)
+    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2,3)), dims=(2,3))
+    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2,3)), dims=(2,3))
+    ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
+    return ε
+end
+
 function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     A = learner.approximator
     Z = A.model.source
@@ -116,20 +129,25 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
         z = reshape(z_raw, size(z_raw)[1:end-2]..., :)
         q = z[a]
 
-        TD_error = reshape(target, N′, 1, batch_size) .- reshape(q, 1, N, batch_size)
+        # TD_error = reshape(target, N′, 1, batch_size) .- reshape(q, 1, N, batch_size)
         # can't apply huber_loss in RLCore directly here
-        abs_error = abs.(TD_error)
-        quadratic = min.(abs_error, κ)
-        linear = abs_error .- quadratic
-        huber_loss = 0.5f0 .* quadratic .* quadratic .+ κ .* linear
+        # abs_error = abs.(TD_error)
+        # quadratic = min.(abs_error, κ)
+        # linear = abs_error .- quadratic
+        # huber_loss = 0.5f0 .* quadratic .* quadratic .+ κ .* linear
 
-        # dropgrad
-        raw_loss =
-            abs.(reshape(τ, 1, N, batch_size) .- ignore_derivatives(TD_error .< 0)) .*
-            huber_loss ./ κ
-        loss_per_quantile = reshape(sum(raw_loss; dims=1), N, batch_size)
-        loss_per_element = mean(loss_per_quantile; dims=1)  # use as priorities
-        loss = mean(loss_per_element)
+        # # dropgrad
+        # raw_loss =
+        #     abs.(reshape(τ, 1, N, batch_size) .- ignore_derivatives(TD_error .< 0)) .*
+        #     huber_loss ./ κ
+        # loss_per_quantile = reshape(sum(raw_loss; dims=1), N, batch_size)
+        # loss_per_element = mean(loss_per_quantile; dims=1)  # use as priorities
+        
+        # @show size(q)
+        # @show size(target)
+        target = reshape(target, 1, N′, batch_size)
+        q = reshape(q, 1, N, batch_size)
+        loss = mean(energy_distance(q, target))
         ignore_derivatives() do
             learner.loss = loss
         end

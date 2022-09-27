@@ -27,7 +27,7 @@ function mixture_gauss_cdf(x, loc, log_scales)
     z_cdf = sigmoid.((x .- loc) ./ scales)
     # z_cdf = (1 .+ tanh.((x .- loc) ./ softplus.(log_scales))) ./ 2
     z_pdf = z_cdf .* (1 .- z_cdf) ./ scales
-    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1), z_pdf
+    return dropdims(sum(z_cdf, dims=1), dims=1) ./ size(z_cdf, 1), dropdims(sum(z_pdf, dims=1), dims=1) ./ size(z_cdf, 1)
 end
 
 function compute_forward(x, params, na)
@@ -190,9 +190,7 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     ξₜ = Zₜ(next_states)
     quantₜ_samples = repeat(reshape(collect(0.05:0.01:0.95), 1, 1, :), 1, batch_size, 1) # try other methods
     support = repeat(reshape(collect(0:1:200), 1, 1, :), batch_size, 1)
-    # quantₜ_samples = rand(1, batch_size, n_samples_target) # try other methods
     support = send_to_device(D, support)
-    # quantₜ = compute_backward(quantₜ_samples, ξₜ, n_actions)
     z_cdf, z_pdf = compute_forward(support, ξₜ, n_actions)
     quantₜ = z_pdf .* support
 
@@ -202,15 +200,6 @@ function RLBase.optimise!(learner::NEWSHITLearner, batch::NamedTuple)
     end
     mean_q = dropdims(sum(quantₜ, dims=3), dims=3)
     selected_actions = dropdims(argmax(mean_q; dims=1); dims=1)
-    # if learner.is_enable_double_DQN
-    #     q_values = Zₜ(next_states, n_samples_target, n_actions)[1]
-    # end
-    # next_q = @inbounds q_values[selected_actions, :]
-    # quantₜ_selected = @inbounds quantₜ[selected_actions, :]
-    # @show size(terminals)
-    # @show size(Flux.unsqueeze(rewards, 2))
-    # @show size(Flux.unsqueeze(γ^update_horizon .* (1 .- terminals), 2))
-    # @show size(quantₜ_selected)
 
     support = (support .- rewards) ./ γ
     target_cdf, _ = compute_forward(support, ξₜ, n_actions)
