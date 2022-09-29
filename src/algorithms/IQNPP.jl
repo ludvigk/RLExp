@@ -43,6 +43,7 @@ Base.@kwdef mutable struct IQNPPLearner{A<:Approximator{<:TwinNetwork}} <: Abstr
     κ::Float32 = 1.0f0
     N::Int = 32
     N′::Int = 32
+    Aₑₘ::Int = 8
     Nₑₘ::Int = 64
     K::Int = 32
     rng::AbstractRNG = GLOBAL_RNG
@@ -123,6 +124,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     N = learner.N
     N′ = learner.N′
     Nₑₘ = learner.Nₑₘ
+    Aₑₘ = learner.Aₑₘ
     κ = learner.κ
     D = device(Z)
     # s, s′, a, r, t = map(x -> batch[x], SS′ART)
@@ -137,7 +139,8 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     τ′ = rand(learner.device_rng, Float32, N′, batch_size)  # TODO: support β distribution
     τₑₘ′ = embed(τ′, Nₑₘ)
     zₜ = Zₜ(s′, τₑₘ′)
-    avg_zₜ = mean(zₜ, dims=2)
+    zₜ = reshape(zₜ, Aₑₘ, :, N′, batch_size)
+    avg_zₜ = dropdims(mean(zₜ, dims=(1, 3)), dims=1)
 
     if haskey(batch, :next_legal_actions_mask)
         masked_value = similar(batch.next_legal_actions_mask, Float32)
@@ -146,7 +149,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
         avg_zₜ .+= masked_value
     end
 
-    aₜ = argmax(avg_zₜ, dims=1)
+    aₜ = argmax(avg_zₜ, dims=2)
     aₜ = aₜ .+ typeof(aₜ)(CartesianIndices((0:0, 0:N′-1, 0:0)))
     qₜ = reshape(zₜ[aₜ], :, batch_size)
     target = reshape(r, 1, batch_size) .+ learner.γ * reshape(1 .- t, 1, batch_size) .* qₜ  # reshape to allow broadcast
@@ -157,8 +160,8 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
 
     gs = gradient(params(A)) do
         z_raw = Z(s, τₑₘ)
-        z = reshape(z_raw, size(z_raw)[1:end-2]..., :)
-        q = z[a]
+        z = reshape(z_raw, Aₑₘ, :, N, batch_size)
+        q = z[:, a]
 
         # TD_error = reshape(target, N′, 1, batch_size) .- reshape(q, 1, N, batch_size)
         # can't apply huber_loss in RLCore directly here
@@ -176,8 +179,8 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
 
         # @show size(q)
         # @show size(target)
-        target = reshape(target, 1, N′, batch_size)
-        q = reshape(q, 1, N, batch_size)
+        # target = reshape(target, 1, N′, batch_size)
+        # q = reshape(q, 1, N, batch_size)
         loss = mean(energy_distance(q, target))
         ignore_derivatives() do
             learner.loss = loss
