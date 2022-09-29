@@ -85,7 +85,7 @@ function l2_norm(td, κ)
 end
 
 function l1_norm(td, κ)
-    return td .^ 2
+    return abs.(td)
 end
 
 function energy_distance(x, y; κ=1.0f0)
