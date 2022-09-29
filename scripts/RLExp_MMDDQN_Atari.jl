@@ -38,18 +38,18 @@ function _create_bias(weights::AbstractArray, bias::AbstractArray, dims::Integer
     bias
 end
 
-struct PDense{F,M<:AbstractMatrix,B}
+struct PDense{F, M<:AbstractMatrix, B}
     weight::M
     bias::B
     σ::F
-    function PDense(W::M, bias=true, σ::F=identity) where {M<:AbstractMatrix,F}
-        b = _create_bias(W, bias, size(W, 1))
+    function PDense(W::M, bias = true, σ::F = identity) where {M<:AbstractMatrix, F}
+        b = _create_bias(W, bias, size(W,1))
         new{F,M,typeof(b)}(W, b, σ)
     end
 end
-
-function PDense((in, out)::Pair{<:Integer,<:Integer}, σ=identity;
-    init=glorot_uniform, bias=true)
+  
+function PDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
+                init = glorot_uniform, bias = true)
     PDense(init(out, in), bias, σ)
 end
 
@@ -61,7 +61,7 @@ function (a::PDense)(x)
     return σ.(w * x .+ a.bias)
 end
 
-struct MonotonicDense{F,M<:AbstractMatrix,B,I}
+struct MonotonicDense{F, M<:AbstractMatrix, B, I}
     convexity::I
     weight::M
     bias::B
@@ -71,12 +71,12 @@ end
 Flux.@functor MonotonicDense
 
 
-function MonotonicDense((in, out)::Pair{<:Integer,<:Integer}, σ=identity;
-    init=glorot_uniform, bias=true, ϵ=0.5)
+function MonotonicDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
+    init = glorot_uniform, bias = true, ϵ=0.5)
     n_ones = Int(round(out * ϵ))
     n_zeros = out - n_ones
     convexity = vcat(ones(Float32, n_ones), zeros(Float32, n_zeros))
-    MonotonicDense(convexity, init(out, in), bias, σ)
+MonotonicDense(convexity, init(out, in), bias, σ)
 end
 
 function (a::MonotonicDense)(x)
@@ -89,7 +89,7 @@ end
 
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:IQNPP},
+    ::Val{:MMDDQN},
     ::Val{:Atari};
     game
 )
@@ -101,16 +101,16 @@ function RL.Experiment(
         "lr" => 0.0001,
         "clip_norm" => 10,
         "update_freq" => 4,
-        "target_update_freq" => 10_000,
+        "target_update_freq" => 8000,
         "n_samples_act" => 1000,
         "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
         "batch_size" => 32,
-        "min_replay_history" => 20_000,
+        "min_replay_history" => 50_000,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 1_000_000,
+        "traj_capacity" => 100_000,
         "seed" => 1,
         "flow_depth" => 6,
         "terminal_on_life_loss" => true,
@@ -149,7 +149,7 @@ function RL.Experiment(
         terminal_on_life_loss=terminal_on_life_loss
     )
     N_ACTIONS = length(action_space(env))
-
+    N = 64
     """
     CREATE MODEL
     """
@@ -187,19 +187,14 @@ function RL.Experiment(
     # )
 
     create_model() =
-        ImplicitQuantileNet(
-            ψ=Chain(
-                x -> x ./ 255,
-                CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=init),
-                CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=init),
-                CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=init),
-                x -> reshape(x, :, size(x)[end]),
-            ),
-            ϕ=Dense(Nₑₘ => 11 * 11 * 64, relu; init=init),
-            header=Chain(
-                Dense(11 * 11 * 64 => 512, relu; init=init),
-                Dense(512 => N_ACTIONS; init=init),
-            ),
+        Chain(
+            x -> x ./ 255,
+            CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2),
+            CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2),
+            CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1),
+            x -> reshape(x, :, size(x)[end]),
+            Dense(11 * 11 * 64, 512, relu),
+            Dense(512, N * N_ACTIONS),
         ) |> gpu
 
     """
@@ -208,22 +203,18 @@ function RL.Experiment(
     Nₑₘ = 64
     agent = Agent(
         policy=QBasedPolicy(
-            learner=IQNPPLearner(
+            learner=MMDDQNLearner(
                 approximator=Approximator(
                     model=TwinNetwork(
                         create_model(),
                         sync_freq=10_000
                     ),
-                    optimiser=ADAM(0.00005, (0.9, 0.999), 1e-2 / 32),
+                    optimiser=ADAM(0.00005, (0.9, 0.999), 1e-2/32),
                 ),
-                κ=1.0f0,
-                N=64,
-                N′=64,
-                Nₑₘ=Nₑₘ,
-                K=32,
-                γ=0.99f0,
-                rng=rng,
-                device_rng=device_rng,
+                γ = 0.99f0,
+                n_quantile=N,
+                rng = rng,
+                # device_rng = device_rng,
             ),
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
@@ -257,7 +248,7 @@ function RL.Experiment(
     """
     EVALUATION_FREQ = 250_000
     STEP_LOG_FREQ = 1_000
-    EPISODE_LOG_FREQ = 1_000
+    EPISODE_LOG_FREQ = 100
     MAX_EPISODE_STEPS_EVAL = 27_000
 
     screens = []
@@ -274,8 +265,7 @@ function RL.Experiment(
                 L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                 Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
                 min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
-                lsi = (STEP_LOG_FREQ * 4)
-                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred log_step_increment = lsi
+                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
             end
         catch
             close(lg)
@@ -287,21 +277,21 @@ function RL.Experiment(
             @info "training" episode = t log_step_increment = 0
             @info "training" episode_length = step_per_episode.steps[end] reward = reward_per_episode.rewards[end] log_step_increment = 0
         end
-        # try
-        #     s = agent.trajectory[:state]
-        #     beg = rand((1+N_FRAMES):size(s, 3))
-        #     s = s[:, :, (beg-N_FRAMES):(beg-1)]
-        #     s = Flux.unsqueeze(s, 4) |> gpu
-        #     samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
-        #     p = plot()
-        #     for action in 1:size(samples, 1)
-        #         density!(samples[action, 1, :], c=action, label="action $(action)")
-        #         vline!([mean(samples[action, 1, :])], c=action, label=false)
-        #     end
-        #     Plots.savefig(p, save_dir * "/qdistr_$(t).png")
-        # catch
-        #     @warn "Could not save plot"
-        # end
+        try
+            s = agent.trajectory[:state]
+            beg = rand((1+N_FRAMES):size(s, 3))
+            s = s[:, :, (beg-N_FRAMES):(beg-1)]
+            s = Flux.unsqueeze(s, 4) |> gpu
+            samples = agent.policy.learner.approximator.source(s, 500)[1] |> cpu
+            p = plot()
+            for action in 1:size(samples, 1)
+                density!(samples[action, 1, :], c=action, label="action $(action)")
+                vline!([mean(samples[action, 1, :])], c=action, label=false)
+            end
+            Plots.savefig(p, save_dir * "/qdistr_$(t).png")
+        catch
+            @warn "Could not save plot"
+        end
     end
     eval_hook = DoEveryNStep(; n=EVALUATION_FREQ) do t, agent, env
         # @info "Saving agent at step $t to $save_dir"

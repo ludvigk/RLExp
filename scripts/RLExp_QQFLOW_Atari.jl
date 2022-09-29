@@ -39,24 +39,24 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 0.0001,
-        "clip_norm" => 10,
-        "update_freq" => 8,
-        "target_update_freq" => 500,
-        "n_samples_act" => 1000,
-        "n_samples_target" => 1000,
+        "lr" => 0.00005,
+        "clip_norm" => 100,
+        "update_freq" => 4,
+        "target_update_freq" => 10_000,
+        "n_samples_act" => 100,
+        "n_samples_target" => 100,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
-        "is_enable_double_DQN" => true,
+        "is_enable_double_DQN" => false,
         "traj_capacity" => 1_000_000,
         "seed" => 1,
         "flow_depth" => 6,
-        "terminal_on_life_loss" => false,
-        "adam_epsilon" => 1e-6,
-        "n_steps" => 200_000_000,
+        "terminal_on_life_loss" => true,
+        "adam_epsilon" => 1e-2/32,
+        "n_steps" => 50_000_000,
     )
 
     lg = WandbLogger(project="BE",
@@ -86,7 +86,8 @@ function RL.Experiment(
         STATE_SIZE,
         N_FRAMES;
         seed=isnothing(seed) ? nothing : hash(seed + 1),
-        terminal_on_life_loss=terminal_on_life_loss
+        terminal_on_life_loss=terminal_on_life_loss,
+        repeat_action_probability=0,
     )
     N_ACTIONS = length(action_space(env))
 
@@ -143,7 +144,7 @@ function RL.Experiment(
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
                 ϵ_stable=0.01,
-                decay_steps=1_000_000,
+                decay_steps=250_000,
                 kind=:linear,
                 rng=rng,
             ),
@@ -182,6 +183,7 @@ function RL.Experiment(
     """
     step_per_episode = StepsPerEpisode()
     reward_per_episode = TotalRewardPerEpisode()
+    update_freq = get_config(lg, "update_freq")
     every_n_step = DoEveryNStep(; n=STEP_LOG_FREQ) do t, agent, env
         try
             with_logger(lg) do
@@ -189,7 +191,8 @@ function RL.Experiment(
                 L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                 Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
                 min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
-                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
+                lsi = STEP_LOG_FREQ * update_freq
+                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred log_step_increment = lsi
             end
         catch
             close(lg)
