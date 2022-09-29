@@ -15,7 +15,7 @@ end
 function SupportProposalNet(emb_size::Int, N::Int, n_actions::Int)
     net = Chain(
         Dense(emb_size => n_actions * N),
-        )
+    )
     scale = Dense(emb_size => n_actions)
     loc = Dense(emb_size => n_actions)
     return SupportProposalNet(net, scale, loc, N)
@@ -34,7 +34,7 @@ function (net::SupportProposalNet)(state_emb)
     # support = support_01
     # @show size()
     support = (support_01 .+ loc) .* scale
-    entropies = sum(-(support_01 .* log_p .+ log_scale), dims=(1,2))
+    entropies = sum(-(support_01 .* log_p .+ log_scale), dims=(1, 2))
 
     # support = reshape(support, :, net.N, size(state_emb, 2))
     return support, entropies
@@ -85,8 +85,8 @@ function (net::FPCRNet)(s; only_mid=true)
 end
 
 function (net::FPCRNet)(state_emb, support, entropies; only_mid=true)
-    support_mid = (support[:,1:(end-1), :] .+ support[:,2:end,:]) ./ 2  # (n_action, N-1, batch_size)
-    support_diff = support[:,2:end,:] .- support[:,1:(end-1), :]  # (n_action, N-1, batch_size)
+    support_mid = (support[:, 1:(end-1), :] .+ support[:, 2:end, :]) ./ 2  # (n_action, N-1, batch_size)
+    support_diff = support[:, 2:end, :] .- support[:, 1:(end-1), :]  # (n_action, N-1, batch_size)
 
     cdf_mid, pdf_mid = net.cdf(state_emb, support_mid)
     cdf_mid = reshape(cdf_mid, size(support_mid, 1), :, size(state_emb, 2))  # (n_action, N-1, batch_size)
@@ -100,29 +100,29 @@ function (net::FPCRNet)(state_emb, support, entropies; only_mid=true)
     cdf, pdf = Zygote.@ignore net.cdf(state_emb, support)
     cdf = reshape(cdf, size(support, 1), :, size(state_emb, 2))  # (n_action, N, batch_size)
     pdf = reshape(pdf, size(support, 1), :, size(state_emb, 2))  # (n_action, N, batch_size)
-     
+
     cdf_left = zeros(size(cdf, 1), 1, size(cdf, 3))
     cdf_right = ones(size(cdf, 1), 1, size(cdf, 3))
 
     cdf_ext = cat(cdf_left, cdf_mid, cdf_right, dims=2)
-    grad = Zygote.@ignore 2cdf .- cdf_ext[:,1:end-1,:] .- cdf_ext[:,2:end,:]
+    grad = Zygote.@ignore 2cdf .- cdf_ext[:, 1:end-1, :] .- cdf_ext[:, 2:end, :]
     l = grad .* support
 
     return cdf_mid, pdf_mid, support_mid, q_value, cdf, pdf, support, l, entropies
 end
 
-function energy_distance(x, y)
-    n = size(x, 2)
-    m = size(y, 2)
+# function energy_distance(x, y)
+#     n = size(x, 2)
+#     m = size(y, 2)
 
-    x_ = Flux.unsqueeze(x, dims=2)
-    _x = Flux.unsqueeze(x, dims=3)
-    _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2,3)), dims=(2,3))
-    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2,3)), dims=(2,3))
-    ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
-    return ε
-end
+#     x_ = Flux.unsqueeze(x, dims=2)
+#     _x = Flux.unsqueeze(x, dims=3)
+#     _y = Flux.unsqueeze(y, dims=3)
+#     d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2,3)), dims=(2,3))
+#     d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2,3)), dims=(2,3))
+#     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
+#     return ε
+# end
 
 
 Base.@kwdef mutable struct FPCRLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
@@ -201,7 +201,7 @@ function RLBase.optimise!(learner::FPCRLearner, batch::NamedTuple)
 
     gs_cdf = gradient(Flux.params(A)) do
         state_emb = Z.base(s)
-        r = reshape(r, 1,1,:)
+        r = reshape(r, 1, 1, :)
         t = reshape(1 .- t, 1, 1, :)
 
         support = (support .* t .- r) ./ learner.γ
@@ -210,7 +210,7 @@ function RLBase.optimise!(learner::FPCRLearner, batch::NamedTuple)
         cdfₐ = reshape(cdf_mid[a], :, batch_size)
 
         loss = Flux.huber_loss(cdfₜ, cdfₐ)
-        
+
         return loss
     end
 

@@ -10,7 +10,7 @@ export QQFlow
 export FlowNet
 export IQNPPLearner
 # export MMDDQNLearner
-export SupportProposalNet, FPCRNet, CDFNet, FPCRLearner
+# export SupportProposalNet, FPCRNet, CDFNet, FPCRLearner
 
 using ArcadeLearningEnvironment
 using ArcadeLearningEnvironment: getScreenRGB, getScreenWidth, getScreenHeight
@@ -37,7 +37,7 @@ include("utils/custom_grads.jl")
 include("algorithms/QQFLOW.jl")
 include("algorithms/NEWSHIT.jl")
 include("algorithms/IQNPP.jl")
-include("algorithms/FPCR.jl")
+# include("algorithms/FPCR.jl")
 # include("algorithms/MMDDQN.jl")
 
 end
