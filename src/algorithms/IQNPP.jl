@@ -152,7 +152,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
 
     aₜ = argmax(avg_zₜ, dims=2)
     aₜ = aₜ .+ typeof(aₜ)(CartesianIndices((0:0, 0:N′-1, 0:0)))
-    qₜ = reshape(zₜ[aₜ], :, batch_size)
+    qₜ = reshape(zₜ[:, aₜ], :, batch_size)
     target = reshape(r, 1, batch_size) .+ learner.γ * reshape(1 .- t, 1, batch_size) .* qₜ  # reshape to allow broadcast
 
     τ = rand(learner.device_rng, Float32, N, batch_size)
