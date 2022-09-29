@@ -83,6 +83,10 @@ function l2_norm(td, κ)
     return td .^ 2
 end
 
+function l1_norm(td, κ)
+    return td .^ 2
+end
+
 function energy_distance(x, y; κ=1.0f0)
     n = size(x, 2)
     m = size(y, 2)
@@ -90,11 +94,27 @@ function energy_distance(x, y; κ=1.0f0)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum(l2_norm(x_ .- _y, κ), dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum(l2_norm(x_ .- _x, κ), dims=(2, 3)), dims=(2, 3))
+    d_xy = dropdims(sum(l1_norm(x_ .- _y, κ), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(l1_norm(x_ .- _x, κ), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end
+
+# function energy_distance_fast(x, y; κ=1.0f0)
+#     n = size(x, 2)
+#     m = size(y, 2)
+
+#     x_ = permutedims(x, (2, 1, 3))
+#     y_ = permutedims(y, (2, 1, 3))
+#     x_ = Flux.unsqueeze(x, dims=1)
+#     _x = Flux.unsqueeze(x, dims=2)
+#     _y = Flux.unsqueeze(y, dims=2)
+#     # d_xy = dropdims(sum(l2_norm(x_ .- _y, κ), dims=(2, 3)), dims=(2, 3))
+#     # d_xx = dropdims(sum(l2_norm(x_ .- _x, κ), dims=(2, 3)), dims=(2, 3))
+#     ε = dropdims(batched_mul(x_, _x)) + 2batched_mul(x_, _y)
+#     # ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
+#     return ε
+# end
 
 function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     A = learner.approximator
