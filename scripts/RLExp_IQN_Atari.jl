@@ -98,7 +98,7 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 0.0001,
+        "lr" => 0.00005,
         "clip_norm" => 10,
         "update_freq" => 4,
         "target_update_freq" => 10_000,
