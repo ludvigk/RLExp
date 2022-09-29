@@ -219,7 +219,6 @@ function RL.Experiment(
                 κ=1.0f0,
                 N=64,
                 N′=64,
-                Aₑₘ=10,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,

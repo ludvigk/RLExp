@@ -43,7 +43,6 @@ Base.@kwdef mutable struct IQNPPLearner{A<:Approximator{<:TwinNetwork}} <: Abstr
     κ::Float32 = 1.0f0
     N::Int = 32
     N′::Int = 32
-    Aₑₘ::Int = 8
     Nₑₘ::Int = 64
     K::Int = 32
     rng::AbstractRNG = GLOBAL_RNG
@@ -123,7 +122,6 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     N = learner.N
     N′ = learner.N′
     Nₑₘ = learner.Nₑₘ
-    Aₑₘ = learner.Aₑₘ
     κ = learner.κ
     D = device(Z)
     # s, s′, a, r, t = map(x -> batch[x], SS′ART)
