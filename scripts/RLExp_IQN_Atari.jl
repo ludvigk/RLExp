@@ -106,16 +106,16 @@ function RL.Experiment(
         "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
-        "update_horizon" => 3,
+        "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 100_000,
+        "traj_capacity" => 1_000_000,
         "seed" => 1,
         "flow_depth" => 6,
-        "terminal_on_life_loss" => false,
+        "terminal_on_life_loss" => true,
         "adam_epsilon" => 1e-6,
-        "n_steps" => 200_000_000,
+        "n_steps" => 50_000_000,
     )
 
     lg = WandbLogger(project="BE",
@@ -145,6 +145,7 @@ function RL.Experiment(
         STATE_SIZE,
         N_FRAMES;
         seed=isnothing(seed) ? nothing : hash(seed + 1),
+        repeat_action_probability=0.0,
         terminal_on_life_loss=terminal_on_life_loss
     )
     N_ACTIONS = length(action_space(env))
@@ -196,7 +197,7 @@ function RL.Experiment(
             ),
             ϕ = Dense(Nₑₘ => 11 * 11 * 64, relu; init = init),
             header = Chain(
-                Dense(11 * 11 * 64 => 512, tanh; init = init),
+                Dense(11 * 11 * 64 => 512, relu; init = init),
                 Dense(512 => N_ACTIONS; init = init),
             ),
         ) |> gpu
@@ -211,13 +212,13 @@ function RL.Experiment(
                 approximator=Approximator(
                     model=TwinNetwork(
                         create_model(),
-                        sync_freq=8_000
+                        sync_freq=10_000
                     ),
-                    optimiser=ADAM(0.0001),
+                    optimiser=ADAM(0.00005, (0.9, 0.999), 1e-2/32),
                 ),
                 κ = 1.0f0,
-                N = 16,
-                N′ = 16,
+                N = 64,
+                N′ = 64,
                 Nₑₘ = Nₑₘ,
                 K = 32,
                 γ = 0.99f0,
@@ -227,7 +228,7 @@ function RL.Experiment(
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
                 ϵ_stable=0.01,
-                decay_steps=1_000_000,
+                decay_steps=250_000,
                 kind=:linear,
                 rng=rng,
             ),
@@ -317,6 +318,7 @@ function RL.Experiment(
                 STATE_SIZE,
                 N_FRAMES,
                 MAX_EPISODE_STEPS_EVAL;
+                repeat_action_probability=0.0,
                 seed=isnothing(seed) ? nothing : hash(seed + t)
             ),
             StopAfterStep(125_000; is_show_progress=false),

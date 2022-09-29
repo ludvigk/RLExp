@@ -72,17 +72,28 @@ function (L::IQNPPLearner)(env::AbstractEnv)
     q |> send_to_host
 end
 
-function energy_distance(x, y)
+function huber_norm(td, κ)
+    abs_error = abs.(td)
+    quadratic = min.(abs_error, κ)
+    linear = abs_error .- quadratic
+    return 0.5f0 .* quadratic .* quadratic .+ κ .* linear
+end
+
+function l2_norm(td, κ)
+    return td .^ 2
+end
+
+function energy_distance(x, y; κ=1f0)
     n = size(x, 2)
     m = size(y, 2)
 
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2,3)), dims=(2,3))
-    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2,3)), dims=(2,3))
+    d_xy = dropdims(sum(l2_norm(x_ .- _y, κ), dims=(2,3)), dims=(2,3))
+    d_xx = dropdims(sum(l2_norm(x_ .- _x, κ), dims=(2,3)), dims=(2,3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
-    return ε
+    return sqrt.(max.(ε, 0f0))
 end
 
 function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)

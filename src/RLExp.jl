@@ -9,6 +9,7 @@ export AcrobotEnv, GymEnv
 export QQFlow
 export FlowNet
 export IQNPPLearner
+export MMDDQNLearner
 export SupportProposalNet, FPCRNet, CDFNet, FPCRLearner
 
 using ArcadeLearningEnvironment
@@ -37,5 +38,6 @@ include("algorithms/QQFLOW.jl")
 include("algorithms/NEWSHIT.jl")
 include("algorithms/IQNPP.jl")
 include("algorithms/FPCR.jl")
+include("algorithms/MMDDQN.jl")
 
 end

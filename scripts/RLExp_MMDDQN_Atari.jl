@@ -18,6 +18,8 @@ using Setfield
 using Statistics
 using Wandb
 
+using Flux: glorot_uniform
+
 applychain(::Tuple{}, x, n; kwargs...) = x
 function applychain(fs::Tuple, x, n; kwargs...)
     if isa(first(fs), NoisyDense) || isa(first(fs), Split)
@@ -28,9 +30,66 @@ function applychain(fs::Tuple, x, n; kwargs...)
 end
 (c::Chain)(x, n; kwargs...) = applychain(c.layers, x, n; kwargs...)
 
+function _create_bias(weights::AbstractArray, bias::Bool, dims::Integer...)
+    bias ? fill!(similar(weights, dims...), 0) : false
+end
+function _create_bias(weights::AbstractArray, bias::AbstractArray, dims::Integer...)
+    size(bias) == dims || throw(DimensionMismatch("expected bias of size $(dims), got size $(size(bias))"))
+    bias
+end
+
+struct PDense{F, M<:AbstractMatrix, B}
+    weight::M
+    bias::B
+    σ::F
+    function PDense(W::M, bias = true, σ::F = identity) where {M<:AbstractMatrix, F}
+        b = _create_bias(W, bias, size(W,1))
+        new{F,M,typeof(b)}(W, b, σ)
+    end
+end
+  
+function PDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
+                init = glorot_uniform, bias = true)
+    PDense(init(out, in), bias, σ)
+end
+
+Flux.@functor PDense
+
+function (a::PDense)(x)
+    σ = NNlib.fast_act(a.σ, x)
+    w = abs.(a.weight)
+    return σ.(w * x .+ a.bias)
+end
+
+struct MonotonicDense{F, M<:AbstractMatrix, B, I}
+    convexity::I
+    weight::M
+    bias::B
+    σ::F
+end
+
+Flux.@functor MonotonicDense
+
+
+function MonotonicDense((in, out)::Pair{<:Integer, <:Integer}, σ = identity;
+    init = glorot_uniform, bias = true, ϵ=0.5)
+    n_ones = Int(round(out * ϵ))
+    n_zeros = out - n_ones
+    convexity = vcat(ones(Float32, n_ones), zeros(Float32, n_zeros))
+MonotonicDense(convexity, init(out, in), bias, σ)
+end
+
+function (a::MonotonicDense)(x)
+    σ = NNlib.fast_act(a.σ, x)
+    w = abs.(a.weight)
+    y = w * x .+ a.bias
+    return σ.(y) .* a.convexity .- σ.(y) .* (1 .- a.convexity)
+end
+
+
 function RL.Experiment(
     ::Val{:RLExp},
-    ::Val{:QQFLOW},
+    ::Val{:MMDDQN},
     ::Val{:Atari};
     game
 )
@@ -39,23 +98,23 @@ function RL.Experiment(
     SET UP LOGGING
     """
     config = Dict(
-        "lr" => 0.00005,
-        "clip_norm" => 100,
+        "lr" => 0.0001,
+        "clip_norm" => 10,
         "update_freq" => 4,
-        "target_update_freq" => 10_000,
-        "n_samples_act" => 100,
-        "n_samples_target" => 100,
+        "target_update_freq" => 8000,
+        "n_samples_act" => 1000,
+        "n_samples_target" => 1000,
         "opt" => "ADAM",
         "gamma" => 0.99,
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
-        "is_enable_double_DQN" => false,
-        "traj_capacity" => 1_000_000,
+        "is_enable_double_DQN" => true,
+        "traj_capacity" => 100_000,
         "seed" => 1,
         "flow_depth" => 6,
         "terminal_on_life_loss" => true,
-        "adam_epsilon" => 1e-2/32,
+        "adam_epsilon" => 1e-6,
         "n_steps" => 50_000_000,
     )
 
@@ -63,7 +122,7 @@ function RL.Experiment(
         name="QQFLOW_Atari($game)",
         config=config,
     )
-    save_dir = datadir("sims", "QQFLOW", "Atari($game)", "$(now())")
+    save_dir = datadir("sims", "IQNPP", "Atari($game)", "$(now())")
     mkpath(save_dir)
 
     """
@@ -86,60 +145,76 @@ function RL.Experiment(
         STATE_SIZE,
         N_FRAMES;
         seed=isnothing(seed) ? nothing : hash(seed + 1),
-        terminal_on_life_loss=terminal_on_life_loss,
-        repeat_action_probability=0,
+        repeat_action_probability=0.0,
+        terminal_on_life_loss=terminal_on_life_loss
     )
     N_ACTIONS = length(action_space(env))
-
+    N = 64
     """
     CREATE MODEL
     """
-    initc = Flux.glorot_uniform(rng)
+    # initc = Flux.glorot_uniform(rng)
     # initc = Flux.kaiming_normal(rng)
 
-    flow_depth = get_config(lg, "flow_depth")
+    # flow_depth = get_config(lg, "flow_depth")
     # opt = eval(Meta.parse(get_config(lg, "opt")))
     # opt = ADAM(config["lr"], (0.9, 0.999), config["adam_epsilon"])
     # opt = ADAM(config["lr"])
-    opt = AdaBelief(config["lr"])
+    # opt = AdaBelief(config["lr"])
     # opt = CenteredRMSProp(config["lr"], 0.0, config["adam_epsilon"])
     # lr = get_config(lg, "lr")
     # clip_norm = get_config(lg, "clip_norm")
 
-    model = Chain(
-        x -> x ./ 255,
-        CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
-        CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
-        CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
-        x -> reshape(x, :, size(x)[end]),
-        Dense(11 * 11 * 64, 512, relu, init=initc),
-        Dense(512, (3 * flow_depth) * N_ACTIONS, init=initc),
-    ) |> gpu
+    # model = Chain(
+    #     x -> x ./ 255,
+    #     CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=initc),
+    #     CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2, init=initc),
+    #     CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=initc),
+    #     x -> reshape(x, :, size(x)[end]),
+    #     Dense(11 * 11 * 64, 512, relu, init=initc),
+    #     Dense(512, (3 * flow_depth) * N_ACTIONS, init=initc),
+    # ) |> gpu
+    init = glorot_uniform(rng)
 
+    # approximator = Approximator(
+    #     model=TwinNetwork(
+    #         FlowNet(
+    #             net=model
+    #         ),
+    #         sync_freq=get_config(lg, "target_update_freq"),
+    #     );
+    #     optimiser=opt
+    # )
 
-    approximator = Approximator(
-        model=TwinNetwork(
-            FlowNet(
-                net=model
-            ),
-            sync_freq=get_config(lg, "target_update_freq"),
-        );
-        optimiser=opt
-    )
+    create_model() =
+        Chain(
+            x -> x ./ 255,
+            CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2),
+            CrossCor((4, 4), 32 => 64, relu; stride=2, pad=2),
+            CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1),
+            x -> reshape(x, :, size(x)[end]),
+            Dense(11 * 11 * 64, 512, relu),
+            Dense(512, N * N_ACTIONS),
+        ) |> gpu
 
     """
     CREATE AGENT
     """
+    Nₑₘ = 64
     agent = Agent(
         policy=QBasedPolicy(
-            learner=QQFLOWLearner(
-                approximator=approximator,
-                n_actions=N_ACTIONS,
-                γ=get_config(lg, "gamma"),
-                update_horizon=get_config(lg, "update_horizon"),
-                n_samples_act=get_config(lg, "n_samples_act"),
-                n_samples_target=get_config(lg, "n_samples_target"),
-                is_enable_double_DQN=get_config(lg, "is_enable_double_DQN"),
+            learner=MMDDQNLearner(
+                approximator=Approximator(
+                    model=TwinNetwork(
+                        create_model(),
+                        sync_freq=10_000
+                    ),
+                    optimiser=ADAM(0.00005, (0.9, 0.999), 1e-2/32),
+                ),
+                γ = 0.99f0,
+                n_quantile=N,
+                rng = rng,
+                # device_rng = device_rng,
             ),
             explorer=EpsilonGreedyExplorer(
                 ϵ_init=1.0,
@@ -183,7 +258,6 @@ function RL.Experiment(
     """
     step_per_episode = StepsPerEpisode()
     reward_per_episode = TotalRewardPerEpisode()
-    update_freq = get_config(lg, "update_freq")
     every_n_step = DoEveryNStep(; n=STEP_LOG_FREQ) do t, agent, env
         try
             with_logger(lg) do
@@ -191,8 +265,7 @@ function RL.Experiment(
                 L, nll, sldj, Qt, QA = p["𝐿"], p["nll"], p["sldj"], p["Qₜ"], p["QA"]
                 Q1, Q2, mu, sigma, l2norm = p["Q1"], p["Q2"], p["mu"], p["sigma"], p["l2norm"]
                 min_weight, max_weight, min_pred, max_pred = p["min_weight"], p["max_weight"], p["min_pred"], p["max_pred"]
-                lsi = STEP_LOG_FREQ * update_freq
-                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred log_step_increment = lsi
+                @info "training" L nll sldj Qt QA Q1 Q2 mu sigma l2norm min_weight max_weight min_pred max_pred
             end
         catch
             close(lg)
@@ -236,6 +309,7 @@ function RL.Experiment(
                 STATE_SIZE,
                 N_FRAMES,
                 MAX_EPISODE_STEPS_EVAL;
+                repeat_action_probability=0.0,
                 seed=isnothing(seed) ? nothing : hash(seed + t)
             ),
             StopAfterStep(125_000; is_show_progress=false),
