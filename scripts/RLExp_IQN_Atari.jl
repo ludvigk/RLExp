@@ -198,7 +198,7 @@ function RL.Experiment(
             ϕ=Dense(Nₑₘ => 11 * 11 * 64, relu; init=init),
             header=Chain(
                 Dense(11 * 11 * 64 => 512, relu; init=init),
-                Dense(512 => N_ACTIONS; init=init),
+                Dense(512 => 10 * N_ACTIONS; init=init),
             ),
         ) |> gpu
 
@@ -219,6 +219,7 @@ function RL.Experiment(
                 κ=1.0f0,
                 N=64,
                 N′=64,
+                Aₑₘ=10,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,
