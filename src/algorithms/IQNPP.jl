@@ -64,7 +64,8 @@ function (learner::IQNPPLearner)(s::AbstractArray)
 
     τₑₘ = embed(τ, learner.Nₑₘ)
     quantiles = learner.approximator(s, τₑₘ)
-    dropdims(mean(quantiles; dims=2); dims=2)
+    quantiles = reshape(quantiles, learner.Aₑₘ, :, learner.K, batch_size)
+    dropdims(mean(quantiles; dims=(1, 3)); dims=(1, 3))
 end
 
 function (L::IQNPPLearner)(env::AbstractEnv)
