@@ -64,8 +64,7 @@ function (learner::IQNPPLearner)(s::AbstractArray)
 
     τₑₘ = embed(τ, learner.Nₑₘ)
     quantiles = learner.approximator(s, τₑₘ)
-    quantiles = reshape(quantiles, learner.Aₑₘ, :, learner.K, batch_size)
-    dropdims(mean(quantiles; dims=(1, 3)); dims=(1, 3))
+    dropdims(mean(quantiles; dims=2); dims=2)
 end
 
 function (L::IQNPPLearner)(env::AbstractEnv)
@@ -92,10 +91,9 @@ end
 function energy_distance(x, y; κ=1.0f0)
     n = size(x, 2)
     m = size(y, 2)
-
-    x_ = Flux.unsqueeze(x, dims=2)
-    _x = Flux.unsqueeze(x, dims=3)
-    _y = Flux.unsqueeze(y, dims=3)
+    x_ = Flux.unsqueeze(x, dims=3)
+    _x = Flux.unsqueeze(x, dims=4)
+    _y = Flux.unsqueeze(y, dims=4)
     d_xy = dropdims(sum(l1_norm(x_ .- _y, κ), dims=(2, 3)), dims=(2, 3))
     d_xx = dropdims(sum(l1_norm(x_ .- _x, κ), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
@@ -140,8 +138,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     τ′ = rand(learner.device_rng, Float32, N′, batch_size)  # TODO: support β distribution
     τₑₘ′ = embed(τ′, Nₑₘ)
     zₜ = Zₜ(s′, τₑₘ′)
-    zₜ = reshape(zₜ, Aₑₘ, :, N′, batch_size)
-    avg_zₜ = dropdims(mean(zₜ, dims=(1, 3)), dims=1)
+    avg_zₜ = mean(zₜ, dims=2)
 
     if haskey(batch, :next_legal_actions_mask)
         masked_value = similar(batch.next_legal_actions_mask, Float32)
@@ -150,9 +147,9 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
         avg_zₜ .+= masked_value
     end
 
-    aₜ = argmax(avg_zₜ, dims=2)
+    aₜ = argmax(avg_zₜ, dims=1)
     aₜ = aₜ .+ typeof(aₜ)(CartesianIndices((0:0, 0:N′-1, 0:0)))
-    qₜ = reshape(zₜ[:, aₜ], :, batch_size)
+    qₜ = reshape(zₜ[aₜ], :, batch_size)
     target = reshape(r, 1, batch_size) .+ learner.γ * reshape(1 .- t, 1, batch_size) .* qₜ  # reshape to allow broadcast
 
     τ = rand(learner.device_rng, Float32, N, batch_size)
@@ -161,27 +158,11 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
 
     gs = gradient(params(A)) do
         z_raw = Z(s, τₑₘ)
-        z = reshape(z_raw, Aₑₘ, :, N, batch_size)
-        q = z[:, a]
+        z = reshape(z_raw, size(z_raw)[1:end-2]..., :)
+        q = z[a]
 
-        # TD_error = reshape(target, N′, 1, batch_size) .- reshape(q, 1, N, batch_size)
-        # can't apply huber_loss in RLCore directly here
-        # abs_error = abs.(TD_error)
-        # quadratic = min.(abs_error, κ)
-        # linear = abs_error .- quadratic
-        # huber_loss = 0.5f0 .* quadratic .* quadratic .+ κ .* linear
-
-        # # dropgrad
-        # raw_loss =
-        #     abs.(reshape(τ, 1, N, batch_size) .- ignore_derivatives(TD_error .< 0)) .*
-        #     huber_loss ./ κ
-        # loss_per_quantile = reshape(sum(raw_loss; dims=1), N, batch_size)
-        # loss_per_element = mean(loss_per_quantile; dims=1)  # use as priorities
-
-        # @show size(q)
-        # @show size(target)
-        # target = reshape(target, 1, N′, batch_size)
-        # q = reshape(q, 1, N, batch_size)
+        target = reshape(target, 1, N′, batch_size)
+        q = reshape(q, 1, N, batch_size)
         loss = mean(energy_distance(q, target))
         ignore_derivatives() do
             learner.loss = loss

@@ -19,6 +19,7 @@ function RL.Experiment(
     ns, na = length(state(env)), length(action_space(env))
     init = glorot_uniform(rng)
     Nₑₘ = 8
+    Aₑₘ = 8
     n_hidden = 64
     κ = 1.0f0
 
@@ -47,6 +48,7 @@ function RL.Experiment(
                 N=32,
                 N′=32,
                 Nₑₘ=Nₑₘ,
+                Aₑₘ=Aₑₘ,
                 K=32,
                 γ=0.99f0,
                 rng=rng,
