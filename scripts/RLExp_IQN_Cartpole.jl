@@ -48,7 +48,6 @@ function RL.Experiment(
                 N=32,
                 N′=32,
                 Nₑₘ=Nₑₘ,
-                Aₑₘ=Aₑₘ,
                 K=32,
                 γ=0.99f0,
                 rng=rng,
