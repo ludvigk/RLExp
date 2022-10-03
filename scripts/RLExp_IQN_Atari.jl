@@ -216,7 +216,6 @@ function RL.Experiment(
                     ),
                     optimiser=ADAM(0.00005, (0.9, 0.999), 1e-2 / 32),
                 ),
-                κ=1.0f0,
                 N=64,
                 N′=64,
                 Nₑₘ=Nₑₘ,

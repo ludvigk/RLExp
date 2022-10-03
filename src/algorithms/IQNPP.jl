@@ -4,6 +4,7 @@ using Functors: @functor
 using Flux: params, unsqueeze
 using Random: AbstractRNG, GLOBAL_RNG
 using StatsBase: mean
+using StatsFuns
 using Zygote: gradient
 using ChainRulesCore: ignore_derivatives
 using RLExp
@@ -40,7 +41,6 @@ end
 Base.@kwdef mutable struct IQNPPLearner{A<:Approximator{<:TwinNetwork}} <: AbstractLearner
     approximator::A
     γ::Float32 = 0.99f0
-    κ::Float32 = 1.0f0
     N::Int = 32
     N′::Int = 32
     Nₑₘ::Int = 64
@@ -79,12 +79,18 @@ function huber_norm(td, κ)
     return 0.5f0 .* quadratic .* quadratic .+ κ .* linear
 end
 
-function l2_norm(td, κ)
+function l2_norm(td)
     return td .^ 2
 end
 
-function l1_norm(td, κ)
+function l1_norm(td)
     return abs.(td)
+end
+
+function ludde_norm(td)
+    d = abs.(td)
+    xlx = xlogx.(1 ./ (d .+ 1f-8))
+    return (d .- 1) ./ xlx
 end
 
 function energy_distance(x, y; κ=1.0f0)
@@ -93,8 +99,8 @@ function energy_distance(x, y; κ=1.0f0)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum(l1_norm(x_ .- _y, κ), dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum(l1_norm(x_ .- _x, κ), dims=(2, 3)), dims=(2, 3))
+    d_xy = dropdims(sum(l2_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(l2_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end
@@ -122,7 +128,6 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     N = learner.N
     N′ = learner.N′
     Nₑₘ = learner.Nₑₘ
-    κ = learner.κ
     D = device(Z)
     # s, s′, a, r, t = map(x -> batch[x], SS′ART)
     s = send_to_device(D, collect(batch.state))
