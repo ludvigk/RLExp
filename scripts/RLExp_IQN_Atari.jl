@@ -199,7 +199,7 @@ function RL.Experiment(
     """
     CREATE AGENT
     """
-    Nₑₘ = 64
+    Nₑₘ = 16
     agent = Agent(
         policy=QBasedPolicy(
             learner=IQNPPLearner(
