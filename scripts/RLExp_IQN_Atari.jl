@@ -106,7 +106,7 @@ function RL.Experiment(
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 20_000,
-        "traj_capacity" => 100_000,
+        "traj_capacity" => 1_000_000,
         "seed" => 1,
         "terminal_on_life_loss" => true,
         "n_steps" => 50_000_000,
@@ -189,10 +189,10 @@ function RL.Experiment(
                 CrossCor((3, 3), 64 => 64, relu; stride=1, pad=1, init=init),
                 x -> reshape(x, :, size(x)[end]),
             ),
-            ϕ=MonotonicDense(Nₑₘ => 11 * 11 * 64, leakyrelu; init=init),
+            ϕ=Dense(Nₑₘ => 11 * 11 * 64, relu; init=init),
             header=Chain(
-                MonotonicDense(11 * 11 * 64 => 512, leakyrelu; init=init),
-                MonotonicDense(512 => N_ACTIONS; init=init),
+                Dense(11 * 11 * 64 => 512, relu; init=init),
+                Dense(512 => N_ACTIONS; init=init),
             ),
         ) |> gpu
 
@@ -208,10 +208,11 @@ function RL.Experiment(
                         create_model(),
                         sync_freq=10_000
                     ),
+                    # optimiser=Adam(0.00005),
                     optimiser=Adam(0.00005, (0.9, 0.999), 1e-2 / 32),
                 ),
-                N=32,
-                N′=32,
+                N=64,
+                N′=64,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,
