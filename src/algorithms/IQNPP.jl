@@ -89,18 +89,17 @@ end
 
 function ludde_norm(td)
     d = abs.(td)
-    xlx = xlogx.(1 ./ (d .+ 1f-8))
-    return (d .- 1) ./ xlx
+    return (d .- 1) .* d ./ log.(d .+ 1f8)
 end
 
-function energy_distance(x, y; κ=1.0f0)
+function energy_distance(x, y)
     n = size(x, 2)
     m = size(y, 2)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum((x_ .- _y) .^ 2, dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum((x_ .- _x) .^ 2, dims=(2, 3)), dims=(2, 3))
+    d_xy = dropdims(sum(ludde_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(ludde_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end

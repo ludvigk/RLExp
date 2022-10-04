@@ -4,6 +4,7 @@ using Flux
 using Flux.Losses
 using Flux: glorot_uniform
 using RLExp
+using CUDA
 
 struct MonotonicDense{F,M<:AbstractMatrix,B,I}
     convexity::I
@@ -37,37 +38,33 @@ function RL.Experiment(
     ; seed=1
 )
     rng = StableRNG(seed)
-    device_rng = rng
-    # device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
+    # device_rng = rng
+    device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
     env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
     init = glorot_uniform(rng)
-    Nₑₘ = 8
+    Nₑₘ = 16
     n_hidden = 64
 
-    # nn_creator() =
-    #     ImplicitQuantileNet(
-    #         ψ=Dense(ns, n_hidden, softplus; init=init),
-    #         ϕ=PDense(Nₑₘ, n_hidden, leakyrelu; init=init),
-    #         header=PDense(n_hidden, na; init=init),
-    #     ) |> gpu
+    nn_creator() =
+        ImplicitQuantileNet(
+            ψ=Dense(ns => n_hidden, relu; init=init),
+            ϕ=Dense(Nₑₘ => n_hidden, relurelu; init=init),
+            header=Dense(n_hidden => na; init=init),
+        ) |> gpu
 
     agent = Agent(
         policy=QBasedPolicy(
             learner=IQNPPLearner(
                 approximator=Approximator(
                     model=TwinNetwork(
-                        ImplicitQuantileNet(
-                            ψ=Dense(ns, n_hidden, relu; init=init),
-                            ϕ=Dense(Nₑₘ => n_hidden, relu; init=init),
-                            header=Dense(n_hidden => na; init=init),
-                        ),
+                        nn_creator(),
                         sync_freq=100
                     ),
-                    optimiser=ADAM(0.001, (0.9, 0.999)),
+                    optimiser=ADAM(0.002, (0.9, 0.999)),
                 ),
-                N=64,
-                N′=64,
+                N=32,
+                N′=32,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,
