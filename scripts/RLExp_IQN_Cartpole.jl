@@ -43,13 +43,13 @@ function RL.Experiment(
     env = CartPoleEnv(; T=Float32, rng=rng)
     ns, na = length(state(env)), length(action_space(env))
     init = glorot_uniform(rng)
-    Nₑₘ = 16
+    Nₑₘ = 8
     n_hidden = 64
 
     nn_creator() =
         ImplicitQuantileNet(
             ψ=Dense(ns => n_hidden, relu; init=init),
-            ϕ=Dense(Nₑₘ => n_hidden, relurelu; init=init),
+            ϕ=Dense(Nₑₘ => n_hidden, relu; init=init),
             header=Dense(n_hidden => na; init=init),
         ) |> gpu
 
@@ -61,10 +61,10 @@ function RL.Experiment(
                         nn_creator(),
                         sync_freq=100
                     ),
-                    optimiser=ADAM(0.002, (0.9, 0.999)),
+                    optimiser=ADAM(0.001, (0.9, 0.999)),
                 ),
-                N=32,
-                N′=32,
+                N=64,
+                N′=64,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,

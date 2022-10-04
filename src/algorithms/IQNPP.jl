@@ -92,14 +92,20 @@ function ludde_norm(td)
     return (d .- 1) .* d ./ log.(d .+ 1f8)
 end
 
+cauchy_norm(td) = log.(1 .+ abs.(td) .^ 2) 
+function lol_norm(td)
+    d = abs.(td)
+    return d .* log.(1 .+ d)
+end
+
 function energy_distance(x, y)
     n = size(x, 2)
     m = size(y, 2)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum(l1_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum(l1_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
+    d_xy = dropdims(sum(lol_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(lol_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end
