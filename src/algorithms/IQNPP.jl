@@ -98,8 +98,8 @@ function energy_distance(x, y)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum(ludde_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum(ludde_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
+    d_xy = dropdims(sum(l1_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(l1_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
     ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
     return ε
 end
