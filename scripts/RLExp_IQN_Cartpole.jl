@@ -35,7 +35,7 @@ function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:IQN},
     ::Val{:CartPole},
-    ; seed=1
+    ; seed=2
 )
     rng = StableRNG(seed)
     # device_rng = rng
@@ -61,10 +61,10 @@ function RL.Experiment(
                         nn_creator(),
                         sync_freq=100
                     ),
-                    optimiser=ADAM(0.001, (0.9, 0.999)),
+                    optimiser=ADAM(0.001),
                 ),
-                N=64,
-                N′=64,
+                N=200,
+                N′=200,
                 Nₑₘ=Nₑₘ,
                 K=32,
                 γ=0.99f0,
@@ -105,5 +105,5 @@ using Plots
 # pyplot() #hide
 ex = E`RLExp_IQN_CartPole`
 run(ex)
-display(plot(ex.hook.rewards))
+display(plot(ex.hook.rewards; legend=false))
 # savefig("assets/JuliaRL_IQN_CartPole.png") #hide
