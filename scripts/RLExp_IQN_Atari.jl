@@ -250,8 +250,8 @@ function RL.Experiment(
     SET UP EVALUATION
     """
     EVALUATION_FREQ = 250_000
-    STEP_LOG_FREQ = 1_000
-    EPISODE_LOG_FREQ = 1_000
+    STEP_LOG_FREQ = 100
+    EPISODE_LOG_FREQ = 1
     MAX_EPISODE_STEPS_EVAL = 27_000
 
     screens = []
