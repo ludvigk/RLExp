@@ -104,9 +104,11 @@ function energy_distance(x, y)
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    d_xy = dropdims(sum(l1_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
-    d_xx = dropdims(sum(l1_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
-    ε = 2 / (n * m) .* d_xy .- 1 / n^2 .* d_xx
+    # y_ = Flux.unsqueeze(y, dims=2)
+    d_xy = dropdims(sum(lol_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
+    d_xx = dropdims(sum(lol_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
+    # d_xx = dropdims(sum(l1_norm(y_ .- _y), dims=(2, 3)), dims=(2, 3))
+    ε = 2mean(d_xy) .- mean(d_xx)
     return ε
 end
 
@@ -171,7 +173,7 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
 
         target = reshape(target, 1, N′, batch_size)
         q = reshape(q, 1, N, batch_size)
-        loss = mean(energy_distance(q, target))
+        loss = energy_distance(q, target)
         ignore_derivatives() do
             learner.loss = loss
             learner.logging_params["𝐿"] = loss
