@@ -106,7 +106,7 @@ function RL.Experiment(
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
-        "traj_capacity" => 100_000,
+        "traj_capacity" => 250_000,
         "seed" => 1,
         "terminal_on_life_loss" => true,
         "n_steps" => 50_000_000,
