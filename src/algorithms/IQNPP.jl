@@ -98,6 +98,17 @@ function lol_norm(td)
     return d .* log.(1 .+ d)
 end
 
+function mix_norm(td)
+    d = reshape(td .^ 2, 1, :)
+    h = gpu(1 ./ reshape(collect(1:10), :, 1))
+    # s = zero(td)
+    # reshape(td, )
+    # for l=1:10
+    #    s = s + exp.(-d ./ l) 
+    # end
+    mean(sum(h * d, dims=2))
+end
+
 function energy_distance(x, y)
     n = size(x, 2)
     m = size(y, 2)
@@ -106,9 +117,9 @@ function energy_distance(x, y)
     _y = Flux.unsqueeze(y, dims=3)
     # y_ = Flux.unsqueeze(y, dims=2)
     # d_xy = dropdims(sum(lol_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
-    d_xy = lol_norm(x_ .- _y)
+    d_xy = mix_norm(x_ .- _y)
     # d_xx = dropdims(sum(lol_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
-    d_xx = lol_norm(x_ .- _x)
+    d_xx = mix_norm(x_ .- _x)
     # d_xx = dropdims(sum(l1_norm(y_ .- _y), dims=(2, 3)), dims=(2, 3))
     ε = 2mean(d_xy) .- mean(d_xx)
     return ε
