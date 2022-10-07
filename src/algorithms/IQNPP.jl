@@ -170,10 +170,12 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     Nₑₘ = learner.Nₑₘ
     D = device(Z)
     # s, s′, a, r, t = map(x -> batch[x], SS′ART)
-    s = send_to_device(D, collect(batch.state))
+    s = DenseCuArray(batch.state)
+    # s = send_to_device(D, collect(batch.state))
     r = send_to_device(D, batch.reward)
     t = send_to_device(D, batch.terminal)
-    s′ = send_to_device(D, collect(batch.next_state))
+    s′ = DenseCuArray(batch.next_state)
+    # s′ = send_to_device(D, collect(batch.next_state))
     a = send_to_device(D, batch.action)
 
 
