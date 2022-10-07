@@ -86,6 +86,22 @@ function (a::MonotonicDense)(x)
     return σ.(y) .* a.convexity .- σ.(y) .* (1 .- a.convexity)
 end
 
+Base.@kwdef struct ImplicitQuantileNetPP{A,B,C}
+    ψ::A
+    ϕ::B
+    header::C
+end
+
+Flux.@functor ImplicitQuantileNetPP
+
+function (net::ImplicitQuantileNetPP)(s, emb)
+    features = net.ψ(s)  # (n_feature, batch_size)
+    emb_aligned = net.ϕ(emb)  # (n_feature, N * batch_size)
+    merged = Flux.unsqueeze(features, dims=2) .* (1 .+ reshape(emb_aligned, size(features, 1), :, size(features, 2)))  # (n_feature, N, batch_size)
+    quantiles = net.header(reshape(merged, size(merged)[1:end-2]..., :)) # flattern last two dimension first
+    reshape(quantiles, :, size(merged, 2), size(merged, 3))  # (n_action, N, batch_size)
+end
+
 
 function RL.Experiment(
     ::Val{:RLExp},
@@ -106,7 +122,7 @@ function RL.Experiment(
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
-        "traj_capacity" => 250_000,
+        "traj_capacity" => 1_000_000,
         "seed" => 1,
         "terminal_on_life_loss" => true,
         "n_steps" => 50_000_000,
@@ -181,7 +197,7 @@ function RL.Experiment(
     # )
 
     create_model() =
-        ImplicitQuantileNet(
+        ImplicitQuantileNetPP(
             ψ=Chain(
                 x -> x ./ 255,
                 CrossCor((8, 8), N_FRAMES => 32, relu; stride=4, pad=2, init=init),

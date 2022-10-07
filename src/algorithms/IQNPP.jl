@@ -136,9 +136,9 @@ function energy_distance(x, y)
     _y = Flux.unsqueeze(y, dims=3)
     # y_ = Flux.unsqueeze(y, dims=2)
     # d_xy = dropdims(sum(lol_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
-    d_xy = mix_norm(x_ .- _y)
+    d_xy = rqn(x_ .- _y)
     # d_xx = dropdims(sum(lol_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
-    d_xx = mix_norm(x_ .- _x)
+    d_xx = rqn(x_ .- _x)
     # d_yy = mix_norm(y_ .- _y)
     # d_xx = dropdims(sum(l1_norm(y_ .- _y), dims=(2, 3)), dims=(2, 3))
     ε = 2mean(d_xy, dims=(2,3)) .- mean(d_xx, dims=(2,3)) #.- mean(d_yy, dims=(2,3))
@@ -198,12 +198,12 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     target = reshape(r, 1, batch_size) .+ learner.γ * reshape(1 .- t, 1, batch_size) .* qₜ  # reshape to allow broadcast
 
     τ = rand(learner.device_rng, Float32, N, batch_size)
-    # τₑₘ = embed(τ, Nₑₘ)
+    τₑₘ = embed(τ, Nₑₘ)
     a = CartesianIndex.(repeat(a, inner=N), 1:(N*batch_size))
 
     gs = gradient(params(A)) do
-        # z_raw = Z(s, τₑₘ)
-        z_raw = Z(s, τₑₘ′)
+        z_raw = Z(s, τₑₘ)
+        # z_raw = Z(s, τₑₘ′)
         z = reshape(z_raw, size(z_raw)[1:end-2]..., :)
         q = z[a]
 

@@ -30,6 +30,21 @@ function (a::MonotonicDense)(x)
     y = w * x .+ a.bias
     return σ.(y) .* a.convexity .- σ.(y) .* (1 .- a.convexity)
 end
+Base.@kwdef struct ImplicitQuantileNetPP{A,B,C}
+    ψ::A
+    ϕ::B
+    header::C
+end
+
+Flux.@functor ImplicitQuantileNetPP
+
+function (net::ImplicitQuantileNetPP)(s, emb)
+    features = net.ψ(s)  # (n_feature, batch_size)
+    emb_aligned = net.ϕ(emb)  # (n_feature, N * batch_size)
+    merged = Flux.unsqueeze(features, dims=2) .* (1 .+ reshape(emb_aligned, size(features, 1), :, size(features, 2)))  # (n_feature, N, batch_size)
+    quantiles = net.header(reshape(merged, size(merged)[1:end-2]..., :)) # flattern last two dimension first
+    reshape(quantiles, :, size(merged, 2), size(merged, 3))  # (n_action, N, batch_size)
+end
 
 function RL.Experiment(
     ::Val{:RLExp},
@@ -40,14 +55,14 @@ function RL.Experiment(
     rng = StableRNG(seed)
     # device_rng = rng
     device_rng = CUDA.functional() ? CUDA.CURAND.RNG() : rng
-    env = CartPoleEnv(; T=Float32, rng=rng)
+    env = CartPoleEnv(; T=Float32, rng=rng, max_steps=500)
     ns, na = length(state(env)), length(action_space(env))
     init = glorot_uniform(rng)
     Nₑₘ = 8
     n_hidden = 64
 
     nn_creator() =
-        ImplicitQuantileNet(
+        ImplicitQuantileNetPP(
             ψ=Dense(ns => n_hidden, relu; init=init),
             ϕ=Dense(Nₑₘ => n_hidden, relu; init=init),
             header=Dense(n_hidden => na; init=init),
