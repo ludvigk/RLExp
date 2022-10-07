@@ -50,7 +50,7 @@ function RL.Experiment(
         "batch_size" => 32,
         "min_replay_history" => 100,
         "is_enable_double_DQN" => true,
-        "traj_capacity" => 1_000_000,
+        "traj_capacity" => 1000_000,
         "seed" => 2,
         "flow_depth" => 6,
         "num_steps" => 50_000,

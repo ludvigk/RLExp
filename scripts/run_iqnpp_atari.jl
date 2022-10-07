@@ -5,23 +5,17 @@ It starts the remote processes with srun within an allocation.
 If you get an error make sure to Pkg.checkout("CluterManagers").
 
 =#
-using ClusterManagers
-using Distributed
 using DrWatson
 
 # @quickactivate :RLExp
 
-n_workers = parse(Int, ENV["SLURM_NTASKS"])
-addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--color=yes"])
+# n_workers = parse(Int, ENV["SLURM_NTASKS"])
+# addprocs_slurm(n_workers; topology=:master_worker, exeflags=["--project=.", "--color=yes"])
 
-@everywhere begin
-    using Pkg
-    Pkg.activate(".")
-    using Distributed
-    using DrWatson
-    using RLExp
-    using Random
-    include("RLExp_IQN_Atari.jl")
-end
+using Pkg
+Pkg.activate(".")
+using DrWatson
+using RLExp
+include("RLExp_IQN_Atari.jl")
 
-run(E`RLExp_IQNPP_Atari(game=breakout)`)
+run(E`RLExp_IQNPP_Atari(game=pong)`)

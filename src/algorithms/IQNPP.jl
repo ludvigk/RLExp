@@ -116,25 +116,32 @@ end
 
 function rqn(td)
     d = reshape(td .^ 2, 1, :)
-    h = gpu(1 ./ reshape(collect(1:10), :, 1))
+    h = gpu(1 ./ reshape([0.1,0.5,1,5,10,20], :, 1))
     a = 0.5
-    return -(1 .+ d .* h) .^ (-a)
+    return sqrt.(1 .+ h * d)
 end
 
 function energy_distance(x, y)
-    n = size(x, 2)
-    m = size(y, 2)
+    # n = size(x, 2)
+    # m = size(y, 2)
+    # τₑₘ_ = Flux.unsqueeze(x, dims=2)
+    # _τₑₘ = Flux.unsqueeze(x, dims=3)
+    # _τₑₘ′ = Flux.unsqueeze(x, dims=3)
+
+    # ϵ1 = Zygote.@ignore (τₑₘ_ .- _τₑₘ) .^ 2
+    # ϵ2 = Zygote.@ignore (τₑₘ_ .- _τₑₘ′) .^ 2
+
     x_ = Flux.unsqueeze(x, dims=2)
     _x = Flux.unsqueeze(x, dims=3)
     _y = Flux.unsqueeze(y, dims=3)
-    y_ = Flux.unsqueeze(y, dims=2)
+    # y_ = Flux.unsqueeze(y, dims=2)
     # d_xy = dropdims(sum(lol_norm(x_ .- _y), dims=(2, 3)), dims=(2, 3))
     d_xy = mix_norm(x_ .- _y)
     # d_xx = dropdims(sum(lol_norm(x_ .- _x), dims=(2, 3)), dims=(2, 3))
     d_xx = mix_norm(x_ .- _x)
-    d_yy = mix_norm(y_ .- _y)
+    # d_yy = mix_norm(y_ .- _y)
     # d_xx = dropdims(sum(l1_norm(y_ .- _y), dims=(2, 3)), dims=(2, 3))
-    ε = mean(2mean(d_xy, dims=(2,3)) .- mean(d_xx, dims=(2,3)) .- mean(d_yy, dims=(2,3)))
+    ε = 2mean(d_xy, dims=(2,3)) .- mean(d_xx, dims=(2,3)) #.- mean(d_yy, dims=(2,3))
     return ε
 end
 
@@ -189,17 +196,20 @@ function RLBase.optimise!(learner::IQNPPLearner, batch::NamedTuple)
     target = reshape(r, 1, batch_size) .+ learner.γ * reshape(1 .- t, 1, batch_size) .* qₜ  # reshape to allow broadcast
 
     τ = rand(learner.device_rng, Float32, N, batch_size)
-    τₑₘ = embed(τ, Nₑₘ)
+    # τₑₘ = embed(τ, Nₑₘ)
     a = CartesianIndex.(repeat(a, inner=N), 1:(N*batch_size))
 
     gs = gradient(params(A)) do
-        z_raw = Z(s, τₑₘ)
+        # z_raw = Z(s, τₑₘ)
+        z_raw = Z(s, τₑₘ′)
         z = reshape(z_raw, size(z_raw)[1:end-2]..., :)
         q = z[a]
 
         target = reshape(target, 1, N′, batch_size)
         q = reshape(q, 1, N, batch_size)
-        loss = energy_distance(q, target)
+        loss_batch = energy_distance(q, target)
+        # loss = loss_batch .* τₑₘ
+        loss = mean(loss_batch)
         ignore_derivatives() do
             learner.loss = loss
             learner.logging_params["𝐿"] = loss
