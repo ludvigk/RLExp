@@ -50,7 +50,7 @@ function RL.Experiment(
     ::Val{:RLExp},
     ::Val{:IQN},
     ::Val{:CartPole},
-    ; seed=2
+    ; seed=5
 )
     rng = StableRNG(seed)
     # device_rng = rng
