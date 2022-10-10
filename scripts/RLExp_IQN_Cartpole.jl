@@ -41,7 +41,7 @@ Flux.@functor ImplicitQuantileNetPP
 function (net::ImplicitQuantileNetPP)(s, emb)
     features = net.ψ(s)  # (n_feature, batch_size)
     emb_aligned = net.ϕ(emb)  # (n_feature, N * batch_size)
-    merged = Flux.unsqueeze(features, dims=2) .* (1 .+ reshape(emb_aligned, size(features, 1), :, size(features, 2)))  # (n_feature, N, batch_size)
+    merged = Flux.unsqueeze(features, dims=2) .* reshape(emb_aligned, size(features, 1), :, size(features, 2)) .+ Flux.unsqueeze(features, dims=2)  # (n_feature, N, batch_size)
     quantiles = net.header(reshape(merged, size(merged)[1:end-2]..., :)) # flattern last two dimension first
     reshape(quantiles, :, size(merged, 2), size(merged, 3))  # (n_action, N, batch_size)
 end

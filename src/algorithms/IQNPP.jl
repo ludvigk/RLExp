@@ -120,7 +120,7 @@ function rqn(td)
     d = reshape(td .^ 2, 1, :)
     # h = gpu(1 ./ reshape([0.01, 0.1, 0.5, 1, 5, 10, 20, 50], :, 1))
     a = 0.5
-    return -1 ./ sqrt.(1 .+ hhh * d)
+    return sqrt.(1 .+ hhh * d)
 end
 
 function energy_distance(x, y)

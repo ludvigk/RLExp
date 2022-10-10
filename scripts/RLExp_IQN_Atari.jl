@@ -98,8 +98,9 @@ function (net::ImplicitQuantileNetPP)(s, emb)
     features = net.ψ(s)  # (n_feature, batch_size)
     emb_aligned = net.ϕ(emb)  # (n_feature, N * batch_size)
     emb_aligned = reshape(emb_aligned, size(features, 1), :, size(features, 2))
-    merged = Flux.unsqueeze(features, dims=2) .* emb_aligned  # (n_feature, N, batch_size)
-    merged = merged .+ Flux.unsqueeze(features, dims=2)
+    # merged = Flux.unsqueeze(features, dims=2) .* emb_aligned  # (n_feature, N, batch_size)
+    merged = Flux.unsqueeze(features, dims=2) .* reshape(emb_aligned, size(features, 1), :, size(features, 2)) .+ Flux.unsqueeze(features, dims=2)  # (n_feature, N, batch_size)
+    # merged = merged .+ Flux.unsqueeze(features, dims=2)
     quantiles = net.header(reshape(merged, size(merged)[1:end-2]..., :)) # flattern last two dimension first
     reshape(quantiles, :, size(merged, 2), size(merged, 3))  # (n_action, N, batch_size)
 end
@@ -124,7 +125,7 @@ function RL.Experiment(
         "update_horizon" => 1,
         "batch_size" => 32,
         "min_replay_history" => 50_000,
-        "traj_capacity" => 1_000_000,
+        "traj_capacity" => 100_000,
         "seed" => 3,
         "terminal_on_life_loss" => true,
         "n_steps" => 50_000_000,
@@ -342,6 +343,11 @@ function RL.Experiment(
             push!(screens, get_screen(env))
         end
         p_every_ep = DoEveryNEpisode(; stage=PostEpisodeStage()) do tt, agent, env
+            vid = similar(screens[0], size(screens[0], 1), size(screens[0], 2), length(screens))
+            for (i,s) in enumerate(screens)
+                f = @view vid[:,:,i]
+                f = s
+            end
             Images.save(joinpath(save_dir, "$(t).gif"), cat(screens..., dims=3), fps=30)
             Wandb.log(lg, Dict(
                     "evaluating" => Wandb.Video(joinpath(save_dir, "$(t).gif"))
